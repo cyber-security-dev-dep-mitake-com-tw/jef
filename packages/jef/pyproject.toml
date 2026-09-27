@@ -1,10 +1,10 @@
 [project]
-name = "jef-server==0.1.0"
+name = "jef"
 version = "0.1.0"
-description = "JEF server: /v1/systemone + /v1/scenes HTTP API"
+description = "JEF — an open System One decision engine. Typed decisions with calibrated confidence, plus a CLI."
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
-dependencies = ["jef-core==0.1.0", "jef-scene==0.1.0", "fastapi>=0.115", "uvicorn[standard]>=0.32", "prometheus-client>=0.21"]
+dependencies = ["jef-core==0.1.0", "jef-scene==0.1.0", "jef-sdk==0.1.0"]
 
 authors = [{ name = "Mitake Cyber Security Dev Dept" }]
 maintainers = [{ name = "dennislee928" }]
@@ -12,6 +12,7 @@ readme = "README.md"
 keywords = ["jev", "typesafe", "system-one", "decision", "calibration", "soar", "zh-TW"]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "Environment :: Console",
   "Intended Audience :: Developers",
   "Intended Audience :: Information Technology",
   "License :: OSI Approved :: Apache Software License",
@@ -32,9 +33,22 @@ Changelog = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/release
 Issues = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/issues"
 "Results & benchmarks" = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/RESULTS.md"
 
+[project.optional-dependencies]
+# The real backbone. Without it `--local` runs the deterministic test stub,
+# which answers in the right shape and means nothing.
+torch = ["jef-core[torch]==0.1.0"]
+server = ["jef-server==0.1.0"]
+mcp = ["mcp>=1.2"]
+train = ["jef-train==0.1.0"]
+all = ["jef-core[torch]==0.1.0", "jef-server==0.1.0", "jef-train==0.1.0", "mcp>=1.2"]
+
+[project.scripts]
+jef = "jef_cli.__main__:main"
+jef-mcp = "jef_cli.mcp_server:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jef_server"]
+packages = ["src/jef_cli"]

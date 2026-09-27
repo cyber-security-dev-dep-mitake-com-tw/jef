@@ -1,4 +1,4 @@
-# @jef/sdk
+# @jef-ai/sdk
 
 TypeScript client for [JEF](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef),
 an open System One decision engine. Evaluate typed questions against a shared
@@ -6,13 +6,13 @@ state and get back probability distributions with calibrated confidence. No text
 generation, no parsing, no prompt wrangling.
 
 ```bash
-npm install @jef/sdk
+npm install @jef-ai/sdk
 ```
 
 ## Questions
 
 ```ts
-import { JefClient, choice, noul, score } from '@jef/sdk';
+import { JefClient, choice, noul, score } from '@jef-ai/sdk';
 
 const jef = new JefClient({ baseUrl: 'http://localhost:8080' });
 
@@ -80,7 +80,7 @@ accepts both and replies in whichever you used, so code ported from
 `experimental_evaluate` reads unchanged:
 
 ```ts
-import { boolean } from '@jef/sdk';
+import { boolean } from '@jef-ai/sdk';
 
 const { answers } = await jef.evaluate(transcript, {
   refunded: boolean('是否已退款給客戶？', {
@@ -98,7 +98,7 @@ Failures throw `JefError` carrying the server's own code, so you can branch
 without parsing prose:
 
 ```ts
-import { JefError } from '@jef/sdk';
+import { JefError } from '@jef-ai/sdk';
 
 try {
   await jef.evaluate(state, questions);

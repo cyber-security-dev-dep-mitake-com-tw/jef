@@ -1,10 +1,36 @@
 [project]
-name = "jef-core"
+name = "jef-core==0.1.0"
 version = "0.1.0"
 description = "JEF core: shared-state encoding, decision head, calibration"
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
 dependencies = ["numpy>=2.0", "pydantic>=2.9"]
+
+authors = [{ name = "Mitake Cyber Security Dev Dept" }]
+maintainers = [{ name = "dennislee928" }]
+readme = "README.md"
+keywords = ["jev", "typesafe", "system-one", "decision", "calibration", "soar", "zh-TW"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Security",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef"
+Repository = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef"
+Documentation = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/README.md"
+Changelog = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/releases"
+Issues = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/issues"
+"Results & benchmarks" = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/RESULTS.md"
 
 [project.optional-dependencies]
 torch = ["torch>=2.5", "transformers>=4.46"]

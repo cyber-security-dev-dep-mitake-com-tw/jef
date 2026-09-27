@@ -1,5 +1,5 @@
 {
-  "name": "@jef/sdk",
+  "name": "@jef-ai/sdk",
   "version": "0.1.0",
   "description": "Client for JEF — an open System One decision engine. Typed questions, calibrated confidence, no text generation.",
   "license": "Apache-2.0",
@@ -13,14 +13,27 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cyber-security-dev-dep-mitake-com-tw/jef.git",
     "directory": "packages/jef-sdk-ts"
   },
-  "keywords": ["jev", "typesafe", "system-one", "soar", "calibration", "decision", "zh-TW"],
-  "engines": { "node": ">=20" },
+  "keywords": [
+    "jev",
+    "typesafe",
+    "system-one",
+    "soar",
+    "calibration",
+    "decision",
+    "zh-TW"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",

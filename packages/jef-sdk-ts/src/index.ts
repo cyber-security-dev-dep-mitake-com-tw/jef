@@ -1,12 +1,12 @@
 /**
- * `@jef/sdk` — client for JEF, an open System One decision engine.
+ * `@jef-ai/sdk` — client for JEF, an open System One decision engine.
  *
  * Evaluate typed questions against a shared state and get back probability
  * distributions with calibrated confidence. No text generation, no parsing.
  *
  * @example
  * ```ts
- * import { JefClient, choice, noul, score } from '@jef/sdk';
+ * import { JefClient, choice, noul, score } from '@jef-ai/sdk';
  *
  * const jef = new JefClient({ baseUrl: 'http://localhost:8080' });
  *

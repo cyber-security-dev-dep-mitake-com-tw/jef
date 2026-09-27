@@ -1,0 +1,249 @@
+"""Scene linting, without loading a model.
+
+`jef_scene` already rejects a lot at load time -- an `else` gate that makes
+later gates unreachable, a gate targeting an action that does not exist, a final
+layer that can fall through without deciding. This adds the checks that need to
+look across a whole scene, and the one check that encodes this project's actual
+thesis: a gate that automates on `confidence` is thresholding on how decisive
+the model sounded, not on how likely it is to be right.
+
+Runs with no backbone, so it belongs in CI on every commit.
+"""
+
+from __future__ import annotations
+
+import ast
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import yaml
+from jef_core.errors import SceneError
+from jef_scene import Scene, load_scene_text
+from jef_scene.expr import ExpressionError, validate_condition
+
+__all__ = ["Problem", "validate_paths", "validate_scene_text"]
+
+#: Fields whose value cannot exceed 1.0, so a comparison above it never fires.
+_UNIT_FIELDS = {"confidence", "p_correct", "probability", "noul"}
+
+
+@dataclass
+class Problem:
+    path: str
+    severity: str  # 'error' | 'warning'
+    message: str
+    line: int | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "line": self.line,
+            "severity": self.severity,
+            "message": self.message,
+        }
+
+
+def _line_of(text: str, needle: str) -> int | None:
+    """Best-effort line number for a fragment, so errors are navigable."""
+    if not needle:
+        return None
+    for number, line in enumerate(text.splitlines(), start=1):
+        if needle in line:
+            return number
+    return None
+
+
+def _referenced_names(condition: str) -> set[str]:
+    """Question ids a condition reads."""
+    try:
+        tree = ast.parse(condition, mode="eval")
+    except SyntaxError:
+        return set()
+    return {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+
+
+def _attributes_on(condition: str, name: str) -> set[str]:
+    """Attributes read from one question in a condition."""
+    try:
+        tree = ast.parse(condition, mode="eval")
+    except SyntaxError:
+        return set()
+    return {
+        node.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == name
+    }
+
+
+def _numeric_literal(node: ast.expr) -> float | None:
+    """A numeric constant, including a negated one.
+
+    `-1` parses as UnaryOp(USub, Constant(1)), not Constant(-1), so matching
+    only on Constant silently skips every negative threshold.
+    """
+    if (
+        isinstance(node, ast.Constant)
+        and isinstance(node.value, (int, float))
+        and not isinstance(node.value, bool)
+    ):
+        return float(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.operand, ast.Constant):
+        value = node.operand.value
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if isinstance(node.op, ast.USub):
+                return -float(value)
+            if isinstance(node.op, ast.UAdd):
+                return float(value)
+    return None
+
+
+def _impossible_comparisons(condition: str) -> list[str]:
+    """Comparisons that can never be true, e.g. `x.confidence > 1.0`.
+
+    A gate that can never fire is dead config, and the usual cause is a
+    percentage written where a probability was meant -- `confidence > 90`
+    rather than `> 0.9`. That one silently disables a gate forever.
+    """
+    try:
+        tree = ast.parse(condition, mode="eval")
+    except SyntaxError:
+        return []
+
+    findings: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare) or len(node.ops) != 1:
+            continue
+        left, op, right = node.left, node.ops[0], node.comparators[0]
+        if not (isinstance(left, ast.Attribute) and left.attr in _UNIT_FIELDS):
+            continue
+        value = _numeric_literal(right)
+        if value is None:
+            continue
+        rendered = f"{left.attr} {type(op).__name__} {value}"
+        if isinstance(op, (ast.Gt, ast.GtE)) and value > 1.0:
+            findings.append(
+                f"`{rendered}` can never be true ({left.attr} is 0..1; did you mean {value / 100:g}?)"
+            )
+        elif isinstance(op, (ast.Lt, ast.LtE)) and value < 0.0:
+            findings.append(f"`{rendered}` can never be true ({left.attr} is 0..1)")
+    return findings
+
+
+def validate_scene_text(text: str, source: str) -> list[Problem]:
+    """Lint one scene document."""
+    problems: list[Problem] = []
+
+    try:
+        scene: Scene = load_scene_text(text, source=source)
+    except SceneError as exc:
+        # Schema failures are fatal for this file; nothing below can run.
+        message = str(exc).replace(f"{source}: ", "", 1)
+        return [Problem(source, "error", message.splitlines()[0], _line_of(text, "scene:"))]
+    except yaml.YAMLError as exc:  # pragma: no cover -- loader wraps these
+        return [Problem(source, "error", f"invalid YAML: {exc}", None)]
+
+    targeted: set[str] = set()
+    if scene.fallthrough:
+        targeted.add(scene.fallthrough)
+
+    for layer in scene.layers:
+        names = set(layer.questions)
+        used: set[str] = set()
+
+        for index, gate in enumerate(layer.gates):
+            targeted.add(gate.then)
+            if gate.when is None:
+                continue
+
+            try:
+                validate_condition(gate.when, names)
+            except ExpressionError as exc:
+                problems.append(
+                    Problem(source, "error", f"layer {layer.id}: {exc}", _line_of(text, gate.when))
+                )
+                continue
+
+            used |= _referenced_names(gate.when)
+
+            for finding in _impossible_comparisons(gate.when):
+                problems.append(
+                    Problem(
+                        source,
+                        "error",
+                        f"layer {layer.id} gate {index}: {finding}",
+                        _line_of(text, gate.when),
+                    )
+                )
+
+            # The thesis check. `confidence` is distribution sharpness; a gate
+            # that automates on it is saying "the model sounded sure", which is
+            # not the same as "the model is likely right". Only flagged when the
+            # gate leads somewhere no human will see.
+            action = scene.actions.get(gate.then)
+            automating = action is not None and not action.human_review
+            if automating:
+                for name in _referenced_names(gate.when):
+                    attributes = _attributes_on(gate.when, name)
+                    if "confidence" in attributes and "p_correct" not in attributes:
+                        problems.append(
+                            Problem(
+                                source,
+                                "warning",
+                                f"layer {layer.id} gate {index} automates to "
+                                f"'{gate.then}' on {name}.confidence. confidence "
+                                "measures how peaked the distribution is, not the "
+                                "chance of being correct — consider p_correct",
+                                _line_of(text, gate.when),
+                            )
+                        )
+
+        for unused in sorted(names - used):
+            problems.append(
+                Problem(
+                    source,
+                    "warning",
+                    f"layer {layer.id}: question '{unused}' is asked but no gate reads it",
+                    _line_of(text, f"{unused}:"),
+                )
+            )
+
+    for orphan in sorted(set(scene.actions) - targeted):
+        problems.append(
+            Problem(
+                source,
+                "warning",
+                f"action '{orphan}' is declared but never reachable",
+                _line_of(text, f"{orphan}:"),
+            )
+        )
+
+    return problems
+
+
+def validate_paths(paths: list[Path]) -> list[Problem]:
+    """Lint every scene under the given files or directories."""
+    problems: list[Problem] = []
+    for path in paths:
+        if path.is_dir():
+            files = sorted([*path.rglob("*.yaml"), *path.rglob("*.yml")])
+            if not files:
+                problems.append(Problem(str(path), "warning", "no scene files found"))
+            targets = files
+        elif path.is_file():
+            targets = [path]
+        else:
+            problems.append(Problem(str(path), "error", "no such file or directory"))
+            continue
+
+        for file in targets:
+            try:
+                text = file.read_text(encoding="utf-8")
+            except OSError as exc:
+                problems.append(Problem(str(file), "error", f"cannot read: {exc}"))
+                continue
+            problems.extend(validate_scene_text(text, str(file)))
+
+    return problems

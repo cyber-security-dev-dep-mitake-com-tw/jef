@@ -107,7 +107,7 @@ dialects of the yes/no primitive are accepted and echoed back: TypeSafe calls it
 | Shuffle | [`connectors/shuffle`](connectors/shuffle) |
 | n8n | [`connectors/n8n`](connectors/n8n) — `n8n-nodes-jef` |
 | TheHive / Cortex | [`connectors/cortex`](connectors/cortex) |
-| TypeScript | [`@jef/sdk`](packages/jef-sdk-ts) |
+| TypeScript | [`@jef-ai/sdk`](packages/jef-sdk-ts) |
 | Python | [`jef-sdk`](packages/jef-sdk-python) — embedded or remote, same API |
 
 There is also a decision viewer at `/ui`: one self-contained file, shipped in

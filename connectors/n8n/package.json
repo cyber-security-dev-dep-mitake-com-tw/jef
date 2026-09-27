@@ -4,25 +4,42 @@
   "description": "n8n node for JEF — typed decisions with calibrated confidence. Route, score and judge without generating text.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef",
-  "author": { "name": "Mitake Cyber Security Dev Dept" },
+  "author": {
+    "name": "Mitake Cyber Security Dev Dept"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cyber-security-dev-dep-mitake-com-tw/jef.git",
     "directory": "connectors/n8n"
   },
-  "keywords": ["n8n-community-node-package", "jef", "jev", "system-one", "soar", "decision"],
-  "engines": { "node": ">=20" },
+  "keywords": [
+    "n8n-community-node-package",
+    "jef",
+    "jev",
+    "system-one",
+    "soar",
+    "decision"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
   "main": "index.js",
   "scripts": {
     "build": "tsc && cp nodes/Jef/*.svg dist/nodes/Jef/",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "credentials": ["dist/credentials/JefApi.credentials.js"],
-    "nodes": ["dist/nodes/Jef/Jef.node.js"]
+    "credentials": [
+      "dist/credentials/JefApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Jef/Jef.node.js"
+    ]
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
