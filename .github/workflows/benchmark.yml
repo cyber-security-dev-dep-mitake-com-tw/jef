@@ -1,0 +1,105 @@
+name: Benchmark
+
+# Nightly, against datasets this project did not construct.
+#
+# The ecosystem's credibility problem is that everyone publishes their own
+# benchmark and never runs it again. Running these on a schedule means the
+# numbers in docs/ describe the current model rather than the one that happened
+# to be checked in when someone last wrote a README -- and the corpus is rebuilt
+# from live NVD data, so they genuinely drift.
+on:
+  schedule:
+    # 03:00 UTC = 11:00 Taipei, after the working day's commits have landed.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      context_sweep:
+        description: "Also run the long-context sweep (slow)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark
+  cancel-in-progress: false
+
+jobs:
+  third-party:
+    name: third-party benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync with the real backbone
+        run: uv sync --all-packages
+
+      - name: Cache Hugging Face downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-mmbert-v1
+          restore-keys: hf-${{ runner.os }}-
+
+      - name: Weights present
+        id: weights
+        run: |
+          if [ -f models/jef-v0/head.npz ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::no weights in models/jef-v0; benchmarks would measure the zero-shot head"
+          fi
+
+      # The corpus supplies the CVE exclusion list: CTI-Bench VSP is NVD-derived
+      # and so is the training corpus, so anything seen in training must be
+      # filtered before it is scored.
+      - name: Rebuild the corpus for the exclusion list
+        if: steps.weights.outputs.present == 'true'
+        run: uv run python -m jef_train.build_corpus --out data/corpus --cve-records 3000
+
+      - name: Run
+        if: steps.weights.outputs.present == 'true'
+        run: |
+          uv run python -m jef_train.bench \
+            --model-dir models/jef-v0 \
+            --corpus data/corpus \
+            --out docs/benchmarks.json \
+            --tmmlu-per-subject 8 \
+            --cti-mcq-limit 300 \
+            --cti-vsp-limit 250
+
+      - name: Long-context sweep
+        if: steps.weights.outputs.present == 'true' && inputs.context_sweep
+        run: |
+          uv run python -m jef_train.bench \
+            --model-dir models/jef-v0 --corpus data/corpus \
+            --context-sweep --sweep-cases 30 \
+            --tmmlu-per-subject 0 --cti-mcq-limit 0 --cti-vsp-limit 80 \
+            --out docs/benchmarks.json
+
+      - name: Regenerate the badge
+        if: steps.weights.outputs.present == 'true'
+        run: uv run python scripts/benchmark-badge.py
+
+      # Committed rather than uploaded as an artifact: a number in a build
+      # artifact is a number nobody reads.
+      - name: Commit the results
+        if: steps.weights.outputs.present == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/benchmarks.json docs/context-sweep.json docs/badges/ 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "no change in the numbers"
+          else
+            git commit -m "chore(bench): nightly third-party results"
+            git push
+          fi

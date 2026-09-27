@@ -5,7 +5,14 @@ description = "JEF — open System One decision engine (workspace root)"
 requires-python = ">=3.12,<3.14"
 
 [tool.uv.workspace]
-members = ["packages/jef-core", "packages/jef-train", "packages/jef-server", "packages/jef-scene", "packages/jef-sdk-python"]
+members = [
+  "packages/jef",
+  "packages/jef-core",
+  "packages/jef-scene",
+  "packages/jef-sdk-python",
+  "packages/jef-server",
+  "packages/jef-train",
+]
 
 [tool.uv.sources]
 jef-core  = { workspace = true }
@@ -24,6 +31,9 @@ dev = [
   "httpx>=0.28",
   "robotframework>=7.1",
   "robotframework-requests>=0.9.7",
+  # Dev-only so the MCP tests actually run. They are guarded by importorskip,
+  # which means that without this they would silently not run in CI at all.
+  "mcp>=2.0",
 ]
 
 [tool.ruff]

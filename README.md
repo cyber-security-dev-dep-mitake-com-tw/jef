@@ -1,5 +1,13 @@
 # JEF
 
+[![CTI-Bench VSP](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cyber-security-dev-dep-mitake-com-tw/jef/main/docs/badges/cti-bench-accuracy.json)](docs/RESULTS.md#independent-third-party-benchmarks)
+[![conformal coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cyber-security-dev-dep-mitake-com-tw/jef/main/docs/badges/conformal-coverage.json)](docs/RESULTS.md#where-conformal-coverage-fails-and-why)
+[![P(correct) ECE](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cyber-security-dev-dep-mitake-com-tw/jef/main/docs/badges/calibration.json)](docs/RESULTS.md#two-eces-and-why)
+[![TMMLU+](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/cyber-security-dev-dep-mitake-com-tw/jef/main/docs/badges/tmmluplus.json)](docs/RESULTS.md#where-jef-is-at-chance-and-why-that-is-the-correct-result)
+
+Badges come from the nightly run against third-party datasets, not from a
+number typed into this file.
+
 **An open System One decision engine.** Evaluate typed questions against a shared
 state and get back probability distributions with *calibrated* confidence. No text
 generation, no parsing, no prompt wrangling.

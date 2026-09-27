@@ -1,0 +1,168 @@
+{
+  "backbone": "jhu-clsp/mmBERT-base",
+  "note": "Accuracy as the state grows, with the evidence buried at varying depths in routine log noise. Laya tops out at 512 tokens (English) and 1,024 (multilingual), so rows beyond those cannot be run on it -- a truncated state does not error, it answers from whatever survived the cut.",
+  "results": {
+    "256:start": {
+      "target_tokens": 256,
+      "position": "start",
+      "median_tokens": 232,
+      "n": 30,
+      "accuracy": 0.7,
+      "beyond_laya_english": false,
+      "beyond_laya_multilingual": false
+    },
+    "256:middle": {
+      "target_tokens": 256,
+      "position": "middle",
+      "median_tokens": 232,
+      "n": 30,
+      "accuracy": 0.7,
+      "beyond_laya_english": false,
+      "beyond_laya_multilingual": false
+    },
+    "256:end": {
+      "target_tokens": 256,
+      "position": "end",
+      "median_tokens": 232,
+      "n": 30,
+      "accuracy": 0.7,
+      "beyond_laya_english": false,
+      "beyond_laya_multilingual": false
+    },
+    "512:start": {
+      "target_tokens": 512,
+      "position": "start",
+      "median_tokens": 478,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": false,
+      "beyond_laya_multilingual": false
+    },
+    "512:middle": {
+      "target_tokens": 512,
+      "position": "middle",
+      "median_tokens": 478,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": false,
+      "beyond_laya_multilingual": false
+    },
+    "512:end": {
+      "target_tokens": 512,
+      "position": "end",
+      "median_tokens": 478,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": false,
+      "beyond_laya_multilingual": false
+    },
+    "1024:start": {
+      "target_tokens": 1024,
+      "position": "start",
+      "median_tokens": 991,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": false
+    },
+    "1024:middle": {
+      "target_tokens": 1024,
+      "position": "middle",
+      "median_tokens": 991,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": false
+    },
+    "1024:end": {
+      "target_tokens": 1024,
+      "position": "end",
+      "median_tokens": 991,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": false
+    },
+    "2048:start": {
+      "target_tokens": 2048,
+      "position": "start",
+      "median_tokens": 2015,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "2048:middle": {
+      "target_tokens": 2048,
+      "position": "middle",
+      "median_tokens": 2015,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "2048:end": {
+      "target_tokens": 2048,
+      "position": "end",
+      "median_tokens": 2015,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "4096:start": {
+      "target_tokens": 4096,
+      "position": "start",
+      "median_tokens": 4065,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "4096:middle": {
+      "target_tokens": 4096,
+      "position": "middle",
+      "median_tokens": 4065,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "4096:end": {
+      "target_tokens": 4096,
+      "position": "end",
+      "median_tokens": 4065,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "8192:start": {
+      "target_tokens": 8192,
+      "position": "start",
+      "median_tokens": 8192,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "8192:middle": {
+      "target_tokens": 8192,
+      "position": "middle",
+      "median_tokens": 8192,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    },
+    "8192:end": {
+      "target_tokens": 8192,
+      "position": "end",
+      "median_tokens": 8192,
+      "n": 30,
+      "accuracy": 0.7666666666666667,
+      "beyond_laya_english": true,
+      "beyond_laya_multilingual": true
+    }
+  }
+}

@@ -27,7 +27,7 @@ import argparse
 import json
 import logging
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -75,6 +75,12 @@ class BenchCase:
 
 
 def _tmmluplus(limit_per_subject: int, subjects: list[str] | None) -> Iterator[BenchCase]:
+    # A limit of zero means "skip this source". Checked before touching the Hub,
+    # because resolving 66 subject configs and then slicing them to nothing
+    # takes minutes and downloads everything.
+    if limit_per_subject <= 0:
+        return
+
     from datasets import get_dataset_config_names, load_dataset
 
     names = subjects or get_dataset_config_names("ikala/tmmluplus")
@@ -104,6 +110,9 @@ def _tmmluplus(limit_per_subject: int, subjects: list[str] | None) -> Iterator[B
 
 
 def _cti_mcq(limit: int) -> Iterator[BenchCase]:
+    if limit <= 0:
+        return
+
     from datasets import load_dataset
 
     letters = ["A", "B", "C", "D"]
@@ -177,6 +186,9 @@ def _severity_band(metrics: dict[str, str]) -> int | None:
 
 
 def _cti_vsp(limit: int, excluded: set[str]) -> Iterator[BenchCase]:
+    if limit <= 0:
+        return
+
     from datasets import load_dataset
 
     rows = load_dataset("AI4Sec/cti-bench", "cti-vsp", split="test")
@@ -268,6 +280,143 @@ def training_cve_ids(corpus: Path) -> set[str]:
             if cve:
                 ids.add(str(cve).upper())
     return ids
+
+
+# --------------------------------------------------------------------------- #
+# Long-context sweep
+# --------------------------------------------------------------------------- #
+
+#: Filler that looks like what actually surrounds an alert in a SIEM: routine,
+#: plausible, and carrying no bearing on the question. Random text would be an
+#: easier test than reality.
+_FILLER = [
+    "{ts} kernel: [{n}.{m}] TCP: request_sock_TCP: Possible SYN flooding on port 443. Sending cookies.",
+    "{ts} sshd[{n}]: Accepted publickey for deploy from 10.0.{m}.{n} port 5{n} ssh2: ED25519 SHA256:redacted",
+    '{ts} nginx: 10.0.{m}.{n} - - [req] "GET /api/v2/health HTTP/1.1" 200 17 "-" "kube-probe/1.29"',
+    "{ts} systemd[1]: Started Session {n} of user svc_batch.",
+    "{ts} kubelet: I{n} pod/web-front-{m} Container image already present on machine",
+    "{ts} auditd: type=SYSCALL msg=audit({n}.{m}:{n}): arch=c000003e syscall=59 success=yes exit=0",
+    "{ts} postgres[{n}]: LOG:  checkpoint complete: wrote {n} buffers ({m}%); sync files={m}",
+    "{ts} haproxy[{n}]: 10.0.{m}.{n}:5{n} [req] api api/srv1 0/0/1/12/13 200 512 - - ---- 8/8/0/0/0",
+]
+
+
+def _filler_lines(count: int, seed: int) -> list[str]:
+    rng = np.random.default_rng(seed)
+    lines = []
+    for i in range(count):
+        template = _FILLER[i % len(_FILLER)]
+        lines.append(
+            template.format(
+                ts=f"2026-09-{1 + i % 28:02d}T{i % 24:02d}:{i % 60:02d}:{(i * 7) % 60:02d}Z",
+                n=int(rng.integers(1000, 99999)),
+                m=int(rng.integers(1, 250)),
+            )
+        )
+    return lines
+
+
+def _pad_to_tokens(evidence: str, target: int, position: str, backbone: Any, seed: int) -> str:
+    """Bury the evidence in routine log noise until the state hits `target` tokens.
+
+    `position` decides where the evidence sits. Always putting it first would
+    test only whether the model reads the opening, which is not what long
+    context means -- a real alert arrives somewhere in the middle of a log
+    excerpt.
+    """
+    if backbone.count_tokens(evidence) >= target:
+        return evidence
+
+    pool = _filler_lines(4000, seed)
+
+    # Binary search on the number of filler lines. Growing in fixed blocks
+    # overshot every small target -- twenty-five log lines already exceed 512
+    # tokens, so the loop kept an empty prefix and padded nothing below 2k --
+    # and correcting line by line meant re-tokenising an 8k string once per
+    # line, which is minutes rather than seconds.
+    def tokens_with(count: int) -> int:
+        return backbone.count_tokens("\n".join([evidence, *pool[:count]]))
+
+    low, high = 0, len(pool)
+    if tokens_with(high) <= target:
+        low = high
+    else:
+        while low < high:
+            middle = (low + high + 1) // 2
+            if tokens_with(middle) <= target:
+                low = middle
+            else:
+                high = middle - 1
+    lines = pool[:low]
+
+    if position == "start":
+        parts = [evidence, *lines]
+    elif position == "end":
+        parts = [*lines, evidence]
+    else:
+        middle = len(lines) // 2
+        parts = [*lines[:middle], evidence, *lines[middle:]]
+    return "\n".join(parts)
+
+
+def context_sweep(
+    engine: Engine,
+    cases: list[BenchCase],
+    lengths: Sequence[int],
+    *,
+    positions: Sequence[str] = ("start", "middle", "end"),
+    seed: int = 1337,
+) -> dict[str, Any]:
+    """Accuracy as the state grows, with the evidence placed at varying depths.
+
+    The point of this measurement is comparative. Laya's English checkpoint tops
+    out at 512 tokens and its multilingual one at 1,024, with a stated state
+    budget around 320 -- so from the 1,024 row onward this is a benchmark the
+    alternatives cannot run at all. A truncated state does not error; it answers
+    from whatever survived the cut.
+    """
+    backbone = engine.backbone
+    results: dict[str, Any] = {}
+
+    for target in lengths:
+        for position in positions:
+            hits: list[bool] = []
+            observed: list[int] = []
+            for i, case in enumerate(cases):
+                state = _pad_to_tokens(case.state, target, position, backbone, seed + i)
+                observed.append(backbone.count_tokens(state))
+                answer = engine.evaluate(state, {"q": case.question}).answers["q"]
+                dump = answer.model_dump(exclude_none=True)
+                if "probabilities" in dump:
+                    probs = np.array([dump["probabilities"][k] for k in case.option_keys])
+                else:
+                    value = dump.get("noul", dump.get("probability", 0.5))
+                    probs = np.array([1.0 - value, value])
+                hits.append(int(np.argmax(probs)) == case.label)
+
+            key = f"{target}:{position}"
+            results[key] = {
+                "target_tokens": target,
+                "position": position,
+                "median_tokens": int(np.median(observed)),
+                "n": len(hits),
+                "accuracy": float(np.mean(hits)),
+                # Laya truncates past these; the row is still reported, with a
+                # note, because "we can run this and they cannot" is the claim.
+                "beyond_laya_english": target > 512,
+                "beyond_laya_multilingual": target > 1024,
+            }
+            log.info(
+                "%5d tokens (%-6s) median=%-5d n=%-4d acc %.3f%s",
+                target,
+                position,
+                results[key]["median_tokens"],
+                len(hits),
+                results[key]["accuracy"],
+                "   [beyond Laya's limit]" if target > 1024 else "",
+            )
+
+    return results
 
 
 # --------------------------------------------------------------------------- #
@@ -377,6 +526,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cti-mcq-limit", type=int, default=400)
     parser.add_argument("--cti-vsp-limit", type=int, default=250)
     parser.add_argument("--uncalibrated", action="store_true", help="skip the calibrator")
+    parser.add_argument(
+        "--context-sweep",
+        action="store_true",
+        help="measure accuracy as the state grows, with the evidence buried at "
+        "varying depths. Past 1,024 tokens this is a benchmark Laya cannot run.",
+    )
+    parser.add_argument(
+        "--sweep-lengths",
+        type=int,
+        nargs="+",
+        default=[256, 512, 1024, 2048, 4096, 8192],
+    )
+    parser.add_argument("--sweep-cases", type=int, default=40)
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -399,6 +561,38 @@ def main(argv: list[str] | None = None) -> int:
     cases += list(_cti_mcq(args.cti_mcq_limit))
     cases += list(_cti_vsp(args.cti_vsp_limit, excluded))
     log.info("evaluating %d benchmark cases", len(cases))
+
+    if args.context_sweep:
+        # One task only: attack vector is where the model is strongest, so a
+        # decline with length is attributable to length rather than to the task.
+        sweep_cases = [c for c in cases if c.task == "cti-vsp/attack_vector"][: args.sweep_cases]
+        if not sweep_cases:
+            log.error("no cti-vsp/attack_vector cases available for the sweep")
+            return 1
+        log.info("context sweep over %d cases", len(sweep_cases))
+        sweep = context_sweep(engine, sweep_cases, args.sweep_lengths)
+        out = Path(args.out).with_name("context-sweep.json")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(
+            json.dumps(
+                {
+                    "backbone": args.backbone,
+                    "note": (
+                        "Accuracy as the state grows, with the evidence buried at "
+                        "varying depths in routine log noise. Laya tops out at 512 "
+                        "tokens (English) and 1,024 (multilingual), so rows beyond "
+                        "those cannot be run on it -- a truncated state does not "
+                        "error, it answers from whatever survived the cut."
+                    ),
+                    "results": sweep,
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        log.info("wrote %s", out)
+        return 0
 
     results = run_benchmark(engine, cases)
 

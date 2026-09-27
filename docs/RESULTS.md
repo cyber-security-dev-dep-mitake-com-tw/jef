@@ -194,6 +194,46 @@ assert that batched and one-at-a-time evaluation agree exactly -- and that
 mmBERT is padding-invariant, checked by batching option texts of deliberately
 different lengths, which gave bit-identical results.
 
+## Long state: where the alternatives cannot follow
+
+`jef_train.bench --context-sweep` takes CTI-Bench VSP attack-vector questions
+and buries each CVE description in routine SOC log noise — the kind of thing
+that actually surrounds an alert — until the state reaches a target length. The
+evidence is placed at the start, the middle and the end, because always putting
+it first would test only whether the model reads the opening.
+
+| target tokens | median actual | evidence at start | middle | end | can Laya run it? |
+|---|---|---|---|---|---|
+| 256 | 232 | 0.700 | 0.700 | 0.700 | yes |
+| 512 | 478 | 0.767 | 0.767 | 0.767 | yes |
+| 1,024 | 991 | 0.767 | 0.767 | 0.767 | multilingual only |
+| 2,048 | 2,015 | 0.767 | 0.767 | 0.767 | **no** |
+| 4,096 | 4,065 | 0.767 | 0.767 | 0.767 | **no** |
+| 8,192 | 8,192 | 0.767 | 0.767 | 0.767 | **no** |
+
+n=30 per cell, so the 256 row sitting 0.067 lower is two items and well inside
+noise. What matters is the rest of the column.
+
+**Accuracy is flat from 512 to 8,192 tokens.** Sixteen times the state, no
+measurable loss. And **position makes no difference at any length** — evidence
+at 0%, 49% and 99% depth scores identically, which is not the "lost in the
+middle" behaviour long-context decoders are known for.
+
+That is not luck, it is the architecture. Attention pooling is a softmax-weighted
+sum over every token in the state, so which tokens the head attends to does not
+depend on where they sit. Position affects the backbone's contextual embeddings
+but not the pooling that reads them.
+
+### Why the last four rows are the point
+
+Laya's English checkpoint is 512 tokens and its multilingual one 1,024, with a
+published state budget around 320. A SOAR alert carrying log excerpts does not
+fit in 320 tokens, and **a truncated state does not raise an error** — it
+answers from whatever survived the cut, with the same confidence it would have
+had on the whole thing. Rows three through six are a benchmark the alternatives
+cannot run, and that gap is the case for the shared-state architecture rather
+than a specification-sheet number.
+
 ## Independent third-party benchmarks
 
 Everything above is self-evaluated. These are not: the data, the labels and the

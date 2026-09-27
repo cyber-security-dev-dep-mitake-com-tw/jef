@@ -85,12 +85,18 @@ do: the **scene layer** (Jev explicitly leaves decision composition to the
 caller, and both open models follow it there) and **published calibration on
 third-party data**.
 
-**3. Context length is an underrated gap.** Laya is 512 tokens for English and
-1,024 multilingual, with a stated state budget of ~320 tokens. A SOAR alert with
-log excerpts does not fit in 320 tokens. JEF's mmBERT-base carries 8,192, and
-`docs/RESULTS.md` measures the latency curve out to that limit — where the
-marginal cost of an extra question is 0.4%. Long state is exactly where the
-shared-state architecture pays off, and it is where the alternatives cannot go.
+**3. Context length is an underrated gap, and it is now measured rather than
+inferred.** Laya is 512 tokens for English and 1,024 multilingual, with a stated
+state budget of ~320. A SOAR alert with log excerpts does not fit in 320 tokens.
+
+`docs/RESULTS.md` now carries a sweep out to 8,192: **accuracy is flat from 512
+to 8,192 tokens**, and evidence buried at 99% depth scores the same as evidence
+at the start — attention pooling is order-agnostic, so there is no
+"lost in the middle" effect. The marginal cost of an extra question at full
+context is 0.4%.
+
+The four longest rows of that table are a benchmark the alternatives cannot run.
+A truncated state does not error; it answers from whatever survived the cut.
 
 **4. Delivery ergonomics are table stakes, and Laya sets the bar.** Docker, a
 CLI, an MCP server, a NixOS module, Node bindings. JEF has a container, a Helm
