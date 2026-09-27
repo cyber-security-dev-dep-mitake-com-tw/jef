@@ -78,17 +78,30 @@ def _caveats(client: Any) -> list[str]:
     return notes
 
 
+def _refusal(reason: str, hint: str) -> dict[str, Any]:
+    """A refusal the caller can act on.
+
+    Raising would be more idiomatic Python, but MCP masks exception messages --
+    the agent would see only "Error executing tool jef_choice" and have nothing
+    to correct. A structured refusal reaches it intact.
+    """
+    return {"error": reason, "hint": hint}
+
+
 def _answer_payload(client: Any, result: Any) -> dict[str, Any]:
     payload = result.model_dump(exclude_none=True) if hasattr(result, "model_dump") else result
     answer = payload["answers"]["answer"]
     caveats = _caveats(client)
-    return {"answer": answer, "model": payload.get("model"), **({"caveats": caveats} if caveats else {})}
+    return {
+        "answer": answer,
+        "model": payload.get("model"),
+        **({"caveats": caveats} if caveats else {}),
+    }
 
 
 def build_server(args: argparse.Namespace) -> Any:
-    from mcp.server.mcpserver import MCPServer
-
     from jef_sdk import boolean, choice, noul, score
+    from mcp.server.mcpserver import MCPServer
 
     server = MCPServer(
         name="jef",
@@ -120,7 +133,8 @@ def build_server(args: argparse.Namespace) -> Any:
             "Returns the choice, the probability of every option, confidence "
             "(distribution sharpness) and p_correct (calibrated chance of being "
             "right, or null if unavailable). The answer is always one of your "
-            "options -- nothing is invented."
+            "options -- nothing is invented. On bad input it returns "
+            "{error, hint} rather than an answer."
         ),
     )
     def jef_choice(state: str, question: str, options: dict[str, str]) -> dict[str, Any]:
@@ -131,8 +145,14 @@ def build_server(args: argparse.Namespace) -> Any:
             Key order is the order the model sees them in.
         """
         if len(options) < 2:
-            raise ValueError("a choice needs at least two options")
-        return _answer_payload(client, client.evaluate(state, {"answer": choice(question, **options)}))
+            return _refusal(
+                f"a choice needs at least two options, got {len(options)}",
+                "pass every option the answer may take, e.g. "
+                '{"soc": "monitoring alerts", "infra": "hosts and networking"}',
+            )
+        return _answer_payload(
+            client, client.evaluate(state, {"answer": choice(question, **options)})
+        )
 
     @server.tool(
         title="Rate against levels",
@@ -150,7 +170,15 @@ def build_server(args: argparse.Namespace) -> Any:
         levels: Ordered levels, LOWEST FIRST, e.g. ["low", "medium", "high"].
         """
         if len(levels) < 2:
-            raise ValueError("a score needs at least two ordered levels")
+            return _refusal(
+                f"a score needs at least two ordered levels, got {len(levels)}",
+                'pass them lowest first, e.g. ["low", "medium", "high"]',
+            )
+        if len(set(levels)) != len(levels):
+            return _refusal(
+                "score levels must be distinct",
+                "duplicate levels make the expectation over them meaningless",
+            )
         return _answer_payload(client, client.evaluate(state, {"answer": score(question, *levels)}))
 
     @server.tool(
@@ -191,7 +219,11 @@ def build_server(args: argparse.Namespace) -> Any:
                       "criteria": {"soc": "monitoring", "infra": "hosts"}}}
         """
         if not questions:
-            raise ValueError("questions must not be empty")
+            return _refusal(
+                "questions must not be empty",
+                "pass a mapping of id to question, e.g. "
+                '{"urgent": {"type": "noul", "instructions": "Is this urgent?"}}',
+            )
         result = client.evaluate(state, questions)
         payload = result.model_dump(exclude_none=True) if hasattr(result, "model_dump") else result
         caveats = _caveats(client)
@@ -231,9 +263,12 @@ def build_server(args: argparse.Namespace) -> Any:
             registry = client.scenes
             return {
                 "scenes": [
-                    {"id": name, "layers": len(registry.get(name).layers),
-                     "questions": registry.get(name).question_count,
-                     "description": registry.get(name).description}
+                    {
+                        "id": name,
+                        "layers": len(registry.get(name).layers),
+                        "questions": registry.get(name).question_count,
+                        "description": registry.get(name).description,
+                    }
                     for name in registry.names()
                 ]
             }

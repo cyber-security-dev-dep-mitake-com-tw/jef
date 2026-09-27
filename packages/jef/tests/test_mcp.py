@@ -56,18 +56,18 @@ def call(server: Any, name: str, **arguments: Any) -> dict[str, Any]:
     return dict(result.structured_content)
 
 
-def call_expecting_failure(server: Any, name: str, **arguments: Any) -> str:
-    """Invoke a tool that should be refused, returning the message the agent sees.
+def refusal(server: Any, name: str, **arguments: Any) -> dict[str, Any]:
+    """Invoke a tool that should refuse, returning the refusal the agent sees.
 
-    A rejection has to reach the caller as text it can act on -- an agent cannot
-    read a traceback in the server's stderr.
+    Refusals come back as structured payloads rather than exceptions: MCP masks
+    exception messages, so a raised ValueError reaches the agent as "Error
+    executing tool jef_choice" with nothing to correct.
     """
-    try:
-        result = asyncio.run(server.call_tool(name, arguments))
-    except Exception as exc:  # noqa: BLE001 -- the tool boundary
-        return str(exc)
-    assert result.is_error, f"{name} should have been refused"
-    return str(result.content)
+    result = asyncio.run(server.call_tool(name, arguments))
+    assert not result.is_error, f"{name} raised instead of refusing: {result.content}"
+    payload = dict(result.structured_content or {})
+    assert "error" in payload, f"{name} returned no refusal: {payload}"
+    return payload
 
 
 # --------------------------------------------------------------------------- #
@@ -134,9 +134,7 @@ def test_choice_returns_a_distribution_over_the_given_options(server: Any) -> No
 
 
 def test_score_returns_a_continuous_score(server: Any) -> None:
-    result = call(
-        server, "jef_score", state="x", question="嚴重度", levels=["低", "中", "高"]
-    )
+    result = call(server, "jef_score", state="x", question="嚴重度", levels=["低", "中", "高"])
     assert result["answer"]["type"] == "score"
     assert 0.0 <= result["answer"]["score"] <= 2.0
 
@@ -192,14 +190,19 @@ def test_running_a_scene_returns_the_trace(server: Any) -> None:
     assert result["action"] is not None
 
 
-def test_a_single_option_choice_is_refused(server: Any) -> None:
-    message = call_expecting_failure(
-        server, "jef_choice", state="x", question="誰？", options={"only": "one"}
-    )
-    assert "at least two" in message
+def test_a_single_option_choice_is_refused_with_a_usable_reason(server: Any) -> None:
+    """The agent must learn what to fix, not just that something failed."""
+    payload = refusal(server, "jef_choice", state="x", question="誰？", options={"only": "one"})
+    assert "at least two" in payload["error"]
+    assert payload["hint"]
 
 
 def test_an_empty_question_set_is_refused(server: Any) -> None:
-    assert "not be empty" in call_expecting_failure(
-        server, "jef_ask_many", state="x", questions={}
-    )
+    payload = refusal(server, "jef_ask_many", state="x", questions={})
+    assert "not be empty" in payload["error"]
+    assert payload["hint"]
+
+
+def test_duplicate_score_levels_are_refused(server: Any) -> None:
+    payload = refusal(server, "jef_score", state="x", question="嚴重度", levels=["低", "低"])
+    assert "distinct" in payload["error"]
