@@ -46,7 +46,12 @@ def test_scene_evaluation_returns_a_full_trace(client: TestClient) -> None:
     assert trace["scene"] == "incident-triage"
     assert trace["verdict"] in ("decided", "fallthrough")
     assert trace["action"] in (
-        "close", "request_context", "assign", "page_oncall", "escalate_human", "queue_for_review",
+        "close",
+        "request_context",
+        "assign",
+        "page_oncall",
+        "escalate_human",
+        "queue_for_review",
     )
     # The whole point: one state read for the entire playbook.
     assert trace["state_encodes"] == 1

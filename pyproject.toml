@@ -58,6 +58,7 @@ ignore_missing_imports = true
 files = [
   "packages/jef-core/src",
   "packages/jef-scene/src",
+  "packages/jef-sdk-python/src",
   "packages/jef-server/src",
   "packages/jef-train/src",
 ]
