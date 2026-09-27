@@ -4,11 +4,17 @@
 # GPU path -- the entire design (frozen backbone, head-only training, encoder
 # scale) exists so this runs on commodity vCPU.
 
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+# Both stages share one Docker Hub base. Deliberately not ghcr.io: egress to it
+# is commonly blocked in the enterprise networks this is meant to run in, and a
+# build that only works on an unrestricted laptop is not much of a build.
+FROM python:3.12-slim-bookworm AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=never
+    UV_PYTHON_DOWNLOADS=never \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN pip install --no-cache-dir uv
 
 WORKDIR /build
 COPY pyproject.toml uv.lock* ./

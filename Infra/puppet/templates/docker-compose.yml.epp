@@ -1,0 +1,23 @@
+<%- | String $image, String $home, Integer $port, String $cache_dir,
+      Integer $cpus, String $memory_limit | -%>
+# Managed by Puppet -- edits will be overwritten.
+services:
+  jef:
+    image: <%= $image %>
+    container_name: jef
+    restart: unless-stopped
+    env_file: <%= $home %>/jef.env
+    ports:
+      - "<%= $port %>:<%= $port %>"
+    volumes:
+      - <%= $cache_dir %>:/cache/huggingface
+    deploy:
+      resources:
+        limits:
+          cpus: "<%= $cpus %>"
+          memory: <%= $memory_limit %>
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"

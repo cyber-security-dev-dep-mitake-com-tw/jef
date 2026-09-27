@@ -1,0 +1,140 @@
+---
+- name: Refuse to deploy the test backbone
+  # 'hashing' is deterministic but carries no semantics. Shipping it to a real
+  # host would produce confident-looking nonsense, so this is a hard stop.
+  ansible.builtin.assert:
+    that:
+      - jef_backbone != "hashing"
+    fail_msg: >-
+      jef_backbone is 'hashing', the deterministic test backbone. It returns
+      well-formed answers with no meaning. Set a real model id.
+
+- name: Warn when no calibration artifact is configured
+  ansible.builtin.debug:
+    msg: >-
+      No jef_calibration_path set. Probabilities will be uncalibrated and
+      confidence will reflect distribution concentration only -- do not gate
+      automated SOAR actions on it.
+  when: jef_calibration_path | length == 0
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - python3-docker
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+
+- name: Add Docker apt key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  become: true
+
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}
+      signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/{{ ansible_distribution | lower }}
+      {{ ansible_distribution_release }} stable
+    filename: docker
+    state: present
+  become: true
+
+- name: Install Docker engine
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  become: true
+  notify: Restart jef
+
+- name: Ensure service account
+  ansible.builtin.user:
+    name: "{{ jef_user }}"
+    home: "{{ jef_home }}"
+    shell: /usr/sbin/nologin
+    system: true
+    groups: docker
+    append: true
+  become: true
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ jef_user }}"
+    group: "{{ jef_user }}"
+    mode: "0750"
+  loop:
+    - "{{ jef_home }}"
+    - "{{ jef_cache_dir }}"
+  become: true
+
+- name: Render environment file
+  ansible.builtin.template:
+    src: jef.env.j2
+    dest: "{{ jef_home }}/jef.env"
+    owner: "{{ jef_user }}"
+    group: "{{ jef_user }}"
+    mode: "0640"
+  become: true
+  notify: Restart jef
+
+- name: Render compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ jef_home }}/docker-compose.yml"
+    owner: "{{ jef_user }}"
+    group: "{{ jef_user }}"
+    mode: "0640"
+  become: true
+  notify: Restart jef
+
+- name: Install systemd unit
+  ansible.builtin.template:
+    src: jef.service.j2
+    dest: /etc/systemd/system/jef.service
+    mode: "0644"
+  become: true
+  notify:
+    - Reload systemd
+    - Restart jef
+
+- name: Enable and start JEF
+  ansible.builtin.systemd:
+    name: jef
+    enabled: true
+    state: started
+    daemon_reload: true
+  become: true
+
+- name: Wait for the API to become healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ jef_port }}/healthz"
+    status_code: 200
+  register: jef_health
+  until: jef_health.status == 200
+  retries: 60
+  delay: 5
+
+- name: Verify the deployed backbone is not the test stub
+  # /healthz reports this precisely so a misconfiguration cannot hide.
+  ansible.builtin.assert:
+    that:
+      - not jef_health.json.test_backbone
+    fail_msg: "Deployed server is serving the hashing test backbone."
+
+- name: Report calibration status
+  ansible.builtin.debug:
+    msg: "JEF healthy on {{ inventory_hostname }} — model={{ jef_health.json.model }} calibrated={{ jef_health.json.calibrated }}"

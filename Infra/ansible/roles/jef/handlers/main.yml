@@ -1,0 +1,13 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: Restart jef
+  ansible.builtin.systemd:
+    name: jef
+    state: restarted
+  become: true
+  # The unit may not exist yet on the very first run; the play starts it later.
+  failed_when: false

@@ -1,0 +1,2 @@
+pulumi>=3.140,<4.0
+pulumi-proxmoxve>=6.10,<7.0

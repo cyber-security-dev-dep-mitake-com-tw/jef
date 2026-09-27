@@ -1,0 +1,19 @@
+---
+- name: Deploy JEF
+  hosts: jef
+  gather_facts: true
+
+  pre_tasks:
+    - name: Refuse to deploy onto an undersized host
+      # JEF's whole design assumes CPU is the only compute resource. Below four
+      # cores the encoder dominates request latency and the deployment is
+      # misleading rather than merely slow.
+      ansible.builtin.assert:
+        that:
+          - ansible_processor_vcpus | int >= 4
+        fail_msg: >-
+          {{ inventory_hostname }} reports {{ ansible_processor_vcpus }} vCPUs.
+          JEF needs at least 4; the documented target is 16.
+
+  roles:
+    - jef

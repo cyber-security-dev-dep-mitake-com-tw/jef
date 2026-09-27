@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+proxmox_endpoint = "https://pve.example.internal:8006/"
+proxmox_node     = "pve01"
+# Better: export PROXMOX_VE_API_TOKEN instead of putting this in a file.
+proxmox_api_token = "terraform@pve!jef=00000000-0000-0000-0000-000000000000"
+
+# A cloud-init enabled Debian 12 or Ubuntu 24.04 template.
+template_id  = 9000
+datastore_id = "local-lvm"
+
+node_count = 1
+vcpus      = 16
+memory_mb  = 16384
+
+# Leave empty for DHCP.
+ip_addresses = ["10.0.10.51/24"]
+gateway      = "10.0.10.1"
+
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... dennis@mitake",
+]
+
+jef_backbone = "jhu-clsp/mmBERT-base"

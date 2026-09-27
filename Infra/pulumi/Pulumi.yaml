@@ -1,0 +1,31 @@
+name: jef
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: Provision JEF System One engine VMs on Proxmox VE (CPU-only)
+
+config:
+  jef:proxmoxEndpoint:
+    type: string
+    description: Proxmox VE API endpoint
+  jef:proxmoxNode:
+    type: string
+  jef:templateId:
+    type: integer
+    description: VM ID of a cloud-init enabled Debian 12 / Ubuntu 24.04 template
+  jef:nodeCount:
+    type: integer
+    default: 1
+  jef:vcpus:
+    type: integer
+    default: 16
+  jef:memoryMb:
+    type: integer
+    default: 16384
+  jef:diskGb:
+    type: integer
+    default: 40
+  jef:backbone:
+    type: string
+    default: jhu-clsp/mmBERT-base

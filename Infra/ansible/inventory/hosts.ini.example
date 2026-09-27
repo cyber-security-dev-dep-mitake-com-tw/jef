@@ -1,0 +1,11 @@
+# Terraform generates inventory/hosts.ini from this shape. Copy this file if you
+# are configuring hosts that Terraform did not create.
+
+[jef]
+jef-1 ansible_host=10.0.10.51
+
+[jef:vars]
+ansible_user=jef
+jef_image=ghcr.io/cyber-security-dev-dep-mitake-com-tw/jef:latest
+jef_backbone=jhu-clsp/mmBERT-base
+jef_threads=14

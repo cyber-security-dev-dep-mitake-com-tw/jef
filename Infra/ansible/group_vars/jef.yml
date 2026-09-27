@@ -1,0 +1,25 @@
+---
+# Defaults for every JEF host. Terraform writes the host-specific values
+# (jef_threads, jef_backbone, jef_image) into the generated inventory, so those
+# are intentionally absent here -- inventory wins over group_vars.
+
+jef_user: jef
+jef_home: /opt/jef
+jef_port: 8080
+
+# Model cache lives on the data disk, not in the container. Re-pulling 300M
+# parameters on every restart is the kind of thing that only hurts in prod.
+jef_cache_dir: /var/lib/jef/huggingface
+
+jef_workers: 1
+jef_alpha: "0.10"
+jef_log_level: INFO
+jef_max_questions: 256
+
+# Trained artifacts. Empty means the server falls back to the zero-shot head and
+# an unfitted calibrator -- it will say so loudly in /healthz and its logs.
+jef_head_path: ""
+jef_calibration_path: ""
+
+jef_memory_limit: 8g
+jef_restart_policy: unless-stopped

@@ -1,0 +1,21 @@
+# Managed by Chef -- edits will be overwritten.
+services:
+  jef:
+    image: <%= node['jef']['image'] %>
+    container_name: jef
+    restart: unless-stopped
+    env_file: <%= node['jef']['home'] %>/jef.env
+    ports:
+      - "<%= node['jef']['port'] %>:<%= node['jef']['port'] %>"
+    volumes:
+      - <%= node['jef']['cache_dir'] %>:/cache/huggingface
+    deploy:
+      resources:
+        limits:
+          cpus: "<%= node['cpu']['total'] %>"
+          memory: <%= node['jef']['memory_limit'] %>
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"

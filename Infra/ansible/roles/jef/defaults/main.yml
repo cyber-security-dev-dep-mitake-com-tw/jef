@@ -1,0 +1,5 @@
+---
+jef_image: "ghcr.io/cyber-security-dev-dep-mitake-com-tw/jef:latest"
+jef_backbone: "jhu-clsp/mmBERT-base"
+# Leave two cores for the event loop and the OS; see Infra/README.md.
+jef_threads: "{{ [ansible_processor_vcpus | int - 2, 1] | max }}"

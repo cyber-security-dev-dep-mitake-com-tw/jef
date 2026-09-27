@@ -1,0 +1,19 @@
+# Managed by Chef -- edits will be overwritten.
+[Unit]
+Description=JEF System One decision engine
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory=<%= node['jef']['home'] %>
+ExecStartPre=-/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+# A cold model load on a CPU-only box can exceed the default timeout.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

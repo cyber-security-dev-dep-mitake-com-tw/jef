@@ -1,0 +1,20 @@
+# Managed by Ansible -- edits will be overwritten.
+[Unit]
+Description=JEF System One decision engine
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+WorkingDirectory={{ jef_home }}
+ExecStartPre=-/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+# The image pull plus a cold model load can exceed the default timeout on a
+# CPU-only box; failing the unit for being slow would be a false alarm.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
