@@ -23,10 +23,14 @@ export JEF_SCENES_DIR="${JEF_SCENES_DIR:-scenes}"
 case "$RUNTIME" in
   python)
     "$PY" -m jef_server >/tmp/jef-acceptance.log 2>&1 &
-    EXCLUDE=()
+    # Left unset rather than empty: under `set -u`, bash 3.2 (still the system
+    # bash on macOS) treats "${EMPTY[@]}" as an unbound variable and aborts.
     ;;
   go)
-    go build -o /tmp/jef-server-go ./packages/jef-go/cmd/jef-server
+    # Built from inside packages/jef-go: the Go module lives there, and the
+    # repository root has none, so building by relative path from here fails
+    # with "cannot find main module".
+    (cd packages/jef-go && go build -o /tmp/jef-server-go ./cmd/jef-server)
     JEF_ADDR=":${PORT}" /tmp/jef-server-go >/tmp/jef-acceptance.log 2>&1 &
     # Scenes live in jef-scene, which has no Go port yet.
     EXCLUDE=(--exclude scene)
@@ -57,6 +61,6 @@ fi
 "$PY" -m robot \
   --outputdir "$OUTDIR" \
   --variable "JEF_BASE_URL:${BASE}" \
-  "${EXCLUDE[@]}" \
+  ${EXCLUDE[@]+"${EXCLUDE[@]}"} \
   "$@" \
   test/acceptance

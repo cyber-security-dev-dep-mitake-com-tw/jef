@@ -131,16 +131,29 @@ func (e *Engine) Answer(shared *SharedState, q contract.Normalized, alpha float6
 }
 
 // Evaluate answers every question against one encoding of the state.
-func (e *Engine) Evaluate(stateText string, questions map[string]contract.Question, alpha float64) (contract.Response, error) {
+func (e *Engine) Evaluate(
+	stateText string,
+	questions map[string]contract.Question,
+	questionOrder []string,
+	alpha float64,
+) (contract.Response, error) {
 	shared, err := e.Prepare(stateText)
 	if err != nil {
 		return contract.Response{}, err
 	}
 
-	answers := make(map[string]any, len(questions))
+	var answers contract.Answers
 	inputTokens := shared.Encoding.NTokens
 
-	for _, id := range contract.SortedKeys(questions) {
+	// Answer in the order asked. Falling back to sorted keys only matters for a
+	// caller that somehow supplied no order; the Python server answers in
+	// request order, and the two must not differ.
+	order := questionOrder
+	if len(order) != len(questions) {
+		order = contract.SortedKeys(questions)
+	}
+
+	for _, id := range order {
 		normalized, err := contract.Normalize(id, questions[id])
 		if err != nil {
 			return contract.Response{}, err
@@ -149,7 +162,10 @@ func (e *Engine) Evaluate(stateText string, questions map[string]contract.Questi
 		if err != nil {
 			return contract.Response{}, err
 		}
-		answers[id] = contract.BuildAnswer(normalized, result.Probabilities, result.Confidence, result.Score)
+		answers.Set(
+			id,
+			contract.BuildAnswer(normalized, result.Probabilities, result.Confidence, result.Score),
+		)
 		for _, text := range BuildQueryTexts(normalized) {
 			inputTokens += e.Backbone.CountTokens(text)
 		}

@@ -67,6 +67,14 @@ STATES: list[Any] = [
 
 def compare(a: Any, b: Any, path: str, failures: list[str]) -> None:
     if isinstance(a, dict) and isinstance(b, dict):
+        # Key ORDER is compared, not just membership. JSON gives object key
+        # order no meaning, but Go's encoding/json sorts map keys while Python
+        # preserves insertion order, so the two servers emitted differently
+        # shaped bodies for the same answer -- and this checker did not notice,
+        # because it only compared values. Option order is also the index each
+        # option occupies in the distribution, so it is worth holding onto.
+        if list(a) != list(b):
+            failures.append(f"{path}: key order {list(a)} vs {list(b)}")
         for key in sorted(set(a) | set(b)):
             if key not in a or key not in b:
                 failures.append(f"{path}.{key}: present in only one response")

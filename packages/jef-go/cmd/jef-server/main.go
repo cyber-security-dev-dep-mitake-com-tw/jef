@@ -222,7 +222,7 @@ func (s *server) handleSystemOne(w http.ResponseWriter, r *http.Request) {
 	}
 
 	before := s.engine.StateEncodes()
-	resp, err := s.engine.Evaluate(stateText, req.Questions, s.cfg.alpha)
+	resp, err := s.engine.Evaluate(stateText, req.Questions, req.QuestionOrder, s.cfg.alpha)
 	if err != nil {
 		// Contract violations and runtime failures are both 422 here: the
 		// former is by far the common case, and the message names the question.

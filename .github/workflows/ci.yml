@@ -144,8 +144,7 @@ jobs:
         if: matrix.suite == 'acceptance'
         run: |
           JEF_SCENES_DIR=scenes .venv/bin/python -m jef_server &
-          go build -o /tmp/jef-server-go ./packages/jef-go/cmd/jef-server 2>/dev/null \
-            || (cd packages/jef-go && go build -o /tmp/jef-server-go ./cmd/jef-server)
+          (cd packages/jef-go && go build -o /tmp/jef-server-go ./cmd/jef-server)
           JEF_ADDR=:8090 /tmp/jef-server-go &
           for _ in $(seq 1 60); do
             curl -sf http://127.0.0.1:8080/healthz >/dev/null 2>&1 \

@@ -34,10 +34,69 @@ type Question struct {
 }
 
 // Request is the POST /v1/systemone body.
+//
+// QuestionOrder exists because Go maps are unordered: without it the server
+// would answer in alphabetical order while the Python server answers in the
+// order asked, and two servers behind one load balancer would return
+// differently shaped bodies for identical requests.
 type Request struct {
-	State     json.RawMessage     `json:"state"`
-	Questions map[string]Question `json:"questions"`
-	Model     string              `json:"model,omitempty"`
+	State         json.RawMessage     `json:"state"`
+	Questions     map[string]Question `json:"questions"`
+	QuestionOrder []string            `json:"-"`
+	Model         string              `json:"model,omitempty"`
+}
+
+// UnmarshalJSON decodes the body and records the question order from the raw
+// JSON, which the map alone cannot preserve.
+func (r *Request) UnmarshalJSON(data []byte) error {
+	type plain Request // avoid recursing into this method
+	var body plain
+	if err := json.Unmarshal(data, &body); err != nil {
+		return err
+	}
+	*r = Request(body)
+
+	var envelope struct {
+		Questions json.RawMessage `json:"questions"`
+	}
+	if err := json.Unmarshal(data, &envelope); err != nil || len(envelope.Questions) == 0 {
+		return nil
+	}
+	order, err := objectKeyOrder(envelope.Questions)
+	if err != nil {
+		return err
+	}
+	r.QuestionOrder = order
+	return nil
+}
+
+// objectKeyOrder returns a JSON object's keys as they appear in the document.
+func objectKeyOrder(raw json.RawMessage) ([]string, error) {
+	dec := json.NewDecoder(newReader(raw))
+	tok, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	if tok != json.Delim('{') {
+		return nil, fmt.Errorf("questions must be an object")
+	}
+	var keys []string
+	for dec.More() {
+		keyTok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyTok.(string)
+		if !ok {
+			return nil, fmt.Errorf("question ids must be strings")
+		}
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
 }
 
 // Normalized reduces any question to "score these N options against the state",
@@ -177,61 +236,58 @@ type Usage struct {
 
 // Response is the POST /v1/systemone reply.
 type Response struct {
-	Model    string         `json:"model"`
-	Answers  map[string]any `json:"answers"`
-	Usage    Usage          `json:"usage"`
-	Warnings []string       `json:"warnings,omitempty"`
+	Model    string   `json:"model"`
+	Answers  Answers  `json:"answers"`
+	Usage    Usage    `json:"usage"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // BuildAnswer projects one calibrated distribution into the answer shape the
 // caller asked for.
-func BuildAnswer(q Normalized, probabilities []float64, confidence, score float64) map[string]any {
+//
+// Concrete structs rather than maps, so fields serialise in a fixed order that
+// matches the Python server's.
+func BuildAnswer(q Normalized, probabilities []float64, confidence, score float64) any {
 	const decimals = 6
+
+	dist := Distribution{Keys: q.OptionKeys, Values: make([]float64, len(q.OptionKeys))}
+	best, bestIdx := -1.0, 0
+	for i := range q.OptionKeys {
+		dist.Values[i] = round(probabilities[i], decimals)
+		if probabilities[i] > best {
+			best, bestIdx = probabilities[i], i
+		}
+	}
 
 	switch q.Kind {
 	case KindChoice:
-		dist := make(map[string]float64, len(q.OptionKeys))
-		best, bestIdx := -1.0, 0
-		for i, key := range q.OptionKeys {
-			dist[key] = round(probabilities[i], decimals)
-			if probabilities[i] > best {
-				best, bestIdx = probabilities[i], i
-			}
-		}
-		return map[string]any{
-			"type":          KindChoice,
-			"choice":        q.OptionKeys[bestIdx],
-			"probabilities": dist,
-			"confidence":    round(confidence, decimals),
+		return ChoiceAnswer{
+			Type:          KindChoice,
+			Choice:        q.OptionKeys[bestIdx],
+			Probabilities: dist,
+			Confidence:    round(confidence, decimals),
 		}
 
 	case KindScore:
-		dist := make(map[string]float64, len(q.OptionKeys))
-		for i, key := range q.OptionKeys {
-			dist[key] = round(probabilities[i], decimals)
-		}
-		return map[string]any{
-			"type":          KindScore,
-			"score":         round(score, decimals),
-			"legend":        q.OptionKeys,
-			"probabilities": dist,
-			"confidence":    round(confidence, decimals),
+		return ScoreAnswer{
+			Type:          KindScore,
+			Score:         round(score, decimals),
+			Legend:        q.OptionKeys,
+			Probabilities: dist,
+			Confidence:    round(confidence, decimals),
 		}
 
 	default:
+		// Option order is (false, true), so index 1 is P(true).
 		pTrue := round(probabilities[1], decimals)
+		answer := NoulAnswer{Type: KindNoul, Confidence: round(confidence, decimals)}
 		if q.Dialect == "boolean" {
-			return map[string]any{
-				"type":        "boolean",
-				"probability": pTrue,
-				"confidence":  round(confidence, decimals),
-			}
+			answer.Type = "boolean"
+			answer.Probability = &pTrue
+		} else {
+			answer.Noul = &pTrue
 		}
-		return map[string]any{
-			"type":       KindNoul,
-			"noul":       pTrue,
-			"confidence": round(confidence, decimals),
-		}
+		return answer
 	}
 }
 

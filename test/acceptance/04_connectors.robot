@@ -26,6 +26,9 @@ Shuffle Health Gates The Workflow
     Dictionary Should Contain Key    ${health}    test_backbone
 
 Shuffle Run Scene Returns A Branchable Verdict
+    # Tagged `scene` so runs against the Go server skip it: scenes live in
+    # jef-scene, which has no Go port yet.
+    [Tags]    scene
     ${trace}=    Shuffle Run Scene    ${JEF_BASE_URL}    incident-triage    ${ALERT}
     Should Not Be Equal    ${trace}[action]    ${None}
     Dictionary Should Contain Key    ${trace}    human_review
@@ -87,6 +90,7 @@ Shuffle Reports An Unreachable Server Rather Than Hanging
 Cortex Taxonomies Describe A Real Trace
     [Documentation]    The verdict chip an analyst reads first comes from a real
     ...                scene run, not a hand-written fixture.
+    [Tags]    scene
     ${trace}=    Shuffle Run Scene    ${JEF_BASE_URL}    incident-triage    ${ALERT}
     ${taxonomies}=    Cortex Scene Taxonomies    ${trace}
     Should Not Be Empty    ${taxonomies}
@@ -100,6 +104,7 @@ Cortex Never Renders Unknown Reliability As A Number
     [Documentation]    "Unknown" and "low" lead to different decisions, so an
     ...                uncalibrated server must not produce a plausible-looking
     ...                P(correct) chip.
+    [Tags]    scene
     ${trace}=    Shuffle Run Scene    ${JEF_BASE_URL}    incident-triage    ${ALERT}
     ${taxonomies}=    Cortex Scene Taxonomies    ${trace}
     ${p}=    Evaluate    [t for t in $taxonomies if t["predicate"] == "p_correct"]
