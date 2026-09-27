@@ -27,7 +27,7 @@ from .errors import (
     JefError,
     SceneError,
 )
-from .head import BilinearHead, DecisionHead, ZeroShotHead
+from .head import BilinearHead, DecisionHead, ZeroShotHead, attention_pool
 from .mathx import confidence, expected_calibration_error, score_expectation, softmax
 from .types import (
     Answer,
@@ -79,6 +79,7 @@ __all__ = [
     "Usage",
     "ZeroShotHead",
     "__version__",
+    "attention_pool",
     "coerce_question",
     "confidence",
     "expected_calibration_error",

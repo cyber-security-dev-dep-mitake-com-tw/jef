@@ -54,12 +54,17 @@ def build_query_texts(q: NormalizedQuestion) -> list[str]:
     return texts
 
 
-def _attention_pool(
+def attention_pool(
     hidden: NDArray[np.float32],
     mask: NDArray[np.float32],
     queries: NDArray[np.float32],
 ) -> NDArray[np.float32]:
     """Pool ``hidden`` once per query vector.
+
+    Public because it is the contract between training and inference: it uses no
+    trainable parameters, so jef-train precomputes its output for the whole
+    corpus and never runs the backbone again. Changing this function invalidates
+    every cached feature and every trained head.
 
     Args:
         hidden: ``(T, D)`` shared state tokens.
@@ -116,7 +121,7 @@ class ZeroShotHead:
         question: NormalizedQuestion,
         queries: NDArray[np.float32],
     ) -> NDArray[np.float64]:
-        ctx = _l2(_attention_pool(state.hidden, state.mask, queries))
+        ctx = _l2(attention_pool(state.hidden, state.mask, queries))
         q = _l2(queries)
         cos = np.einsum("nd,nd->n", ctx, q).astype(np.float64)
         return cos * self.scale
@@ -167,7 +172,7 @@ class BilinearHead:
                 f"head expects dim {self.dim}, state encoding has {state.dim} "
                 f"(backbone {state.backbone!r} -- head/backbone mismatch)"
             )
-        ctx = _attention_pool(state.hidden, state.mask, queries)
+        ctx = attention_pool(state.hidden, state.mask, queries)
         a = _l2(ctx @ self.u)
         b = _l2(queries @ self.v)
         return (np.einsum("nr,nr->n", a, b).astype(np.float64) * self.scale) + self.bias

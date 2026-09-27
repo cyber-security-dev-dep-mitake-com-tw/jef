@@ -1,22 +1,22 @@
 {
   "splits": {
-    "train": 3785,
-    "calibration": 808,
-    "test": 818
+    "train": 7794,
+    "calibration": 2398,
+    "test": 1804
   },
   "seed": 1337,
   "summary": {
-    "total": 5411,
+    "total": 11996,
     "by_bucket": {
       "choice:14": 418,
-      "noul:2": 1943,
-      "score:5": 1525,
-      "choice:4": 925,
-      "choice:5": 600
+      "noul:2": 4138,
+      "score:5": 3720,
+      "choice:4": 2820,
+      "choice:5": 900
     },
     "by_state_lang": {
-      "en": 3611,
-      "zh-TW": 1800
+      "en": 9296,
+      "zh-TW": 2700
     },
     "by_source": {
       "attack.tactic": {
@@ -49,85 +49,85 @@
         }
       },
       "cve.attack_vector": {
-        "count": 925,
+        "count": 2820,
         "kind": "choice",
         "n_options": 4,
         "labels": {
-          "network": 684,
-          "local": 199,
-          "adjacent": 32,
-          "physical": 10
+          "network": 2146,
+          "local": 571,
+          "adjacent": 84,
+          "physical": 19
         }
       },
       "cve.privileges": {
-        "count": 463,
+        "count": 1410,
         "kind": "noul",
         "n_options": 2,
         "labels": {
-          "true": 226,
-          "false": 237
+          "true": 579,
+          "false": 831
         }
       },
       "cve.severity": {
-        "count": 925,
+        "count": 2820,
         "kind": "score",
         "n_options": 5,
         "labels": {
-          "高": 398,
-          "中": 402,
-          "危急": 67,
-          "低": 58
+          "高": 1251,
+          "中": 1234,
+          "危急": 227,
+          "低": 108
         }
       },
       "cve.user_interaction": {
-        "count": 462,
+        "count": 1410,
         "kind": "noul",
         "n_options": 2,
         "labels": {
-          "false": 394,
-          "true": 68
+          "false": 926,
+          "true": 484
         }
       },
       "soar_zh.false_positive": {
-        "count": 300,
+        "count": 450,
         "kind": "noul",
         "n_options": 2,
         "labels": {
-          "true": 60,
-          "false": 240
+          "true": 90,
+          "false": 360
         }
       },
       "soar_zh.routing": {
-        "count": 600,
+        "count": 900,
         "kind": "choice",
         "n_options": 5,
         "labels": {
-          "soc": 160,
-          "fraud": 80,
-          "identity": 120,
-          "infra": 160,
-          "appsec": 80
+          "soc": 240,
+          "fraud": 120,
+          "identity": 180,
+          "appsec": 120,
+          "infra": 240
         }
       },
       "soar_zh.severity": {
-        "count": 600,
+        "count": 900,
         "kind": "score",
         "n_options": 5,
         "labels": {
-          "資訊": 120,
-          "危急": 160,
-          "中": 80,
-          "高": 160,
-          "低": 80
+          "高": 240,
+          "低": 120,
+          "資訊": 180,
+          "危急": 240,
+          "中": 120
         }
       },
       "soar_zh.urgency": {
-        "count": 300,
+        "count": 450,
         "kind": "noul",
         "n_options": 2,
         "labels": {
-          "true": 140,
-          "false": 160
+          "true": 210,
+          "false": 240
         }
       }
     }

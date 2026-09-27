@@ -111,8 +111,12 @@ def read_samples(path: str | Path) -> Iterator[Sample]:
 def split_samples(
     samples: list[Sample],
     *,
-    train: float = 0.7,
-    calibration: float = 0.15,
+    train: float = 0.65,
+    # 20%, not the more conventional 15%: the confidence-to-correctness map is
+    # fitted here and needs ~150 points *per bucket* to be honest, and the
+    # narrowest bucket is a fraction of the corpus. Undersizing this split means
+    # shipping a model whose gates have no P(correct) to threshold on.
+    calibration: float = 0.20,
     seed: int = 1337,
 ) -> tuple[list[Sample], list[Sample], list[Sample]]:
     """Three-way split: train / calibration / test.

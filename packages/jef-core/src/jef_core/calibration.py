@@ -13,6 +13,17 @@ extra steps. JEF therefore treats calibration as a first-class artifact (D4):
    guarantee. This is what gives "low confidence -> escalate to a human" an
    actual statistical meaning instead of a vibe.
 
+3. **A confidence-to-correctness map** -- isotonic regression from Jev's
+   confidence statistic onto the observed probability of being right.
+
+   This one is the direct answer to the line the whole ecosystem ships:
+   *"confidence measures concentration, not correctness"*. That is true of the
+   raw statistic, and it makes a gate threshold meaningless -- ``confidence >=
+   0.9`` says the distribution is peaked, not that the answer is right 90% of
+   the time. With a held-out split you can simply measure the relationship and
+   fit it. A gate can then threshold on P(correct), which is the quantity an
+   operator actually meant all along.
+
 Both artifacts are tiny JSON and ship alongside the head weights.
 """
 
@@ -22,11 +33,13 @@ import json
 import math
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
 
+from .mathx import confidence as _confidence
 from .mathx import softmax
 
 __all__ = [
@@ -50,6 +63,10 @@ class Bucket:
     temperature: float = 1.0
     #: alpha -> nonconformity quantile. Keys are stringified floats for JSON.
     conformal: dict[str, float] = field(default_factory=dict)
+    #: Breakpoints of the isotonic confidence -> P(correct) map, as
+    #: ``[[confidence, p_correct], ...]`` sorted by confidence. Empty when
+    #: unfitted, in which case P(correct) is simply not available.
+    correctness_map: list[list[float]] = field(default_factory=list)
     n_samples: int = 0
 
 
@@ -132,6 +149,63 @@ def fit_conformal_quantile(
     return float(np.quantile(scores, level, method="higher"))
 
 
+def isotonic_fit(x: Sequence[float], y: Sequence[float]) -> list[list[float]]:
+    """Pool-adjacent-violators isotonic regression, returning breakpoints.
+
+    Implemented here rather than pulled from scikit-learn because jef-core is a
+    serving dependency: it ships in the container and is the reference the Go
+    port follows, so it stays on numpy alone.
+
+    Args:
+        x: Predictor values (confidence).
+        y: Targets in [0, 1] (1.0 for a correct answer, 0.0 otherwise).
+
+    Returns:
+        ``[[x, y], ...]`` sorted and non-decreasing in y.
+    """
+    if not x:
+        return []
+    order = sorted(range(len(x)), key=lambda i: x[i])
+    xs = [float(x[i]) for i in order]
+    ys = [float(y[i]) for i in order]
+
+    # Each block is [sum, count, right_edge_index].
+    blocks: list[list[float]] = []
+    for i, value in enumerate(ys):
+        blocks.append([value, 1.0, float(i)])
+        while len(blocks) > 1 and blocks[-2][0] / blocks[-2][1] >= blocks[-1][0] / blocks[-1][1]:
+            merged_sum = blocks[-2][0] + blocks[-1][0]
+            merged_count = blocks[-2][1] + blocks[-1][1]
+            right = blocks[-1][2]
+            blocks[-2:] = [[merged_sum, merged_count, right]]
+
+    out: list[list[float]] = []
+    for block in blocks:
+        mean = block[0] / block[1]
+        out.append([xs[int(block[2])], mean])
+    return out
+
+
+#: Below this many calibration points, an isotonic curve memorises rather than
+#: fits. Measured on this project's own corpus: a bucket with 62 calibration
+#: samples produced a map whose out-of-sample ECE was 0.235, against 0.046 for a
+#: bucket with 290. Returning nothing is the honest outcome -- a gate can react
+#: to "P(correct) unavailable", but not to a confidently wrong one.
+MIN_CORRECTNESS_SAMPLES = 150
+
+
+def fit_correctness_map(
+    confidences: Sequence[float],
+    correct: Sequence[bool],
+    *,
+    min_samples: int = MIN_CORRECTNESS_SAMPLES,
+) -> list[list[float]]:
+    """Fit confidence -> P(correct), or return nothing if the data cannot support it."""
+    if len(confidences) < min_samples:
+        return []
+    return isotonic_fit(list(confidences), [1.0 if c else 0.0 for c in correct])
+
+
 # --------------------------------------------------------------------------- #
 # Calibrator
 # --------------------------------------------------------------------------- #
@@ -181,8 +255,36 @@ class Calibrator:
         keep = [int(i) for i in np.flatnonzero(p >= 1.0 - qhat)]
         return keep or [int(np.argmax(p))]
 
+    def p_correct(self, confidence: float, kind: str, n_options: int) -> float | None:
+        """Calibrated probability that the top answer is correct.
+
+        ``None`` when no correctness map was fitted for this bucket -- the
+        honest answer, and the one a gate must be able to distinguish from a
+        low probability. Scene gates surface this as ``p_correct`` so a
+        threshold means what an operator thought it meant.
+        """
+        bucket = self.buckets.get(bucket_key(kind, n_options))
+        if bucket is None or not bucket.correctness_map:
+            return None
+        points = bucket.correctness_map
+        if confidence <= points[0][0]:
+            return float(points[0][1])
+        if confidence >= points[-1][0]:
+            return float(points[-1][1])
+        for (x0, y0), (x1, y1) in pairwise(points):
+            if x0 <= confidence <= x1:
+                if x1 == x0:
+                    return float(y1)
+                ratio = (confidence - x0) / (x1 - x0)
+                return float(y0 + ratio * (y1 - y0))
+        return float(points[-1][1])  # pragma: no cover -- covered by the bounds above
+
     def is_fitted(self) -> bool:
         return bool(self.buckets)
+
+    def has_correctness_map(self, kind: str, n_options: int) -> bool:
+        bucket = self.buckets.get(bucket_key(kind, n_options))
+        return bool(bucket and bucket.correctness_map)
 
     # -- fitting ----------------------------------------------------------- #
 
@@ -202,9 +304,12 @@ class Calibrator:
         """
         t = fit_temperature(logits, labels)
         probs = [softmax(np.asarray(lg, dtype=np.float64), temperature=t) for lg in logits]
+        confidences = [_confidence(p) for p in probs]
+        hits = [int(np.argmax(p)) == y for p, y in zip(probs, labels, strict=True)]
         bucket = Bucket(
             temperature=t,
             conformal={_akey(a): fit_conformal_quantile(probs, labels, a) for a in alphas},
+            correctness_map=fit_correctness_map(confidences, hits),
             n_samples=len(labels),
         )
         self.buckets[bucket_key(kind, n_options)] = bucket

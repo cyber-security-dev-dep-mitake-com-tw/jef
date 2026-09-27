@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import pytest
 from jef_core.backbone import InstrumentedBackbone, StateEncoding
@@ -124,14 +126,34 @@ def test_instrumented_backbone_counts_and_resets(backbone) -> None:
     assert inst.encode_count == 0
 
 
-def test_unavailable_torch_backend_raises_actionable_error() -> None:
+def test_missing_torch_extra_raises_actionable_error(monkeypatch) -> None:
+    """A missing extra must name the extra, not surface a bare ImportError.
+
+    This simulates the absent dependency rather than loading a real model: a
+    unit test that downloads 300M parameters is not a unit test, and it would
+    make CI depend on the Hugging Face CDN.
+    """
+    import builtins
+
     from jef_core.errors import BackendUnavailableError
 
-    try:
+    real_import = builtins.__import__
+
+    def no_torch(name, *args, **kwargs):
+        if name == "torch" or name.startswith("torch."):
+            raise ImportError("No module named 'torch'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_torch)
+    monkeypatch.delitem(sys.modules, "jef_core.backends.mmbert", raising=False)
+
+    with pytest.raises(BackendUnavailableError, match="torch"):
         load_backbone("jhu-clsp/mmBERT-base")
-    except BackendUnavailableError as exc:
-        assert "torch" in str(exc)
-    except ImportError:  # pragma: no cover
-        pytest.fail("should surface BackendUnavailableError, not ImportError")
-    else:  # pragma: no cover -- only when the torch extra is installed
-        pytest.skip("torch extra is installed")
+
+
+def test_default_backbone_never_downloads_anything() -> None:
+    """Engine() with no arguments must stay offline and instant."""
+    from jef_core import Engine
+
+    engine = Engine()
+    assert engine.backbone.name == "hashing"
