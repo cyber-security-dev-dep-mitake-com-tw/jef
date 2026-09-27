@@ -50,3 +50,6 @@ Infra/ansible/inventory/hosts.ini
 .DS_Store
 .idea/
 .vscode/
+
+# --- 衍生語料（可重建，且含第三方文字）---
+data/corpus/*.jsonl
