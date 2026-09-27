@@ -110,6 +110,13 @@ class BucketReport:
     mean_top_probability: float
     temperature: float
     conformal_coverage: dict[str, float] = field(default_factory=dict)
+    #: alpha -> True when empirical coverage fell materially below the nominal
+    #: 1-alpha. Conformal's guarantee is marginal *under exchangeability*; a
+    #: split that puts different concepts in calibration and test breaks that
+    #: assumption, and the guarantee goes with it. Flagged rather than buried,
+    #: because a coverage claim nobody checks is exactly the kind of thing this
+    #: project exists to stop shipping.
+    coverage_violation: dict[str, bool] = field(default_factory=dict)
     mean_set_size: dict[str, float] = field(default_factory=dict)
     #: Top-probability reliability: bin mean probability against observed accuracy.
     reliability: list[dict[str, float]] = field(default_factory=list)
@@ -183,12 +190,18 @@ def evaluate_cache(
             all_pcorrect.extend([p for p in p_corrects if p is not None])
 
         coverage: dict[str, float] = {}
+        violation: dict[str, bool] = {}
         set_size: dict[str, float] = {}
         if calib.is_fitted():
             for alpha in alphas:
                 sets = [calib.prediction_set(p, kind, width, alpha) for p in probs]
                 covered = sum(1 for s, y in zip(sets, labels, strict=True) if y in s)
-                coverage[f"{alpha:.2f}"] = covered / len(labels)
+                empirical = covered / len(labels)
+                coverage[f"{alpha:.2f}"] = empirical
+                # Finite-sample slack scaled to the bucket, so a small bucket is
+                # not flagged for ordinary sampling noise.
+                slack = 2.0 * np.sqrt(alpha * (1 - alpha) / max(len(labels), 1))
+                violation[f"{alpha:.2f}"] = bool(empirical < (1 - alpha) - slack)
                 set_size[f"{alpha:.2f}"] = float(np.mean([len(s) for s in sets]))
 
         reports.append(
@@ -206,6 +219,7 @@ def evaluate_cache(
                 temperature=temperature,
                 reliability_confidence=reliability_curve(confs, hits),
                 conformal_coverage=coverage,
+                coverage_violation=violation,
                 mean_set_size=set_size,
                 reliability=reliability_curve(tops, hits),
             )

@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 from jef_core.backends import load_backbone
@@ -66,11 +67,19 @@ def _corpus_cache(
     return cache
 
 
-def _split_caches(corpus: Path, whole: FeatureCache) -> dict[str, FeatureCache]:
+def _split_caches(
+    corpus: Path, whole: FeatureCache, exclude: Sequence[str] = ()
+) -> dict[str, FeatureCache]:
     """Slice the corpus cache into the splits on disk, and verify the split."""
     out: dict[str, FeatureCache] = {}
     for split in _SPLITS:
-        uids = [s.uid for s in read_samples(corpus / f"{split}.jsonl")]
+        uids = [
+            s.uid
+            for s in read_samples(corpus / f"{split}.jsonl")
+            if not any(s.source.startswith(prefix) for prefix in exclude)
+        ]
+        if not uids:
+            raise SystemExit(f"split {split!r} is empty after exclusions")
         out[split] = whole.subset(uids)
 
     # Belt and braces: the corpus builder already refuses to write a leaking
@@ -101,6 +110,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--threads", type=int, default=None)
     parser.add_argument("--seed", type=int, default=1337)
     parser.add_argument(
+        "--exclude-source",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help=(
+            "drop samples whose source starts with PREFIX, in every split. "
+            "Use to ablate a generator: --exclude-source soar_zh answers "
+            "'is this data helping or hurting?' without re-encoding anything."
+        ),
+    )
+    parser.add_argument(
         "--no-class-weighting",
         action="store_true",
         help="train on the raw prior; expect better accuracy and worse macro-F1",
@@ -115,7 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     out.mkdir(parents=True, exist_ok=True)
 
     whole = _corpus_cache(corpus, cache_dir, args.backbone, args.threads)
-    caches = _split_caches(corpus, whole)
+    caches = _split_caches(corpus, whole, exclude=args.exclude_source)
+    if args.exclude_source:
+        log.info("excluded sources matching: %s", ", ".join(args.exclude_source))
     log.info(
         "splits: %s over %d distinct evidence groups",
         {k: len(v) for k, v in caches.items()},
@@ -166,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
         "head": head.name,
         "rank": args.rank,
         "class_weighting": not args.no_class_weighting,
+        "excluded_sources": list(args.exclude_source),
         "splits": {k: len(v) for k, v in caches.items()},
         "split_unit": "evidence group (ATT&CK technique / CVE id / SOAR template)",
         "groups": {k: len(set(v.groups)) for k, v in caches.items()},
@@ -177,6 +200,10 @@ def main(argv: list[str] | None = None) -> int:
     (out / "report.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+
+    log.info("--- per source ---")
+    for source, stats in sorted(after.by_source.items()):
+        log.info("  %-24s n=%-5d acc %.3f", source, int(stats["n"]), stats["accuracy"])
 
     log.info("--- test set (%d samples) ---", after.n)
     log.info("majority baseline accuracy  %.4f", baseline)
@@ -211,6 +238,19 @@ def main(argv: list[str] | None = None) -> int:
             bucket.temperature,
             bucket.conformal_coverage.get("0.10", float("nan")),
         )
+        for alpha, violated in sorted(bucket.coverage_violation.items()):
+            if violated:
+                log.warning(
+                    "    %-12s CONFORMAL COVERAGE SHORTFALL at alpha=%s: %.3f < %.3f. "
+                    "The guarantee is marginal under exchangeability; a split that "
+                    "puts different concepts in calibration and test breaks that "
+                    "assumption. Do not gate automated actions on prediction sets "
+                    "from this bucket.",
+                    bucket.bucket,
+                    alpha,
+                    bucket.conformal_coverage[alpha],
+                    1 - float(alpha),
+                )
         if bucket.ece_p_correct is None:
             log.info(
                 "    %-12s no P(correct) map: too few calibration samples to fit one honestly",

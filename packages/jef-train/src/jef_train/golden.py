@@ -179,6 +179,26 @@ def build_fixtures(seed: int = 1337, head_path: Path | None = None) -> dict[str,
             }
         )
 
+    from jef_core.backends.hashing import HashingBackbone
+
+    stub = HashingBackbone(dim=256)
+    stub_texts = [
+        "付款服務連續三天失敗，已影響營收。錯誤碼 502。",
+        "short",
+        "",
+        "混合 mixed 文字 text 123",
+    ]
+    hashing_cases = [
+        {
+            "text": text,
+            "n_tokens": stub.encode_state(text).n_tokens,
+            "expected_state_first": stub.encode_state(text).hidden[0].tolist(),
+            "expected_state_last": stub.encode_state(text).hidden[-1].tolist(),
+            "expected_query": stub.encode_queries([text])[0].tolist(),
+        }
+        for text in stub_texts
+    ]
+
     head_fixtures = (
         build_head_fixtures(np.random.default_rng(seed + 1), head_path)
         if head_path is not None
@@ -199,6 +219,7 @@ def build_fixtures(seed: int = 1337, head_path: Path | None = None) -> dict[str,
         "calibration": calibration_cases,
         "isotonic": isotonic_cases,
         "head": head_fixtures,
+        "hashing_backbone": {"dim": 256, "cases": hashing_cases},
     }
 
 
