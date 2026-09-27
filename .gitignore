@@ -1,0 +1,52 @@
+# --- agent 工作區（不進版控） ---
+.claude/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Node ---
+node_modules/
+.turbo/
+*.tsbuildinfo
+
+# --- Go ---
+bin/
+*.test
+
+# --- 模型與快取（大檔，走 HF Hub 不進 git） ---
+.cache/
+models/*/weights/
+*.onnx
+*.safetensors
+embeddings_cache/
+
+# --- 測試產出 ---
+test/results/
+output.xml
+log.html
+report.html
+
+# --- IaC 狀態（含機密，絕不進版控） ---
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+Pulumi.*.yaml
+!Pulumi.yaml
+*.retry
+Infra/ansible/inventory/hosts.ini
+
+# --- OS / IDE ---
+.DS_Store
+.idea/
+.vscode/

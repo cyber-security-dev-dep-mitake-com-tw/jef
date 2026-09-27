@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The deployment target is a CPU-only 16 vCPU Proxmox VM, so CI stays CPU-only
+  # too -- nothing here may quietly start depending on a GPU.
+  JEF_BACKBONE: hashing
+
+jobs:
+  python:
+    name: python (${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync workspace
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+      - name: Lint
+        run: uv run ruff check packages/
+      - name: Format check
+        run: uv run ruff format --check packages/
+      - name: Type check
+        run: uv run mypy packages/
+      - name: Test
+        run: uv run pytest packages/ -q --cov=packages --cov-report=term-missing
+
+  contract:
+    name: /v1/systemone conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+      - name: Robot Framework acceptance
+        run: uv run robot --outputdir test/results test/acceptance
