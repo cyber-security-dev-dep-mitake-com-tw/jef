@@ -78,6 +78,43 @@ def _attributes_on(condition: str, name: str) -> set[str]:
     }
 
 
+def _asserts_high_confidence(condition: str, name: str) -> bool:
+    """Whether a condition acts *because* confidence is high.
+
+    The distinction matters. `confidence < 0.15` is detecting indecision, which
+    is exactly what a sharpness statistic measures and a correct use of it.
+    `confidence >= 0.9` is claiming the answer is probably right, which is a
+    different quantity -- that is the one worth flagging.
+    """
+    try:
+        tree = ast.parse(condition, mode="eval")
+    except SyntaxError:
+        return False
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare) or len(node.ops) != 1:
+            continue
+        left, op, right = node.left, node.ops[0], node.comparators[0]
+        reads_confidence = (
+            isinstance(left, ast.Attribute)
+            and left.attr == "confidence"
+            and isinstance(left.value, ast.Name)
+            and left.value.id == name
+        )
+        if reads_confidence and isinstance(op, (ast.Gt, ast.GtE)):
+            return True
+        # The mirrored form: `0.9 <= x.confidence`.
+        reads_confidence_right = (
+            isinstance(right, ast.Attribute)
+            and right.attr == "confidence"
+            and isinstance(right.value, ast.Name)
+            and right.value.id == name
+        )
+        if reads_confidence_right and isinstance(op, (ast.Lt, ast.LtE)):
+            return True
+    return False
+
+
 def _numeric_literal(node: ast.expr) -> float | None:
     """A numeric constant, including a negated one.
 
@@ -149,9 +186,17 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
     if scene.fallthrough:
         targeted.add(scene.fallthrough)
 
+    # Names accumulate across layers, exactly as the engine does it: a gate may
+    # read any question answered so far. Scoping per layer here would report
+    # errors on scenes that run correctly.
+    names: set[str] = set()
+    used_anywhere: set[str] = set()
+    defined_in: dict[str, str] = {}
+
     for layer in scene.layers:
-        names = set(layer.questions)
-        used: set[str] = set()
+        names |= set(layer.questions)
+        for qid in layer.questions:
+            defined_in[qid] = layer.id
 
         for index, gate in enumerate(layer.gates):
             targeted.add(gate.then)
@@ -166,7 +211,7 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
                 )
                 continue
 
-            used |= _referenced_names(gate.when)
+            used_anywhere |= _referenced_names(gate.when)
 
             for finding in _impossible_comparisons(gate.when):
                 problems.append(
@@ -179,15 +224,20 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
                 )
 
             # The thesis check. `confidence` is distribution sharpness; a gate
-            # that automates on it is saying "the model sounded sure", which is
-            # not the same as "the model is likely right". Only flagged when the
-            # gate leads somewhere no human will see.
+            # that acts *because* it is high is saying "the model sounded sure",
+            # which is not the same as "the model is likely right". Flagged only
+            # when the gate both asserts high confidence and leads somewhere no
+            # human will see -- escalating on low confidence is correct use.
             action = scene.actions.get(gate.then)
             automating = action is not None and not action.human_review
             if automating:
                 for name in _referenced_names(gate.when):
                     attributes = _attributes_on(gate.when, name)
-                    if "confidence" in attributes and "p_correct" not in attributes:
+                    if (
+                        "confidence" in attributes
+                        and "p_correct" not in attributes
+                        and _asserts_high_confidence(gate.when, name)
+                    ):
                         problems.append(
                             Problem(
                                 source,
@@ -200,15 +250,17 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
                             )
                         )
 
-        for unused in sorted(names - used):
-            problems.append(
-                Problem(
-                    source,
-                    "warning",
-                    f"layer {layer.id}: question '{unused}' is asked but no gate reads it",
-                    _line_of(text, f"{unused}:"),
-                )
+    # Checked after every layer, because a question may be read by a gate in a
+    # later layer than the one that asks it.
+    for unused in sorted(names - used_anywhere):
+        problems.append(
+            Problem(
+                source,
+                "warning",
+                f"layer {defined_in[unused]}: question '{unused}' is asked but no gate reads it",
+                _line_of(text, f"{unused}:"),
             )
+        )
 
     for orphan in sorted(set(scene.actions) - targeted):
         problems.append(

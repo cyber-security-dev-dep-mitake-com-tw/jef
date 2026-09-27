@@ -345,7 +345,10 @@ class Calibrator:
 
     @classmethod
     def load(cls, path: str | Path) -> Calibrator:
-        return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
+        """Load from a local path or an ``hf://owner/repo/calibration.json``."""
+        from .artifacts import resolve_artifact
+
+        return cls.from_dict(json.loads(resolve_artifact(path).read_text(encoding="utf-8")))
 
 
 def _akey(alpha: float) -> str:

@@ -1,5 +1,5 @@
 [project]
-name = "jef-scene==0.1.0"
+name = "jef-scene"
 version = "0.1.0"
 description = "JEF scene: YAML DAG gates, expression sandbox, decision trace"
 requires-python = ">=3.12,<3.14"

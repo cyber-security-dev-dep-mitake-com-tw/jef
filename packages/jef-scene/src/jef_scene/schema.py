@@ -10,8 +10,9 @@ The shape is deliberately small:
 
     layers: ordered. Each asks a set of typed questions and evaluates its gates
             in order; the first matching gate decides what happens.
-    gates:  `when` is an expression over this layer's answers; `then` is either
-            `next` or the name of a terminal action.
+    gates:  `when` is an expression over every answer produced so far -- this
+            layer's and any earlier layer's -- and `then` is either `next` or
+            the name of a terminal action.
 
 Everything in a scene sees the same state, encoded exactly once for the whole
 run. That is the entire performance argument: a twenty-gate playbook costs one
@@ -116,6 +117,20 @@ class Scene(_Base):
         ids = [layer.id for layer in self.layers]
         if len(set(ids)) != len(ids):
             raise ValueError("layer ids must be unique")
+
+        # Question ids are unique across the whole scene, not just within a
+        # layer, because a gate may reference any question answered so far.
+        # Without this, `owner` in layer three would be ambiguous.
+        seen: dict[str, str] = {}
+        for layer in self.layers:
+            for qid in layer.questions:
+                if qid in seen:
+                    raise ValueError(
+                        f"question id {qid!r} appears in both layer {seen[qid]!r} and "
+                        f"layer {layer.id!r}; ids must be unique across a scene so a "
+                        "gate can reference an earlier layer's answer unambiguously"
+                    )
+                seen[qid] = layer.id
 
         last = self.layers[-1]
         if self.fallthrough is None and not any(g.else_ for g in last.gates):

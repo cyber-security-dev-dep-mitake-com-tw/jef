@@ -16,6 +16,7 @@ generation, no parsing.
 
 from __future__ import annotations
 
+from .artifacts import is_hf_uri, resolve_artifact
 from .backbone import Backbone, InstrumentedBackbone, StateEncoding
 from .backends import load_backbone
 from .calibration import Bucket, Calibrator
@@ -83,9 +84,11 @@ __all__ = [
     "coerce_question",
     "confidence",
     "expected_calibration_error",
+    "is_hf_uri",
     "load_backbone",
     "normalize",
     "render_state",
+    "resolve_artifact",
     "score_expectation",
     "softmax",
 ]

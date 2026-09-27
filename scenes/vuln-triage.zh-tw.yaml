@@ -1,0 +1,109 @@
+scene: vuln-triage
+version: 1
+description: >-
+  漏洞分流：讀 CVE 描述，判斷可利用性與嚴重度，決定修補優先序。
+  這個 scene 的每一道問題都對應到出貨模型實際校準過的 bucket
+  （choice:4 攻擊向量、score:5 嚴重度、noul:2 權限與互動需求），
+  所以它是能真正自動化的——與 incident-triage 不同，後者的 5 選項
+  團隊分流在 models/jef-v0 裡沒有對應的 P(correct) 校準。
+
+alpha: 0.10
+fallthrough: manual_review
+
+layers:
+  - id: L1-exploitability
+    description: 先判斷這個漏洞要被利用有多容易。兩題都是 noul:2，校準品質最好（P(correct) ECE 0.041）。
+    questions:
+      no_privileges:
+        type: noul
+        instructions: 利用此漏洞是否不需要事先取得任何權限？
+        criteria:
+          true: 未經身分驗證的攻擊者即可利用
+          false: 需要既有帳號或權限
+      no_interaction:
+        type: noul
+        instructions: 利用此漏洞是否不需要使用者的操作配合？
+        criteria:
+          true: 無需使用者點擊或開啟任何東西
+          false: 需要使用者互動才能觸發
+    gates:
+      # 證據不足時不猜。兩題都貼近 0.5 代表描述裡沒有足以判斷的資訊，
+      # 而猜出來的答案會帶著同樣的信心分數往下傳。
+      - when: >-
+          no_privileges.confidence < 0.15 and no_interaction.confidence < 0.15
+        then: needs_detail
+        because: 描述過於簡略，兩項可利用性判斷都無法成立
+      - else: true
+        then: next
+
+  - id: L2-severity
+    description: 攻擊向量與嚴重度。兩者都是模型直接訓練過的任務。
+    questions:
+      attack_vector:
+        type: choice
+        instructions: 攻擊者要利用此漏洞，需要什麼樣的存取位置？
+        criteria:
+          network: 可經由網路遠端觸發，攻擊者不需位於同一網段
+          adjacent: 需與目標位於同一邏輯或實體鄰接網段
+          local: 需在本機上以既有存取權執行
+          physical: 需實體接觸目標裝置
+      severity:
+        type: score
+        instructions: 依據漏洞描述評估其嚴重程度。
+        criteria: [無, 低, 中, 高, 危急]
+    gates:
+      # 自動化的門檻讀 p_correct，不是 confidence。
+      # confidence 只說分布有多尖，p_correct 才是「答對的機率」。
+      - when: >-
+          attack_vector.p_correct is not None
+          and attack_vector.p_correct >= 0.80
+          and attack_vector.choice == 'network'
+          and severity.score >= 3.0
+          and no_privileges.probability > 0.6
+        then: patch_now
+        because: 可遠端、免權限、高嚴重度——這是會被自動化掃描找到並利用的組合
+
+      - when: >-
+          attack_vector.p_correct is not None
+          and attack_vector.p_correct >= 0.80
+          and severity.score >= 2.5
+        then: patch_scheduled
+        because: 歸類可信且嚴重度足夠，排入既定修補週期
+
+      - when: >-
+          attack_vector.p_correct is not None
+          and attack_vector.p_correct >= 0.80
+          and severity.score < 1.5
+        then: backlog
+        because: 歸類可信但影響有限
+
+      # conformal 集合大於 2 代表模型在承諾的覆蓋率下分不出攻擊向量。
+      # 這與「機率低」不同，是「無法分辨」。
+      - when: 'attack_vector.set_size > 2'
+        then: manual_review
+        because: 模型無法在 90% 覆蓋率下分辨攻擊向量
+
+      - else: true
+        then: manual_review
+
+actions:
+  patch_now:
+    description: 立即修補，通知系統負責人
+    human_review: false
+    params: { queue: patch_urgent, sla_hours: 24 }
+  patch_scheduled:
+    description: 排入下一個修補週期
+    human_review: false
+    params: { queue: patch_cycle, sla_days: 30 }
+  backlog:
+    description: 記錄後排入待辦，不佔用修補週期
+    human_review: false
+    params: { queue: backlog }
+  needs_detail:
+    description: 漏洞描述不足，向來源索取細節
+    human_review: false
+    params: { queue: enrichment }
+  manual_review:
+    description: 交由資安分析師人工判斷
+    human_review: true
+    params: { queue: analyst_review }

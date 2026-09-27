@@ -81,24 +81,28 @@ actions:
 
 
 def test_every_layer_sees_the_same_state(scene_engine: SceneEngine) -> None:
-    """The same question in two layers must get the same answer."""
+    """The same question asked in two layers must get the same answer.
+
+    Ids differ because a scene requires unique question ids -- that is what lets
+    a later gate reference an earlier layer's answer without qualification.
+    """
     scene = load_scene_text("""
 scene: same
 fallthrough: done
 layers:
   - id: L1
     questions:
-      q: {type: noul, instructions: 是否緊急？}
+      first_ask: {type: noul, instructions: 是否緊急？}
     gates:
-      - when: 'q.probability > 1.5'
+      - when: 'first_ask.probability > 1.5'
         then: done
       - else: true
         then: next
   - id: L2
     questions:
-      q: {type: noul, instructions: 是否緊急？}
+      second_ask: {type: noul, instructions: 是否緊急？}
     gates:
-      - when: 'q.probability > 1.5'
+      - when: 'second_ask.probability > 1.5'
         then: done
       - else: true
         then: next
@@ -109,3 +113,58 @@ actions:
     first = trace.layers[0].questions[0].answer
     second = trace.layers[1].questions[0].answer
     assert first == second
+
+
+def test_a_later_gate_can_read_an_earlier_layers_answer(scene_engine: SceneEngine) -> None:
+    """Combining across layers is how a real playbook reasons.
+
+    Without this a scene can only branch on the questions in the layer it is
+    already in, which forces every correlated decision into one flat layer.
+    """
+    scene = load_scene_text("""
+scene: crosslayer
+fallthrough: missed
+layers:
+  - id: L1
+    questions:
+      remote: {type: noul, instructions: 是否可遠端觸發？}
+    gates:
+      - else: true
+        then: next
+  - id: L2
+    questions:
+      severe: {type: noul, instructions: 是否嚴重？}
+    gates:
+      # `remote` comes from L1; `severe` from this layer.
+      - when: 'remote.probability >= 0.0 and severe.probability >= 0.0'
+        then: combined
+      - else: true
+        then: missed
+actions:
+  combined: {}
+  missed: {}
+""")
+    assert scene_engine.run(scene, "x").action == "combined"
+
+
+def test_duplicate_question_ids_across_layers_are_rejected() -> None:
+    """Ambiguity is refused at load time rather than resolved by guessing."""
+    import pytest
+    from jef_core.errors import SceneError
+
+    with pytest.raises(SceneError, match="unique across a scene"):
+        load_scene_text("""
+scene: dup
+fallthrough: done
+layers:
+  - id: L1
+    questions:
+      q: {type: noul, instructions: 甲？}
+    gates: [{else: true, then: next}]
+  - id: L2
+    questions:
+      q: {type: noul, instructions: 乙？}
+    gates: [{else: true, then: done}]
+actions:
+  done: {}
+""")

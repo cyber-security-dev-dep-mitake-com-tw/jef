@@ -191,7 +191,10 @@ class BilinearHead:
 
     @classmethod
     def load(cls, path: str | Path) -> BilinearHead:
-        z = np.load(Path(path), allow_pickle=False)
+        """Load from a local path or an ``hf://owner/repo/head.npz`` reference."""
+        from .artifacts import resolve_artifact
+
+        z = np.load(resolve_artifact(path), allow_pickle=False)
         return cls(
             u=z["u"],
             v=z["v"],

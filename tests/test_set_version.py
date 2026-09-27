@@ -123,3 +123,68 @@ def test_npm_packages_keep_their_formatting(tmp_path: Path) -> None:
         assert raw.endswith("\n")
         assert json.loads(raw)  # parses
         assert '\n  "' in raw, f"{rel} should use two-space indent"
+
+
+# --------------------------------------------------------------------------- #
+# Against the real files, not a synthetic string
+# --------------------------------------------------------------------------- #
+#
+# The tests above exercise the rewrite function in isolation, and they passed
+# while five real pyproject.toml files sat in the repo with `name =
+# "jef-core==0.1.0"`. Testing a function is not testing the artifact it
+# produces. These check the files themselves.
+
+EXPECTED_NAMES = {
+    "jef": "jef",
+    "jef-core": "jef-core",
+    "jef-scene": "jef-scene",
+    "jef-server": "jef-server",
+    "jef-sdk-python": "jef-sdk",
+    "jef-train": "jef-train",
+}
+
+
+@pytest.mark.parametrize(("directory", "distribution"), sorted(EXPECTED_NAMES.items()))
+def test_real_pyproject_names_are_intact(directory: str, distribution: str) -> None:
+    import re
+
+    path = ROOT / "packages" / directory / "pyproject.toml"
+    match = re.search(r'(?m)^name\s*=\s*"([^"]+)"', path.read_text(encoding="utf-8"))
+    assert match, f"{path} has no name field"
+    assert match.group(1) == distribution, (
+        f"{path} declares name {match.group(1)!r}; a version suffix here fails the "
+        "build with a message that names neither the file nor the cause"
+    )
+
+
+@pytest.mark.parametrize("directory", sorted(EXPECTED_NAMES))
+def test_every_package_builds(directory: str, tmp_path: Path) -> None:
+    """The only check that would have caught the corrupted name fields."""
+    import shutil
+    import subprocess
+
+    # Resolved rather than looked up from PATH at exec time: a partial path is
+    # the kind of thing the bandit rules exist to catch, and this repo has them
+    # on for a reason.
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is not on PATH")
+
+    result = subprocess.run(  # noqa: S603
+        [uv, "build", "--wheel", str(ROOT / "packages" / directory), "-o", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr[-1500:]
+    assert list(tmp_path.glob("*.whl")), "no wheel produced"
+
+
+@pytest.mark.parametrize("directory", sorted(EXPECTED_NAMES))
+def test_every_package_declares_pypi_metadata(directory: str) -> None:
+    """Missing metadata publishes fine and looks abandoned."""
+    text = (ROOT / "packages" / directory / "pyproject.toml").read_text(encoding="utf-8")
+    for field in ("readme", "classifiers", "keywords", "authors", "[project.urls]"):
+        assert field in text, f"{directory} is missing {field}"
+    assert (ROOT / "packages" / directory / "README.md").is_file(), f"{directory} has no README"

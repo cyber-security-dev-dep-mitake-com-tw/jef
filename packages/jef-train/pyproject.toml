@@ -1,5 +1,5 @@
 [project]
-name = "jef-train==0.1.0"
+name = "jef-train"
 version = "0.1.0"
 description = "JEF training: embedding cache, head training, temperature + conformal calibration"
 requires-python = ">=3.12,<3.14"

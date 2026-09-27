@@ -102,9 +102,14 @@ class SceneEngine:
 
         Called by the loader so a scene with a bad condition fails when it is
         loaded, not while an incident is being triaged.
+
+        A layer's gates may read any question answered so far, so the name set
+        accumulates: layer three can combine its own answer with one from layer
+        one, which is how a real playbook reasons.
         """
+        names: set[str] = set()
         for layer in scene.layers:
-            names = set(layer.questions)
+            names |= set(layer.questions)
             for i, gate in enumerate(layer.gates):
                 if gate.when is None:
                     continue
@@ -132,6 +137,7 @@ class SceneEngine:
         layer_traces: list[LayerTrace] = []
         decided: str | None = None
         questions_asked = 0
+        available: dict[str, AnswerView] = {}
 
         for position, layer in enumerate(scene.layers):
             answers = engine.answer(shared, layer.questions)
@@ -160,7 +166,10 @@ class SceneEngine:
                     )
                 )
 
-            gate_traces, outcome = self._run_gates(scene, layer, views)
+            # Answers accumulate: a later gate may combine its own layer's
+            # answer with an earlier one.
+            available.update(views)
+            gate_traces, outcome = self._run_gates(scene, layer, available)
             layer_traces.append(
                 LayerTrace(
                     id=layer.id,
@@ -208,11 +217,12 @@ class SceneEngine:
     # -- internals ---------------------------------------------------------- #
 
     def _run_gates(
-        self, scene: Scene, layer: Any, views: dict[str, AnswerView]
+        self, scene: Scene, layer: Any, available: dict[str, AnswerView]
     ) -> tuple[list[GateTrace], str]:
+        """Evaluate a layer's gates against every answer produced so far."""
         traces: list[GateTrace] = []
-        names = set(layer.questions)
-        namespace: dict[str, Any] = dict(views)
+        names = set(available)
+        namespace: dict[str, Any] = dict(available)
 
         for i, gate in enumerate(layer.gates):
             if gate.else_:

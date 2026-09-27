@@ -54,8 +54,16 @@ Infra/ansible/inventory/hosts.ini
 # --- 衍生語料（可重建，且含第三方文字）---
 data/corpus/*.jsonl
 
-# --- 訓練產物（由 jef_train.fit 重建，上 HF Hub 而非 git）---
-models/
+# --- 訓練產物 ---
+# models/jef-v0/ IS tracked: the head is ~400KB because only it is trained, so
+# it fits in git and every checkout can serve a calibrated engine. Feature
+# caches and any other model directory stay out.
+models/*
+!models/jef-v0/
+models/jef-v0/*
+!models/jef-v0/head.npz
+!models/jef-v0/calibration.json
+!models/jef-v0/report.json
 .cache/features/
 
 # --- npm ---

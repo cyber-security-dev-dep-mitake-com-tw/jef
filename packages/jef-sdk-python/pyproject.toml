@@ -1,5 +1,5 @@
 [project]
-name = "jef-sdk==0.1.0"
+name = "jef-sdk"
 version = "0.1.0"
 description = "JEF Python SDK: embedded engine + HTTP client"
 requires-python = ">=3.12,<3.14"

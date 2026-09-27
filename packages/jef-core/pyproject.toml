@@ -1,5 +1,5 @@
 [project]
-name = "jef-core==0.1.0"
+name = "jef-core"
 version = "0.1.0"
 description = "JEF core: shared-state encoding, decision head, calibration"
 requires-python = ">=3.12,<3.14"

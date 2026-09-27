@@ -1,0 +1,278 @@
+name: Release
+
+# Tag-driven and lockstep: `git tag v0.2.0 && git push --tags` publishes every
+# package at that version. A tag ending in rcN goes to TestPyPI and npm's `next`
+# tag instead of the real registries, so the pipeline can be rehearsed without
+# burning a version number -- PyPI and npm both refuse to reuse one.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to verify against (no publishing)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          case "$version" in
+            *rc*|*a*|*b*) echo "prerelease=true"  >> "$GITHUB_OUTPUT" ;;
+            *)            echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+          echo "Releasing $version"
+
+      # A tag that disagrees with the files is the one mistake that cannot be
+      # undone after publishing, so it stops everything before anything is built.
+      # stdlib only, so it runs before any dependency is installed -- a tag
+      # that disagrees with the files should fail in seconds, not after a sync.
+      - name: Tag matches the packages
+        run: |
+          python scripts/set-version.py --check "${{ steps.resolve.outputs.version }}" || {
+            echo "::error::tag and pyproject versions disagree. Run: python scripts/set-version.py ${{ steps.resolve.outputs.version }}"
+            exit 1
+          }
+
+      - name: Sync
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+
+      - name: Lint, types, tests
+        run: |
+          uv run ruff check packages/ connectors/ scripts/ test/ tests/
+          uv run ruff format --check packages/ connectors/ scripts/ test/ tests/
+          uv run mypy
+          uv run pytest -q
+
+      - name: Scenes lint clean
+        run: uv run jef validate scenes/
+
+  build-python:
+    name: build python
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Build every distribution
+        run: |
+          mkdir -p dist
+          for package in jef jef-core jef-scene jef-server jef-sdk-python jef-train; do
+            uv build "packages/$package" -o dist
+          done
+          ls -la dist
+
+      # Catches a broken long_description or a malformed classifier before
+      # upload, where PyPI's rejection message is far less specific.
+      - name: Validate metadata
+        run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+  pypi:
+    name: publish to ${{ needs.verify.outputs.prerelease == 'true' && 'TestPyPI' || 'PyPI' }}
+    needs: [verify, build-python]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.verify.outputs.prerelease == 'true' && 'testpypi' || 'pypi' }}
+    permissions:
+      # Trusted Publishing: OIDC instead of a long-lived API token, so there is
+      # no PyPI credential in this repository at all.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ needs.verify.outputs.prerelease == 'true' && 'https://test.pypi.org/legacy/' || '' }}
+          # An rc rehearsal may hit a version TestPyPI already has; that should
+          # not fail the run. Real releases never skip.
+          skip-existing: ${{ needs.verify.outputs.prerelease }}
+
+  npm:
+    name: publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      # Provenance: npm records which workflow and commit produced the tarball.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build and publish @jef-ai/sdk
+        working-directory: packages/jef-sdk-ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm install
+          npm run typecheck && npm test && npm run build
+          npm publish --provenance --access public \
+            --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
+
+      - name: Build and publish n8n-nodes-jef
+        working-directory: connectors/n8n
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm install
+          npm run typecheck && npm run build
+          npm publish --provenance --access public \
+            --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
+
+  ghcr:
+    name: publish container
+    needs: [verify, pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ needs.verify.outputs.prerelease == 'false' }}
+            type=sha,format=short
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          # arm64 matters here: the Proxmox and Apple Silicon paths in Infra/
+          # both assume it exists.
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: The published image actually serves
+        run: |
+          image="ghcr.io/${{ github.repository }}:${{ needs.verify.outputs.version }}"
+          docker run -d --name probe -p 8080:8080 "$image"
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/healthz >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/healthz | tee /dev/stderr | grep -q '"status":"ok"' || {
+            docker logs probe
+            exit 1
+          }
+          docker rm -f probe
+
+  weights:
+    name: publish weights
+    needs: verify
+    runs-on: ubuntu-latest
+    # The head is ~400KB because only it is trained -- the backbone is frozen
+    # and comes from Hugging Face at runtime. That is small enough to live in
+    # git, so CI always has something to publish. (Laya ships ~800MB for the
+    # same reason in reverse: it fine-tunes the encoder.)
+    #
+    # Still guarded: a checkout without weights should skip this job, not fail
+    # the release.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Look for trained artifacts
+        id: check
+        run: |
+          if [ -f models/jef-v0/head.npz ] && [ -f models/jef-v0/calibration.json ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no trained weights in models/jef-v0; skipping the weights job"
+          fi
+
+      - name: Publish to Hugging Face
+        if: steps.check.outputs.present == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          uv run --with huggingface_hub python -m jef_train.publish_weights \
+            --model-dir models/jef-v0 \
+            --repo dennislee928/jef-v0 \
+            --version "${{ needs.verify.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.present == 'true'
+        with:
+          name: weights
+          path: |
+            models/jef-v0/head.npz
+            models/jef-v0/calibration.json
+            models/jef-v0/report.json
+
+  github-release:
+    name: github release
+    needs: [verify, pypi, npm, ghcr, weights]
+    if: always() && needs.pypi.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+        continue-on-error: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ needs.verify.outputs.version }}"
+          files=$(find artifacts -type f 2>/dev/null | tr '\n' ' ')
+          gh release create "v${version}" $files \
+            --title "v${version}" \
+            --generate-notes \
+            ${{ needs.verify.outputs.prerelease == 'true' && '--prerelease' || '' }}

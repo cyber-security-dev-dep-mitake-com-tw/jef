@@ -1,5 +1,5 @@
 [project]
-name = "jef-server==0.1.0"
+name = "jef-server"
 version = "0.1.0"
 description = "JEF server: /v1/systemone + /v1/scenes HTTP API"
 requires-python = ">=3.12,<3.14"
