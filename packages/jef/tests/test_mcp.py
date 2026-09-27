@@ -48,16 +48,26 @@ def tools(server: Any) -> dict[str, Any]:
     return {tool.name: tool for tool in listed}
 
 
-def call(server: Any, name: str, **arguments: Any) -> Any:
+def call(server: Any, name: str, **arguments: Any) -> dict[str, Any]:
     """Invoke a tool the way a client would, returning its structured result."""
     result = asyncio.run(server.call_tool(name, arguments))
-    # MCP returns (content, structured) in this version; take whichever holds
-    # the dict so the tests do not depend on that shape.
-    if isinstance(result, tuple):
-        for part in result:
-            if isinstance(part, dict):
-                return part
-    return result
+    assert not result.is_error, f"{name} failed: {result.content}"
+    assert result.structured_content is not None, f"{name} returned no structured content"
+    return dict(result.structured_content)
+
+
+def call_expecting_failure(server: Any, name: str, **arguments: Any) -> str:
+    """Invoke a tool that should be refused, returning the message the agent sees.
+
+    A rejection has to reach the caller as text it can act on -- an agent cannot
+    read a traceback in the server's stderr.
+    """
+    try:
+        result = asyncio.run(server.call_tool(name, arguments))
+    except Exception as exc:  # noqa: BLE001 -- the tool boundary
+        return str(exc)
+    assert result.is_error, f"{name} should have been refused"
+    return str(result.content)
 
 
 # --------------------------------------------------------------------------- #
@@ -183,10 +193,13 @@ def test_running_a_scene_returns_the_trace(server: Any) -> None:
 
 
 def test_a_single_option_choice_is_refused(server: Any) -> None:
-    with pytest.raises(Exception, match="at least two"):
-        call(server, "jef_choice", state="x", question="誰？", options={"only": "one"})
+    message = call_expecting_failure(
+        server, "jef_choice", state="x", question="誰？", options={"only": "one"}
+    )
+    assert "at least two" in message
 
 
 def test_an_empty_question_set_is_refused(server: Any) -> None:
-    with pytest.raises(Exception, match="not be empty"):
-        call(server, "jef_ask_many", state="x", questions={})
+    assert "not be empty" in call_expecting_failure(
+        server, "jef_ask_many", state="x", questions={}
+    )
