@@ -161,6 +161,71 @@ jobs:
           path: test/results-go/
           retention-days: 7
 
+  helm:
+    name: chart installs on a real cluster
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: jef-ci
+
+      - name: Lint
+        run: helm lint deploy/helm/jef --set jef.backbone=jhu-clsp/mmBERT-base
+
+      # helm lint only checks the chart. Server-side dry-run validates the
+      # rendered objects against a real API server, which is what catches a
+      # mistyped field or a deprecated apiVersion.
+      - name: Validate rendered manifests against the API server
+        run: |
+          helm template jef deploy/helm/jef \
+            --set jef.backbone=jhu-clsp/mmBERT-base \
+            --set modelCache.enabled=false \
+            | kubectl apply --dry-run=server -f -
+
+      - name: The chart refuses the test backbone
+        run: |
+          # 'hashing' returns well-formed answers with no semantics, so a
+          # deployment using it fails as confident nonsense rather than an
+          # error. The chart must break the install instead.
+          if helm template jef deploy/helm/jef --set jef.backbone=hashing >/dev/null 2>&1; then
+            echo "::error::chart rendered with the hashing test backbone"
+            exit 1
+          fi
+
+      - name: The chart refuses to oversubscribe the intra-op pool
+        run: |
+          # threads >= cpu limit degrades p99 through cache contention on a
+          # CPU-only node, so it is a hard stop rather than a warning.
+          if helm template jef deploy/helm/jef \
+              --set jef.backbone=jhu-clsp/mmBERT-base \
+              --set jef.threads=8 --set resources.limits.cpu=8 >/dev/null 2>&1; then
+            echo "::error::chart rendered with threads >= cpu limit"
+            exit 1
+          fi
+
+      - name: Install
+        run: |
+          helm install jef deploy/helm/jef \
+            --set jef.backbone=jhu-clsp/mmBERT-base \
+            --set modelCache.enabled=false \
+            --set autoscaling.enabled=false \
+            --set replicaCount=1 \
+            --wait --timeout 90s || true
+
+      # Pods will not become ready without the model, which is deliberate: CI
+      # does not download 300M parameters. What this proves is that the release
+      # installs and every object is created and schedulable.
+      - name: Objects exist and the pod is scheduled
+        run: |
+          kubectl get deploy,svc,cm,pdb -l app.kubernetes.io/instance=jef
+          kubectl wait --for=jsonpath='{.status.phase}'=Running \
+            pod -l app.kubernetes.io/instance=jef --timeout=120s || true
+          kubectl describe pod -l app.kubernetes.io/instance=jef | tail -30
+          test "$(kubectl get deploy jef -o jsonpath='{.spec.replicas}')" = "1"
+          test "$(kubectl get cm jef -o jsonpath='{.data.JEF_THREADS}')" = "6"
+
   docker:
     name: image builds and serves
     runs-on: ubuntu-latest

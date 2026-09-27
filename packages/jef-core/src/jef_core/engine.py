@@ -101,6 +101,17 @@ class Engine:
         """Number of full state encodes performed since the last reset."""
         return self.backbone.encode_count
 
+    @property
+    def query_encode_count(self) -> int:
+        """Number of batched option-text encodes performed.
+
+        One per :meth:`answer` call, regardless of how many questions it carries.
+        Worth watching alongside ``encode_count``: a shared state encoding with
+        a per-question option encode still reports one state read while costing
+        linearly, which is what this engine did before the encodes were batched.
+        """
+        return self.backbone.query_encode_count
+
     def reset_counters(self) -> None:
         self.backbone.reset_counters()
 
@@ -113,7 +124,11 @@ class Engine:
         return SharedState(text=text, encoding=encoding, n_tokens=encoding.n_tokens)
 
     def answer_one(self, shared: SharedState, q: NormalizedQuestion) -> Answer:
-        """Answer a single normalized question against an already-encoded state."""
+        """Answer a single normalized question against an already-encoded state.
+
+        Prefer :meth:`answer` when there is more than one question: it batches
+        the option encodes into a single pass, which is most of the cost.
+        """
         queries = self.backbone.encode_queries(build_query_texts(q))
         logits = self.head.logits(shared.encoding, q, queries)
         probs = self.calibrator.apply(logits, q.kind, q.n_options)
@@ -124,11 +139,36 @@ class Engine:
     ) -> dict[str, Answer]:
         """Answer every question against the same encoding, independently.
 
-        No question can influence another: each one only ever reads ``shared``.
+        The option texts for *all* questions are encoded in one batched pass,
+        not one pass per question. This is the second half of the mechanism and
+        it was missing at first: with a per-question encode, eleven questions
+        cost 189% more than one against a real backbone, because each was paying
+        for its own forward pass over two short strings. Batching them turns
+        that into a single padded pass -- the same trick Jev applies across the
+        option batch, applied across the question batch too.
+
+        No question can influence another: each only ever reads ``shared``, and
+        the batched encode is per-option text, which carries no cross-question
+        state.
         """
+        normalized = [normalize(qid, q) for qid, q in questions.items()]
+        if not normalized:
+            return {}
+
+        texts: list[str] = []
+        spans: list[tuple[int, int]] = []
+        for q in normalized:
+            option_texts = build_query_texts(q)
+            spans.append((len(texts), len(texts) + len(option_texts)))
+            texts.extend(option_texts)
+
+        queries = self.backbone.encode_queries(texts)
+
         out: dict[str, Answer] = {}
-        for qid, q in questions.items():
-            out[qid] = self.answer_one(shared, normalize(qid, q))
+        for q, (start, end) in zip(normalized, spans, strict=True):
+            logits = self.head.logits(shared.encoding, q, queries[start:end])
+            probs = self.calibrator.apply(logits, q.kind, q.n_options)
+            out[q.id] = _build_answer(q, probs)
         return out
 
     def evaluate(

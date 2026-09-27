@@ -149,6 +149,41 @@ The corpus is rebuilt from public sources (MITRE ATT&CK, NVD) whose contents
 change over time, so exact numbers will drift. `data/corpus/manifest.json`
 records what went in.
 
+## Latency: what "adding questions is nearly free" actually costs
+
+The plan's criterion was *"ten extra questions add under 20% latency"*. Measured
+honestly, that depends entirely on how long the state is, so a single number
+would be misleading. `jhu-clsp/mmBERT-base`, 8 threads, median of five runs:
+
+| state chars | tokens | 1 question | 11 questions | growth for +10 | batching speedup |
+|---|---|---|---|---|---|
+| 116 | 91 | 33 ms | 58 ms | 73.2% | 6.35× |
+| 464 | 355 | 71 ms | 93 ms | 29.9% | 8.47× |
+| 1,740 | 1,323 | 247 ms | 289 ms | **16.8%** | 9.42× |
+| 4,640 | 3,523 | 951 ms | 1,010 ms | **6.1%** | 10.36× |
+| 11,600 | 8,192 | 4,264 ms | 4,280 ms | **0.4%** | 10.96× |
+
+The criterion is met from roughly 1,300 tokens of state onward, and the speedup
+approaches its 11× ceiling as the state grows. That is the regime JEF is for --
+an alert with logs, a CVE description, a case with its observables. For a
+one-sentence state the fixed cost is small enough that questions dominate, and
+saying so is better than quoting the one row that flatters.
+
+### The measurement found a real bug
+
+The first run of this table showed **189%** growth, not 46%. The state was being
+encoded once, as designed, but the option texts were being encoded *per
+question*: eleven questions meant eleven separate forward passes over two short
+strings each. `encode_count` was 1 the whole time, which is exactly why it did
+not catch it -- a shared state encoding followed by per-question work still
+reports one state read while costing linearly.
+
+Option encodes are now batched across every question in a request, the same trick
+Jev applies across the option batch applied across the question batch as well.
+Marginal cost per question fell from 12.3 ms to 2.6 ms. `query_encode_count` is
+now exposed alongside `encode_count`, and tests assert twenty questions cost one
+batched option encode.
+
 ## Independent third-party benchmarks
 
 Everything above is self-evaluated. These are not: the data, the labels and the

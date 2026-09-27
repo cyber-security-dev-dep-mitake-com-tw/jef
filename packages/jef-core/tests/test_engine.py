@@ -172,6 +172,59 @@ def test_uncalibrated_engine_warns(engine: Engine) -> None:
     assert any("calibrat" in w for w in r.warnings)
 
 
+def test_option_encodes_are_batched_across_questions(engine: Engine) -> None:
+    """Twenty questions cost one option encode, not twenty.
+
+    encode_count alone does not catch this: a shared state encoding followed by
+    a per-question option encode reports one state read while costing linearly.
+    Against a real backbone that was the difference between eleven questions
+    costing 189% more than one and costing 46% more.
+    """
+    engine.evaluate("付款失敗", {f"q{i}": dict(URGENT) for i in range(20)})
+    assert engine.encode_count == 1
+    assert engine.query_encode_count == 1
+
+
+def test_a_scene_style_run_batches_per_layer_not_per_question(engine: Engine) -> None:
+    shared = engine.prepare("付款失敗")
+    for _ in range(3):
+        engine.answer(shared, {"a": URGENT, "b": TEAM, "c": SEV})
+    assert engine.encode_count == 1
+    # One batched option encode per layer, not one per question.
+    assert engine.query_encode_count == 3
+
+
+def test_batched_and_single_question_answers_are_identical(engine: Engine) -> None:
+    """Batching must be a performance change, never an answer change.
+
+    Two things could break it: a wrong span offset when slicing the batched
+    query vectors, and a backbone that is not padding-invariant. The first is
+    the likely regression and this catches it; the second was verified against
+    mmBERT, where option texts of very different lengths batched together give
+    bit-identical answers.
+    """
+    from jef_core.types import normalize
+
+    questions = {"urgent": URGENT, "team": TEAM, "sev": SEV}
+    shared = engine.prepare("付款服務連續三天失敗")
+
+    batched = engine.answer(shared, questions)
+    one_at_a_time = {
+        qid: engine.answer_one(shared, normalize(qid, q)) for qid, q in questions.items()
+    }
+    for qid in questions:
+        assert batched[qid].model_dump() == one_at_a_time[qid].model_dump()
+
+
+def test_batching_slices_in_question_order(engine: Engine) -> None:
+    """A span offset error would silently give each question another's options."""
+    questions = {"a": TEAM, "b": SEV, "c": URGENT}
+    answers = engine.evaluate("x", questions).answers
+    assert set(answers["a"].probabilities) == set(TEAM["criteria"])  # type: ignore[union-attr]
+    assert answers["b"].legend == SEV["criteria"]  # type: ignore[union-attr]
+    assert answers["c"].type == "noul"
+
+
 def test_marginal_question_cost_is_sublinear(engine: Engine) -> None:
     """One extra question must not re-read the state."""
     engine.evaluate("x" * 5000, {"q": URGENT})

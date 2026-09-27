@@ -55,6 +55,22 @@ Probabilities Should Sum To One
     Should Be True    abs(${total} - 1.0) < 1e-4
     ...    msg=probabilities must form a distribution, summed to ${total}
 
+Median Latency
+    [Documentation]    Median of five timed calls.
+    ...                Median, not mean: one scheduling hiccup on a shared CI
+    ...                runner would otherwise decide whether the build passes.
+    [Arguments]    ${state}    ${questions}
+    @{samples}=    Create List
+    FOR    ${i}    IN RANGE    5
+        ${start}=    Evaluate    time.perf_counter()    modules=time
+        Ask JEF    ${state}    ${questions}
+        ${end}=    Evaluate    time.perf_counter()    modules=time
+        ${elapsed}=    Evaluate    ${end} - ${start}
+        Append To List    ${samples}    ${elapsed}
+    END
+    ${median}=    Evaluate    sorted($samples)[len($samples) // 2]
+    RETURN    ${median}
+
 Metric Value
     [Documentation]    Read one Prometheus counter, 0.0 when not yet emitted.
     [Arguments]    ${name}
