@@ -12,6 +12,19 @@ number typed into this file.
 state and get back probability distributions with *calibrated* confidence. No text
 generation, no parsing, no prompt wrangling.
 
+```bash
+pip install jef                # engine, scenes, SDK and the `jef` CLI
+pip install "jef[torch]"       # + the real backbone
+```
+
+```bash
+jef ask "客戶回報：連續三天付款失敗，錯誤碼 502。" \
+    --choice "應由哪個團隊處理？" billing=付款、發票、退款 infra=基礎設施
+
+siem-query --last 5m | jef scene vuln-triage - --fail-on-human-review
+jef validate scenes/
+```
+
 ```python
 from jef_core import Engine
 
@@ -117,6 +130,10 @@ dialects of the yes/no primitive are accepted and echoed back: TypeSafe calls it
 | TheHive / Cortex | [`connectors/cortex`](connectors/cortex) |
 | TypeScript | [`@jef-ai/sdk`](packages/jef-sdk-ts) |
 | Python | [`jef-sdk`](packages/jef-sdk-python) — embedded or remote, same API |
+| CLI | `jef ask` · `jef scene` · `jef validate` · `jef serve` |
+| MCP | `jef-mcp` — typed decisions as tools for Claude Desktop, Cursor and agents |
+| Agent skill | [`skills/jef`](skills/jef) — when to reach for JEF and how to read the answer |
+| Weights | [`dennislee928/jef-v0`](https://huggingface.co/dennislee928/jef-v0) on Hugging Face, and in this repo |
 
 There is also a decision viewer at `/ui`: one self-contained file, shipped in
 the image, because a debugger that needs a build step is one you cannot open
@@ -143,6 +160,11 @@ See [`docs/RESULTS.md`](docs/RESULTS.md). The short version:
 - On **TMMLU+** it scores **0.254** against a 0.250 baseline: chance. JEF judges
   evidence you supply; it does not know things. The boundary is stated because
   finding it in production is worse.
+- Accuracy is **flat from 512 to 8,192 tokens** of state, and evidence buried at
+  99% depth scores the same as evidence at the start — attention pooling is
+  order-agnostic, so there is no "lost in the middle". The last four rows of
+  that table are a benchmark Laya cannot run: it tops out at 1,024 tokens, and a
+  truncated state does not error, it answers from whatever survived the cut.
 - The first run of the pipeline scored **1.000** on one bucket. That was a
   contaminated split, and the write-up keeps it, because the way those numbers
   were wrong is more instructive than the numbers.
