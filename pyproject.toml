@@ -34,6 +34,7 @@ dev = [
   # Dev-only so the MCP tests actually run. They are guarded by importorskip,
   # which means that without this they would silently not run in CI at all.
   "mcp>=2.0",
+  "jsonschema>=4.23",
 ]
 
 [tool.ruff]

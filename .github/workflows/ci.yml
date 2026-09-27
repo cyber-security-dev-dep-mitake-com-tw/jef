@@ -38,6 +38,15 @@ jobs:
       - name: Test
         run: uv run pytest -q --cov=packages --cov-report=term-missing
 
+      - name: Scenes lint clean
+        run: uv run jef validate scenes/
+
+      # The schema is what an editor uses to tell a scene author they are wrong
+      # before they run anything, so it must agree with the model that rejects
+      # the scene.
+      - name: Scene schema is current
+        run: uv run jef schema --out docs/scene.schema.json --check
+
       # Connector request shaping, with the platform SDKs stubbed: installing
       # cortexutils and shuffle_sdk to check option order would test those
       # platforms rather than the connector.

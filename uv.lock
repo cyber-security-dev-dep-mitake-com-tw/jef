@@ -915,6 +915,7 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
+    { name = "jsonschema" },
     { name = "mcp" },
     { name = "mypy" },
     { name = "pytest" },
@@ -929,6 +930,7 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "httpx", specifier = ">=0.28" },
+    { name = "jsonschema", specifier = ">=4.23" },
     { name = "mcp", specifier = ">=2.0" },
     { name = "mypy", specifier = ">=1.13" },
     { name = "pytest", specifier = ">=8.3" },

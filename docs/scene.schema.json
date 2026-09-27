@@ -1,0 +1,348 @@
+{
+  "$defs": {
+    "Action": {
+      "additionalProperties": false,
+      "description": "A terminal outcome a gate can select.",
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "human_review": {
+          "default": false,
+          "title": "Human Review",
+          "type": "boolean"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "title": "Action",
+      "type": "object"
+    },
+    "ChoiceQuestion": {
+      "additionalProperties": false,
+      "description": "Pick exactly one of ``criteria``. Values describe each option to the model.",
+      "properties": {
+        "type": {
+          "const": "choice",
+          "title": "Type",
+          "type": "string"
+        },
+        "instructions": {
+          "minLength": 1,
+          "title": "Instructions",
+          "type": "string"
+        },
+        "criteria": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minProperties": 2,
+          "title": "Criteria",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type",
+        "instructions",
+        "criteria"
+      ],
+      "title": "ChoiceQuestion",
+      "type": "object"
+    },
+    "Gate": {
+      "additionalProperties": false,
+      "description": "One branch of a layer's decision.\n\nExactly one of ``when`` or ``else_`` is set. An ``else`` gate always fires\nand must therefore come last -- a scene with an unreachable gate is a bug\nthe author wants to hear about at load time, not at 3am.",
+      "properties": {
+        "when": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        },
+        "else": {
+          "default": false,
+          "title": "Else",
+          "type": "boolean"
+        },
+        "then": {
+          "title": "Then",
+          "type": "string"
+        },
+        "because": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Because"
+        }
+      },
+      "required": [
+        "then"
+      ],
+      "title": "Gate",
+      "type": "object"
+    },
+    "Layer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "questions": {
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/NoulQuestion",
+                "choice": "#/$defs/ChoiceQuestion",
+                "noul": "#/$defs/NoulQuestion",
+                "score": "#/$defs/ScoreQuestion"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ChoiceQuestion"
+              },
+              {
+                "$ref": "#/$defs/ScoreQuestion"
+              },
+              {
+                "$ref": "#/$defs/NoulQuestion"
+              }
+            ]
+          },
+          "minProperties": 1,
+          "title": "Questions",
+          "type": "object"
+        },
+        "gates": {
+          "items": {
+            "$ref": "#/$defs/Gate"
+          },
+          "minItems": 1,
+          "title": "Gates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "questions",
+        "gates"
+      ],
+      "title": "Layer",
+      "type": "object"
+    },
+    "NoulCriteria": {
+      "additionalProperties": false,
+      "properties": {
+        "true": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "True"
+        },
+        "false": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "False"
+        }
+      },
+      "title": "NoulCriteria",
+      "type": "object"
+    },
+    "NoulQuestion": {
+      "additionalProperties": false,
+      "description": "Yes/no. Returns the probability that the statement holds against the state.",
+      "properties": {
+        "type": {
+          "enum": [
+            "noul",
+            "boolean"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "instructions": {
+          "minLength": 1,
+          "title": "Instructions",
+          "type": "string"
+        },
+        "criteria": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NoulCriteria"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "type",
+        "instructions"
+      ],
+      "title": "NoulQuestion",
+      "type": "object"
+    },
+    "ScoreQuestion": {
+      "additionalProperties": false,
+      "description": "Rate the state against ordered levels, lowest first.",
+      "properties": {
+        "type": {
+          "const": "score",
+          "title": "Type",
+          "type": "string"
+        },
+        "instructions": {
+          "minLength": 1,
+          "title": "Instructions",
+          "type": "string"
+        },
+        "criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "instructions",
+        "criteria"
+      ],
+      "title": "ScoreQuestion",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "scene": {
+      "minLength": 1,
+      "title": "Scene",
+      "type": "string"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/Layer"
+      },
+      "minItems": 1,
+      "title": "Layers",
+      "type": "array"
+    },
+    "actions": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Action"
+      },
+      "minProperties": 1,
+      "title": "Actions",
+      "type": "object"
+    },
+    "alpha": {
+      "default": 0.1,
+      "exclusiveMaximum": 1.0,
+      "exclusiveMinimum": 0.0,
+      "title": "Alpha",
+      "type": "number"
+    },
+    "fallthrough": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fallthrough"
+    }
+  },
+  "required": [
+    "scene",
+    "layers",
+    "actions"
+  ],
+  "title": "JEF scene",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/cyber-security-dev-dep-mitake-com-tw/jef/main/docs/scene.schema.json",
+  "description": "Layers of typed questions with calibrated confidence gates. See https://github.com/cyber-security-dev-dep-mitake-com-tw/jef"
+}

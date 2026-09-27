@@ -7,6 +7,7 @@ fire does not raise, it just quietly stops being part of the policy.
 
 from __future__ import annotations
 
+import pytest
 from jef_cli.validate import validate_paths, validate_scene_text
 
 GOOD = """
@@ -152,3 +153,67 @@ def test_the_shipped_scene_lints_clean() -> None:
     problems = validate_paths([scenes])
     assert not errors(problems), [p.message for p in errors(problems)]
     assert not warnings(problems), [p.message for p in warnings(problems)]
+
+
+# --------------------------------------------------------------------------- #
+# JSON Schema
+# --------------------------------------------------------------------------- #
+
+
+def test_the_committed_schema_matches_the_model() -> None:
+    """A schema that drifts from the validator is worse than none.
+
+    Editors use it to tell an author their scene is wrong before they run it,
+    so it has to agree with what actually rejects the scene.
+    """
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[3]
+    committed = root / "docs" / "scene.schema.json"
+    assert committed.is_file(), "docs/scene.schema.json is missing"
+
+    result = subprocess.run(
+        [sys.executable, "-m", "jef_cli", "schema"],
+        capture_output=True,
+        text=True,
+        cwd=root,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == json.loads(committed.read_text(encoding="utf-8")), (
+        "docs/scene.schema.json is stale; regenerate with `jef schema --out docs/scene.schema.json`"
+    )
+
+
+def test_the_schema_describes_what_a_scene_needs() -> None:
+    import json
+    from pathlib import Path
+
+    schema = json.loads(
+        (Path(__file__).resolve().parents[3] / "docs" / "scene.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert set(schema["required"]) == {"scene", "layers", "actions"}
+    assert "$defs" in schema
+    assert {"Layer", "Gate", "Action"} <= set(schema["$defs"])
+
+
+def test_the_shipped_scenes_validate_against_the_schema() -> None:
+    """The schema is only useful if the examples pass it."""
+    import json
+    from pathlib import Path
+
+    jsonschema = pytest.importorskip("jsonschema")
+    import yaml
+
+    root = Path(__file__).resolve().parents[3]
+    schema = json.loads((root / "docs" / "scene.schema.json").read_text(encoding="utf-8"))
+    from jef_scene.loader import _normalise_bool_keys
+
+    for path in sorted((root / "scenes").glob("*.yaml")):
+        document = _normalise_bool_keys(yaml.safe_load(path.read_text(encoding="utf-8")))
+        jsonschema.validate(document, schema)

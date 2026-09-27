@@ -211,6 +211,48 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return EXIT_INVALID if any(p.severity == "error" for p in problems) else EXIT_OK
 
 
+def cmd_schema(args: argparse.Namespace) -> int:
+    """Emit the scene JSON Schema, generated from the model that validates them.
+
+    Hand-writing it would let the schema and the validator disagree, and the
+    schema is what editors use to tell an author their scene is wrong before
+    they ever run it.
+    """
+    from jef_scene import Scene
+
+    schema = Scene.model_json_schema()
+    schema["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+    schema["$id"] = (
+        "https://raw.githubusercontent.com/cyber-security-dev-dep-mitake-com-tw/"
+        "jef/main/docs/scene.schema.json"
+    )
+    schema["title"] = "JEF scene"
+    schema["description"] = (
+        "Layers of typed questions with calibrated confidence gates. "
+        "See https://github.com/cyber-security-dev-dep-mitake-com-tw/jef"
+    )
+    rendered = json.dumps(schema, indent=2, ensure_ascii=False) + "\n"
+
+    if args.out:
+        target = Path(args.out)
+        if args.check:
+            current = target.read_text(encoding="utf-8") if target.is_file() else ""
+            if current != rendered:
+                print(
+                    f"{target} is out of date; regenerate with: jef schema --out {target}",
+                    file=sys.stderr,
+                )
+                return EXIT_INVALID
+            print(f"{target} is current")
+            return EXIT_OK
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(rendered, encoding="utf-8")
+        print(f"wrote {target}")
+    else:
+        print(rendered, end="")
+    return EXIT_OK
+
+
 def cmd_models(args: argparse.Namespace) -> int:
     client = build_client(args)
     info = server_info(client)
@@ -326,6 +368,11 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--json", action="store_true")
     validate.add_argument("--color", choices=["auto", "always", "never"], default="auto")
     validate.set_defaults(func=cmd_validate)
+
+    schema = sub.add_parser("schema", help="emit the scene JSON Schema")
+    schema.add_argument("--out", help="write here instead of stdout")
+    schema.add_argument("--check", action="store_true", help="verify --out is current")
+    schema.set_defaults(func=cmd_schema)
 
     models = sub.add_parser(
         "models", parents=[common], help="show the model and whether to trust it"
