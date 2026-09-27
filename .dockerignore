@@ -1,0 +1,12 @@
+.git/
+.claude/
+.venv/
+test/results/
+Infra/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+*.onnx
+*.safetensors

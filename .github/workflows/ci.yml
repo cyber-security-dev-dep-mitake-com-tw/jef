@@ -48,4 +48,28 @@ jobs:
           enable-cache: true
       - run: uv sync --all-packages --no-install-package torch --no-install-package transformers
       - name: Robot Framework acceptance
-        run: uv run robot --outputdir test/results test/acceptance
+        run: PY="$(pwd)/.venv/bin/python" ./scripts/run-acceptance.sh
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-report
+          path: test/results/
+          retention-days: 7
+
+  docker:
+    name: image builds and serves
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t jef:ci .
+      - name: Run and probe
+        run: |
+          docker run -d --name jef-ci -p 8080:8080 jef:ci
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/healthz && break || sleep 1
+          done
+          curl -sf http://127.0.0.1:8080/healthz | tee /dev/stderr | grep -q '"status":"ok"'
+          docker rm -f jef-ci
