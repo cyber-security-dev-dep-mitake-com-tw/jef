@@ -58,6 +58,78 @@ jobs:
           path: test/results/
           retention-days: 7
 
+  go:
+    name: go (${{ matrix.suite }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [unit, acceptance]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache-dependency-path: packages/jef-go/go.sum
+
+      - name: Vet
+        working-directory: packages/jef-go
+        run: go vet ./...
+
+      - name: Gofmt
+        working-directory: packages/jef-go
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed for: $unformatted"
+            exit 1
+          fi
+
+      # The golden fixtures are the parity contract. They are committed, so a
+      # change to the Python maths that is not reflected here fails the Go
+      # tests -- which is the point.
+      - name: Cross-language parity (golden fixtures)
+        if: matrix.suite == 'unit'
+        working-directory: packages/jef-go
+        run: go test ./... -v
+
+      - uses: astral-sh/setup-uv@v5
+        if: matrix.suite == 'acceptance'
+        with:
+          enable-cache: true
+      - name: Sync python
+        if: matrix.suite == 'acceptance'
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+
+      - name: Acceptance against the Go server
+        if: matrix.suite == 'acceptance'
+        run: JEF_RUNTIME=go PY="$(pwd)/.venv/bin/python" ./scripts/run-acceptance.sh
+
+      # Golden fixtures pin the maths; this exercises both full HTTP stacks
+      # against each other -- parsing, state rendering, option order, dialect
+      # echo and JSON shape.
+      - name: Both servers answer identically
+        if: matrix.suite == 'acceptance'
+        run: |
+          JEF_SCENES_DIR=scenes .venv/bin/python -m jef_server &
+          go build -o /tmp/jef-server-go ./packages/jef-go/cmd/jef-server 2>/dev/null \
+            || (cd packages/jef-go && go build -o /tmp/jef-server-go ./cmd/jef-server)
+          JEF_ADDR=:8090 /tmp/jef-server-go &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/healthz >/dev/null 2>&1 \
+              && curl -sf http://127.0.0.1:8090/healthz >/dev/null 2>&1 && break
+            sleep 1
+          done
+          .venv/bin/python scripts/check-parity.py
+
+      - name: Upload report
+        if: always() && matrix.suite == 'acceptance'
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-report-go
+          path: test/results-go/
+          retention-days: 7
+
   docker:
     name: image builds and serves
     runs-on: ubuntu-latest

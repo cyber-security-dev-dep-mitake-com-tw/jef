@@ -3,19 +3,28 @@ package contract
 import (
 	"bytes"
 	"io"
-	"math"
+	"strconv"
 )
 
 func newReader(b []byte) io.Reader { return bytes.NewReader(b) }
 
-// round applies half-to-even at the requested decimal place.
+// round matches Python's round(x, n) exactly.
 //
-// Python's round() rounds on the decimal representation rather than by
-// multiply-round-divide, so the two can differ in the last representable bit
-// for values sitting exactly on a tie. At six decimals over a probability that
-// is far below anything a gate threshold can distinguish, and the golden
-// fixtures assert the distributions themselves rather than their rendering.
+// The obvious implementation -- math.RoundToEven(v*1e6)/1e6 -- rounds a value
+// that has *already* lost precision to the multiplication, so it disagrees with
+// Python on exact ties. That surfaced as a real divergence between the two
+// servers: 0.369918 from Python against 0.369917 from Go for the same
+// distribution. One part in a million is far below anything a gate threshold
+// can see, but "the two implementations answer identically" should be true
+// rather than nearly true, and a claim that is nearly true is the kind that
+// quietly stops being true.
+//
+// strconv.FormatFloat performs correctly-rounded decimal conversion on the
+// exact binary value, which is the same thing CPython's round does.
 func round(v float64, decimals int) float64 {
-	factor := math.Pow(10, float64(decimals))
-	return math.RoundToEven(v*factor) / factor
+	rounded, err := strconv.ParseFloat(strconv.FormatFloat(v, 'f', decimals, 64), 64)
+	if err != nil {
+		return v
+	}
+	return rounded
 }
