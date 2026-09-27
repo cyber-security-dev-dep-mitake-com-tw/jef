@@ -100,9 +100,49 @@ JEF serves `POST /v1/systemone`, so existing clients work unchanged. Both
 dialects of the yes/no primitive are accepted and echoed back: TypeSafe calls it
 `noul`, Vercel's AI SDK calls it `boolean`.
 
+## SOAR integrations
+
+| Platform | Path |
+|---|---|
+| Shuffle | [`connectors/shuffle`](connectors/shuffle) |
+| n8n | [`connectors/n8n`](connectors/n8n) — `n8n-nodes-jef` |
+| TheHive / Cortex | [`connectors/cortex`](connectors/cortex) |
+| TypeScript | [`@jef/sdk`](packages/jef-sdk-ts) |
+| Python | [`jef-sdk`](packages/jef-sdk-python) — embedded or remote, same API |
+
+There is also a decision viewer at `/ui`: one self-contained file, shipped in
+the image, because a debugger that needs a build step is one you cannot open
+during an incident.
+
+## Two runtimes, one set of answers
+
+The Python server and a 12MB static Go binary both serve `/v1/systemone`, and
+they answer identically — asserted by golden fixtures to 1e-9 for the maths, and
+by standing both servers up and comparing them over HTTP. The hashing test
+backbone is bit-identical in both languages, so the same acceptance suite runs
+against either.
+
+## Results
+
+See [`docs/RESULTS.md`](docs/RESULTS.md). The short version:
+
+- On **CTI-Bench VSP** — a third-party benchmark of exactly the task JEF trains
+  on, with every training CVE excluded — attack vector reaches **0.840** against
+  a 0.250 random baseline, and user interaction **0.805** against 0.500.
+- Conformal coverage holds at **0.895** against a nominal 0.900 on that
+  third-party data, and collapses to 0.44 on a different task. That is the
+  exchangeability assumption working exactly as stated.
+- On **TMMLU+** it scores **0.254** against a 0.250 baseline: chance. JEF judges
+  evidence you supply; it does not know things. The boundary is stated because
+  finding it in production is worse.
+- The first run of the pipeline scored **1.000** on one bucket. That was a
+  contaminated split, and the write-up keeps it, because the way those numbers
+  were wrong is more instructive than the numbers.
+
 ## Status
 
-Under active development. See `docs/` for design notes.
+Under active development. See `docs/` for design notes and `.github/workflows`
+for what CI actually checks.
 
 ## License
 

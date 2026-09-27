@@ -1,0 +1,44 @@
+{
+  "name": "JEF_Scene",
+  "version": "1.0",
+  "author": "Mitake Cyber Security Dev Dept",
+  "url": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef",
+  "license": "Apache-2.0",
+  "description": "Run a JEF scene over an observable and return the full decision trace: evidence, questions, allowed answers, probabilities, calibrated confidence and which gate fired.",
+  "dataTypeList": ["other", "mail", "url", "domain", "ip", "fqdn", "hash", "filename", "user-agent"],
+  "command": "JEF/jef_analyzer.py",
+  "baseConfig": "JEF",
+  "config": { "service": "scene" },
+  "configurationItems": [
+    {
+      "name": "url",
+      "description": "Base URL of the JEF server, e.g. http://jef.internal:8080",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "scene",
+      "description": "Scene id to run, e.g. incident-triage",
+      "type": "string",
+      "multi": false,
+      "required": true,
+      "defaultValue": "incident-triage"
+    },
+    {
+      "name": "timeout",
+      "description": "Request timeout in seconds. A cold CPU encode is not instant.",
+      "type": "number",
+      "multi": false,
+      "required": false,
+      "defaultValue": 60
+    },
+    {
+      "name": "api_key",
+      "description": "Optional bearer token, if the JEF server sits behind an authenticating proxy",
+      "type": "string",
+      "multi": false,
+      "required": false
+    }
+  ]
+}

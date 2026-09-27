@@ -28,7 +28,7 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["packages/jef-ui", "packages/jef-sdk-ts"]
+extend-exclude = ["packages/jef-ui", "packages/jef-sdk-ts", "connectors/n8n"]
 
 [tool.ruff.lint]
 # S is flake8-bandit. This is a security team's repository; having the linter
@@ -44,6 +44,9 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003"]
   "S101",  # asserts are the point of a test
   "S311",  # test fixtures use random for reproducible synthetic data, not crypto
 ]
+# Robot support libraries: the asserts are importlib loader guards, and these
+# files never run in production.
+"test/resources/*" = ["S101"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -64,7 +67,7 @@ files = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["packages"]
+testpaths = ["packages", "connectors/tests"]
 python_files = ["test_*.py"]
 # importlib import mode: several packages legitimately have a tests/test_schema.py
 # and a tests/test_engine.py, and the default sys.path-based naming collides on

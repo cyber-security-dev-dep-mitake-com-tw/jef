@@ -1,0 +1,197 @@
+walkoff_version: 1.0.0
+app_version: 1.0.0
+name: JEF
+description: >-
+  Typed decisions with calibrated confidence. Ask JEF a choice, a score or a
+  yes/no about anything already in the workflow, or run a whole scene and get
+  back the decision trace. Nothing is generated: every answer is constrained to
+  the options you supply.
+contact_info:
+  name: Mitake Cyber Security Dev Dept
+  url: https://github.com/cyber-security-dev-dep-mitake-com-tw/jef
+  email: security-dev@mitake.com.tw
+tags:
+  - decision
+  - triage
+  - calibration
+categories:
+  - Intel
+large_image: ""
+
+authentication:
+  required: true
+  parameters:
+    - name: url
+      description: Base URL of the JEF server, e.g. http://jef.internal:8080
+      example: http://jef.internal:8080
+      required: true
+      schema:
+        type: string
+    - name: apikey
+      description: Optional bearer token, if JEF sits behind an authenticating proxy
+      example: ""
+      required: false
+      schema:
+        type: string
+
+actions:
+  - name: run_scene
+    description: >-
+      Run a named scene and return its decision trace: the evidence, every
+      question asked, the answers that were permitted, where the probability
+      mass fell, and which gate fired. The whole playbook costs one state read.
+    parameters:
+      - name: scene
+        description: Scene id, e.g. incident-triage
+        required: true
+        example: incident-triage
+        schema:
+          type: string
+      - name: state
+        description: >-
+          The evidence. Plain text, or JSON for an object or array. An array is
+          one shared state, never a batch of separate evaluations.
+        required: true
+        multiline: true
+        example: "CrowdStrike 於 02:14 偵測到主機 db-core-02 出現大量檔案加密行為。"
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: ask_choice
+    description: >-
+      Pick one option. Returns the choice, the probability of every option, and
+      confidence. The answer is always one of your options.
+    parameters:
+      - name: state
+        description: The evidence to judge
+        required: true
+        multiline: true
+        schema:
+          type: string
+      - name: instructions
+        description: The question to ask of the evidence
+        required: true
+        example: 這則告警應由哪一個團隊處理？
+        schema:
+          type: string
+      - name: options
+        description: >-
+          One 'key=description' per line. The description is what the model
+          reads, so it is worth writing properly.
+        required: true
+        multiline: true
+        example: |
+          soc=一般資安監控事件
+          appsec=應用程式漏洞與程式碼相關
+          infra=基礎設施、網路、主機層
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: ask_score
+    description: >-
+      Rate against ordered levels. The score is continuous and may land between
+      levels, because it is the expectation over the ordering you give.
+    parameters:
+      - name: state
+        description: The evidence to judge
+        required: true
+        multiline: true
+        schema:
+          type: string
+      - name: instructions
+        required: true
+        example: 評估這則告警的嚴重程度
+        schema:
+          type: string
+      - name: levels
+        description: >-
+          One level per line, LOWEST FIRST. Order is load-bearing: reversing it
+          inverts the scale silently rather than erroring.
+        required: true
+        multiline: true
+        example: |
+          資訊
+          低
+          中
+          高
+          危急
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: ask_yes_no
+    description: >-
+      A yes/no question. Returns the probability the statement holds, between 0
+      and 1 -- near 0.5 means the evidence does not say.
+    parameters:
+      - name: state
+        description: The evidence to judge
+        required: true
+        multiline: true
+        schema:
+          type: string
+      - name: instructions
+        required: true
+        example: 這則告警是否為已知的良性樣態（誤報）？
+        schema:
+          type: string
+      - name: if_true
+        description: Optional description of what a "yes" means
+        required: false
+        schema:
+          type: string
+      - name: if_false
+        description: Optional description of what a "no" means
+        required: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: ask_many
+    description: >-
+      Send several questions in one call. They are evaluated in parallel against
+      the same evidence, independently, so adding questions barely changes the
+      response time -- ask the speculative ones too and let the workflow decide
+      what it needs.
+    parameters:
+      - name: state
+        description: The evidence to judge
+        required: true
+        multiline: true
+        schema:
+          type: string
+      - name: questions
+        description: A JSON object of question id to question definition
+        required: true
+        multiline: true
+        example: |
+          {
+            "urgent": {"type": "noul", "instructions": "是否需要立即處理？"},
+            "team": {"type": "choice", "instructions": "誰處理？",
+                     "criteria": {"soc": "監控", "infra": "網路"}}
+          }
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: health
+    description: >-
+      Server status. Worth gating a workflow on: `calibrated` false means no
+      automated decision from this server should be trusted, and
+      `test_backbone` true means the answers have no semantics at all.
+    parameters: []
+    returns:
+      schema:
+        type: string

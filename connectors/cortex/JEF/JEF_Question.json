@@ -1,0 +1,59 @@
+{
+  "name": "JEF_Question",
+  "version": "1.0",
+  "author": "Mitake Cyber Security Dev Dept",
+  "url": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef",
+  "license": "Apache-2.0",
+  "description": "Ask JEF one typed question about an observable -- a choice between options, a score against ordered levels, or a yes/no -- without defining a scene.",
+  "dataTypeList": ["other", "mail", "url", "domain", "ip", "fqdn", "hash", "filename", "user-agent"],
+  "command": "JEF/jef_analyzer.py",
+  "baseConfig": "JEF",
+  "config": { "service": "question" },
+  "configurationItems": [
+    {
+      "name": "url",
+      "description": "Base URL of the JEF server",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "question_type",
+      "description": "choice, score or noul",
+      "type": "string",
+      "multi": false,
+      "required": true,
+      "defaultValue": "choice"
+    },
+    {
+      "name": "instructions",
+      "description": "The question to ask of the observable",
+      "type": "string",
+      "multi": false,
+      "required": true,
+      "defaultValue": "這則告警應由哪一個團隊處理？"
+    },
+    {
+      "name": "options",
+      "description": "For choice: 'key=description' per line. For score: one ordered level per line, lowest first -- order is load-bearing, since the answer is the expectation over it.",
+      "type": "string",
+      "multi": true,
+      "required": false
+    },
+    {
+      "name": "timeout",
+      "description": "Request timeout in seconds",
+      "type": "number",
+      "multi": false,
+      "required": false,
+      "defaultValue": 60
+    },
+    {
+      "name": "api_key",
+      "description": "Optional bearer token",
+      "type": "string",
+      "multi": false,
+      "required": false
+    }
+  ]
+}

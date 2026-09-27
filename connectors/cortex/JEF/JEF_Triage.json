@@ -1,0 +1,43 @@
+{
+  "name": "JEF_Triage",
+  "version": "1.0",
+  "author": "Mitake Cyber Security Dev Dept",
+  "url": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef",
+  "license": "Apache-2.0",
+  "description": "Run a JEF scene over a TheHive case or alert and write the verdict back as tags, including whether a human must review it.",
+  "dataTypeList": ["thehive:case", "thehive:alert"],
+  "command": "JEF/jef_responder.py",
+  "baseConfig": "JEF",
+  "configurationItems": [
+    {
+      "name": "url",
+      "description": "Base URL of the JEF server",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "scene",
+      "description": "Scene id to run",
+      "type": "string",
+      "multi": false,
+      "required": true,
+      "defaultValue": "incident-triage"
+    },
+    {
+      "name": "timeout",
+      "description": "Request timeout in seconds",
+      "type": "number",
+      "multi": false,
+      "required": false,
+      "defaultValue": 60
+    },
+    {
+      "name": "api_key",
+      "description": "Optional bearer token",
+      "type": "string",
+      "multi": false,
+      "required": false
+    }
+  ]
+}

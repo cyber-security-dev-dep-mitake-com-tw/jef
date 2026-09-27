@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" width="60" height="60" role="img" aria-label="JEF">
+  <title>JEF</title>
+  <rect width="60" height="60" rx="12" fill="#2d5f8a"/>
+  <!-- Three bars of unequal height: a probability distribution, which is what
+       JEF returns instead of a sentence. -->
+  <rect x="13" y="32" width="8" height="15" rx="2" fill="#cfe0ee"/>
+  <rect x="26" y="17" width="8" height="30" rx="2" fill="#ffffff"/>
+  <rect x="39" y="26" width="8" height="21" rx="2" fill="#cfe0ee"/>
+</svg>
