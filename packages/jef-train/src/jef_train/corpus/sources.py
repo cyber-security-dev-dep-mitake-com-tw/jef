@@ -14,13 +14,21 @@ import hashlib
 import json
 import logging
 import os
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("jef.train.corpus")
 
-__all__ = ["CACHE_DIR", "fetch", "fetch_json", "ATTACK_ENTERPRISE_URL", "NVD_API_URL", "CWE_CSV_URL"]
+__all__ = [
+    "ATTACK_ENTERPRISE_URL",
+    "CACHE_DIR",
+    "CWE_CSV_URL",
+    "NVD_API_URL",
+    "fetch",
+    "fetch_json",
+]
 
 CACHE_DIR = Path(os.environ.get("JEF_CORPUS_CACHE", ".cache/corpus"))
 
@@ -34,6 +42,18 @@ CWE_CSV_URL = "https://cwe.mitre.org/data/csv/1000.csv.zip"
 _UA = "jef-corpus-builder/0.1 (+https://github.com/cyber-security-dev-dep-mitake-com-tw/jef)"
 
 
+def _require_https(url: str) -> None:
+    """Reject anything but https.
+
+    Without this, a corpus URL sourced from config or an environment variable
+    could use file: or ftp: and turn the builder into a local-file read. Every
+    source this module ships is https, so the restriction costs nothing.
+    """
+    scheme = urllib.parse.urlparse(url).scheme
+    if scheme != "https":
+        raise ValueError(f"corpus sources must be https, got {scheme!r}: {url}")
+
+
 def _cache_path(url: str, suffix: str) -> Path:
     digest = hashlib.sha256(url.encode()).hexdigest()[:16]
     return CACHE_DIR / f"{digest}{suffix}"
@@ -45,6 +65,7 @@ def fetch(url: str, *, suffix: str = ".bin", refresh: bool = False, timeout: int
     A cached file is reused unless ``refresh`` is set, so corpus builds are
     reproducible and work behind an air gap once primed.
     """
+    _require_https(url)
     path = _cache_path(url, suffix)
     if path.exists() and not refresh:
         log.debug("cache hit %s -> %s", url, path)
@@ -52,7 +73,8 @@ def fetch(url: str, *, suffix: str = ".bin", refresh: bool = False, timeout: int
 
     path.parent.mkdir(parents=True, exist_ok=True)
     log.info("fetching %s", url)
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
+    # Scheme is validated above, so neither line can open file: or ftp:.
+    req = urllib.request.Request(url, headers={"User-Agent": _UA})  # noqa: S310
     tmp = path.with_suffix(path.suffix + ".part")
     with urllib.request.urlopen(req, timeout=timeout) as resp, tmp.open("wb") as fh:  # noqa: S310
         while chunk := resp.read(1 << 20):

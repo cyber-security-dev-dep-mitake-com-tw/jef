@@ -29,8 +29,8 @@ from .types import (
     NormalizedQuestion,
     NoulAnswer,
     Question,
-    ScoreAnswer,
     RawQuestion,
+    ScoreAnswer,
     Usage,
     normalize,
 )

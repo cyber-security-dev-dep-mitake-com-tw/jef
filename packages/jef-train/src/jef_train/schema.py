@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-__all__ = ["Sample", "read_samples", "write_samples", "split_samples"]
+__all__ = ["Sample", "read_samples", "split_samples", "write_samples"]
 
 Kind = Literal["choice", "score", "noul"]
 
@@ -74,11 +74,13 @@ class Sample:
                 "criteria": dict(zip(self.option_keys, self.option_labels, strict=True)),
             }
         if self.kind == "score":
-            return {"type": "score", "instructions": self.instructions, "criteria": self.option_keys}
+            return {
+                "type": "score",
+                "instructions": self.instructions,
+                "criteria": self.option_keys,
+            }
         criteria = {
-            k: v
-            for k, v in zip(self.option_keys, self.option_labels, strict=True)
-            if v is not None
+            k: v for k, v in zip(self.option_keys, self.option_labels, strict=True) if v is not None
         }
         q: dict[str, Any] = {"type": "noul", "instructions": self.instructions}
         if criteria:
@@ -132,7 +134,8 @@ def split_samples(
     for s in samples:
         strata.setdefault((s.source, s.bucket), []).append(s)
 
-    rng = random.Random(seed)
+    # Seeded and reproducible by design; this splits a dataset, not keys.
+    rng = random.Random(seed)  # noqa: S311
     tr: list[Sample] = []
     cal: list[Sample] = []
     te: list[Sample] = []
