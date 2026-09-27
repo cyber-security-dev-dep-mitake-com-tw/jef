@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JEF · 決策檢視器</title>
+<style>
+/* Single file, no build step, no dependencies.
+   A debugging tool that needs npm install before it runs is a debugging tool
+   you cannot open during an incident. */
+:root {
+  --bg: #fbfbfa; --panel: #ffffff; --line: #e4e2dd; --ink: #1b1a17;
+  --muted: #6b6862; --accent: #2d5f8a; --ok: #2f7a4f; --warn: #a66a00;
+  --danger: #a33a30; --mass: #cfe0ee; --mass-top: #2d5f8a;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+:root:not([data-theme="light"]) { }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17181a; --panel: #1f2023; --line: #33353a; --ink: #e8e6e3;
+    --muted: #9a968f; --accent: #7fb3de; --ok: #6fc28f; --warn: #d9a441;
+    --danger: #e0796d; --mass: #2b3d4d; --mass-top: #7fb3de;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17181a; --panel: #1f2023; --line: #33353a; --ink: #e8e6e3;
+  --muted: #9a968f; --accent: #7fb3de; --ok: #6fc28f; --warn: #d9a441;
+  --danger: #e0796d; --mass: #2b3d4d; --mass-top: #7fb3de;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--sans); font-size: 15px; line-height: 1.6;
+}
+header {
+  border-bottom: 1px solid var(--line); padding: 14px 20px;
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+}
+header h1 { margin: 0; font-size: 17px; letter-spacing: .02em; }
+header .meta { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+.warnbar {
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border-bottom: 1px solid var(--line); padding: 9px 20px;
+  font-size: 13px; color: var(--ink);
+}
+main { display: grid; grid-template-columns: minmax(300px, 30%) 1fr; gap: 0; min-height: calc(100vh - 56px); }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+.pane { padding: 18px 20px; }
+.pane.left { border-right: 1px solid var(--line); }
+@media (max-width: 860px) { .pane.left { border-right: none; border-bottom: 1px solid var(--line); } }
+label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 5px; }
+textarea, select, button, input {
+  width: 100%; font: inherit; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px;
+}
+textarea { min-height: 190px; resize: vertical; font-family: var(--mono); font-size: 13px; }
+button {
+  margin-top: 14px; cursor: pointer; background: var(--accent); color: #fff;
+  border-color: transparent; font-weight: 600;
+}
+button:disabled { opacity: .5; cursor: progress; }
+button.secondary { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 400; margin-top: 8px; }
+
+.verdict { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; background: var(--panel); margin-bottom: 18px; }
+.verdict h2 { margin: 0 0 6px; font-size: 20px; }
+.verdict .why { color: var(--muted); font-size: 14px; }
+.badges { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
+.badge {
+  font-size: 12px; font-family: var(--mono); padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted);
+}
+.badge.human { border-color: var(--warn); color: var(--warn); }
+.badge.ok { border-color: var(--ok); color: var(--ok); }
+.badge.bad { border-color: var(--danger); color: var(--danger); }
+
+.layer { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); margin-bottom: 14px; overflow: hidden; }
+.layer > h3 {
+  margin: 0; padding: 11px 15px; font-size: 14px; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; gap: 10px; align-items: baseline;
+}
+.layer > h3 .outcome { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.layer.skipped { opacity: .55; }
+.layer-body { padding: 13px 15px; }
+.layer .desc { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+.q { border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 12px; }
+.q:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.q .qid { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.q .instr { font-size: 14px; margin: 2px 0 9px; }
+.dist { display: grid; grid-template-columns: minmax(80px, 30%) 1fr 58px; gap: 5px 9px; align-items: center; font-size: 13px; }
+.dist .k { font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dist .k.chosen { font-weight: 700; color: var(--ink); }
+.bar { height: 13px; background: var(--mass); border-radius: 3px; position: relative; overflow: hidden; }
+.bar > i { position: absolute; inset: 0 auto 0 0; background: var(--mass-top); display: block; }
+.dist .v { font-family: var(--mono); text-align: right; color: var(--muted); }
+.dist .k.excluded, .dist .v.excluded { opacity: .45; }
+.qstats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 9px; font-size: 12px; font-family: var(--mono); color: var(--muted); }
+.qstats b { color: var(--ink); font-weight: 600; }
+.qstats .unknown { color: var(--warn); }
+
+.gates { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 11px; }
+.gate { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; padding: 4px 0; }
+.gate .mark { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); flex: none; }
+.gate.fired .mark { border-color: var(--ok); color: var(--ok); }
+.gate .cond { font-family: var(--mono); font-size: 12px; word-break: break-word; }
+.gate .because { color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); padding: 40px 0; text-align: center; }
+.err { border: 1px solid var(--danger); color: var(--danger); border-radius: 8px; padding: 13px 15px; background: var(--panel); white-space: pre-wrap; font-family: var(--mono); font-size: 13px; }
+details { margin-top: 16px; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+pre { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>JEF · 決策檢視器</h1>
+  <span class="meta" id="serverMeta">連線中…</span>
+</header>
+<div class="warnbar" id="warnbar" hidden></div>
+
+<main>
+  <section class="pane left">
+    <label for="scene">Scene</label>
+    <select id="scene"><option value="">載入中…</option></select>
+
+    <label for="state">State（告警內容 / JSON）</label>
+    <textarea id="state" spellcheck="false"></textarea>
+
+    <button id="run">評估</button>
+    <button id="sample" class="secondary">填入範例告警</button>
+
+    <details>
+      <summary>關於信心值</summary>
+      <p style="font-size:13px;color:var(--muted)">
+        <code>confidence</code> 是分布的尖銳度 <code>(n·peak−1)/(n−1)</code>，
+        不是「答對的機率」。閘門看的是 <code>p_correct</code>——把尖銳度校準到實際正確率的對應值。
+        顯示為 <b>未知</b> 時代表該 bucket 的校準資料不足以誠實給出這個數字，
+        這與「機率很低」是兩回事。
+      </p>
+    </details>
+  </section>
+
+  <section class="pane" id="out">
+    <p class="empty">貼上一則告警，按「評估」。</p>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = (v) => (v * 100).toFixed(1) + '%';
+
+const SAMPLE = 'CrowdStrike 於 02:14 偵測到主機 db-core-02 出現大量檔案加密行為，副檔名遭統一改為 .lockbit，並刪除磁碟區陰影複製（vssadmin delete shadows），研判為勒索軟體加密階段。';
+
+async function boot() {
+  try {
+    const [health, scenes] = await Promise.all([
+      fetch('/healthz').then((r) => r.json()),
+      fetch('/v1/scenes').then((r) => r.json()),
+    ]);
+    $('serverMeta').textContent =
+      `${health.model} · ${health.calibrated ? 'calibrated' : 'UNCALIBRATED'}` +
+      (health.runtime ? ` · ${health.runtime}` : '');
+
+    const warnings = [];
+    if (health.test_backbone) {
+      warnings.push('此伺服器使用 <b>hashing 測試 backbone</b>：答案格式正確但沒有語義。任何數字都不可採信。');
+    }
+    if (!health.calibrated) {
+      warnings.push('<b>未載入校準</b>：<code>p_correct</code> 不可用，conformal 集合不排除任何選項，因此所有自動化閘門都不會觸發、案件一律轉人工。這是設計行為。');
+    }
+    if (warnings.length) {
+      $('warnbar').hidden = false;
+      $('warnbar').innerHTML = warnings.join(' ');
+    }
+
+    const select = $('scene');
+    select.innerHTML = '';
+    if (!scenes.data.length) {
+      select.innerHTML = '<option value="">（未載入任何 scene）</option>';
+      return;
+    }
+    for (const s of scenes.data) {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.id} · ${s.layers} 層 / ${s.questions} 題`;
+      select.appendChild(opt);
+    }
+  } catch (e) {
+    $('serverMeta').textContent = '無法連線到伺服器';
+    $('out').innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  }
+}
+
+function parseState(raw) {
+  const text = raw.trim();
+  if (!text) throw new Error('state 不可為空');
+  // Objects and arrays are sent as JSON; anything else is sent as text. An
+  // array is one shared state, never a batch.
+  if (text.startsWith('{') || text.startsWith('[')) {
+    try { return JSON.parse(text); } catch { /* fall through to plain text */ }
+  }
+  return text;
+}
+
+function renderDistribution(q) {
+  const answer = q.answer || {};
+  let entries;
+  if (answer.probabilities) {
+    entries = Object.entries(answer.probabilities);
+  } else {
+    const p = answer.noul ?? answer.probability ?? 0;
+    entries = [['false', 1 - p], ['true', p]];
+  }
+  const top = Math.max(...entries.map(([, v]) => v));
+  const inSet = new Set(q.prediction_set || []);
+  const chosen = answer.choice;
+
+  return `<div class="dist">${entries.map(([k, v]) => {
+    const excluded = inSet.size && !inSet.has(k) ? ' excluded' : '';
+    const isChosen = k === chosen || (!chosen && v === top);
+    return `<span class="k${isChosen ? ' chosen' : ''}${excluded}" title="${esc(k)}">${esc(k)}</span>
+      <span class="bar"><i style="width:${(v * 100).toFixed(2)}%"></i></span>
+      <span class="v${excluded}">${pct(v)}</span>`;
+  }).join('')}</div>`;
+}
+
+function renderQuestion(q) {
+  const answer = q.answer || {};
+  const stats = [];
+  stats.push(`confidence <b>${q.confidence.toFixed(3)}</b>`);
+  stats.push(q.p_correct === null || q.p_correct === undefined
+    ? 'P(correct) <span class="unknown">未知</span>'
+    : `P(correct) <b>${q.p_correct.toFixed(3)}</b>`);
+  if (answer.score !== undefined) stats.push(`score <b>${answer.score.toFixed(3)}</b>`);
+  const setSize = (q.prediction_set || []).length;
+  const total = answer.probabilities ? Object.keys(answer.probabilities).length : 2;
+  stats.push(`conformal 集合 <b>${setSize}/${total}</b>`);
+
+  return `<div class="q">
+    <div class="qid">${esc(q.id)} · ${esc(q.kind)}</div>
+    <div class="instr">${esc(q.instructions)}</div>
+    ${renderDistribution(q)}
+    <div class="qstats">${stats.join('')}</div>
+  </div>`;
+}
+
+function renderGate(g) {
+  const mark = g.is_else ? 'else' : (g.fired ? 'FIRED' : '—');
+  return `<div class="gate${g.fired ? ' fired' : ''}">
+    <span class="mark">${mark}</span>
+    <span>
+      <span class="cond">${esc(g.condition ?? '（預設）')}</span>
+      ${g.then ? ` → <b>${esc(g.then)}</b>` : ''}
+      ${g.because ? `<div class="because">${esc(g.because)}</div>` : ''}
+      ${g.error ? `<div class="because" style="color:var(--danger)">${esc(g.error)}</div>` : ''}
+    </span>
+  </div>`;
+}
+
+function render(trace) {
+  const decided = trace.verdict === 'decided';
+  const badges = [
+    `<span class="badge">state 編碼 <b>${trace.state_encodes}</b> 次</span>`,
+    `<span class="badge">提問 ${trace.questions_asked} 題</span>`,
+    `<span class="badge ${decided ? 'ok' : 'bad'}">${decided ? '閘門判定' : '走到底（fallthrough）'}</span>`,
+    trace.human_review ? '<span class="badge human">需人工檢視</span>' : '<span class="badge ok">自動處理</span>',
+    trace.calibrated ? '<span class="badge ok">已校準</span>' : '<span class="badge bad">未校準</span>',
+  ];
+
+  const skipped = new Set(trace.layers_skipped || []);
+  const layers = trace.layers.map((l) => `
+    <div class="layer">
+      <h3><span>${esc(l.id)}</span><span class="outcome">→ ${esc(l.outcome)}</span></h3>
+      <div class="layer-body">
+        ${l.description ? `<p class="desc">${esc(l.description)}</p>` : ''}
+        ${l.questions.map(renderQuestion).join('')}
+        <div class="gates">${l.gates.map(renderGate).join('')}</div>
+      </div>
+    </div>`).join('');
+
+  // Skipped layers are shown, greyed: an auditor needs to tell "never asked"
+  // from "asked and inconclusive".
+  const skippedHtml = [...skipped].map((id) => `
+    <div class="layer skipped">
+      <h3><span>${esc(id)}</span><span class="outcome">未評估</span></h3>
+      <div class="layer-body"><p class="desc">前一層已做出判定，本層的問題從未被提出。</p></div>
+    </div>`).join('');
+
+  $('out').innerHTML = `
+    <div class="verdict">
+      <h2>${esc(trace.action ?? '（無判定）')}</h2>
+      <div class="why">scene <code>${esc(trace.scene)}</code> v${trace.version} · ${esc(trace.model)}</div>
+      <div class="badges">${badges.join('')}</div>
+    </div>
+    ${layers}${skippedHtml}
+    <details>
+      <summary>完整 decision trace（JSON）</summary>
+      <pre>${esc(JSON.stringify(trace, null, 2))}</pre>
+    </details>`;
+}
+
+$('run').addEventListener('click', async () => {
+  const button = $('run');
+  button.disabled = true;
+  try {
+    const scene = $('scene').value;
+    if (!scene) throw new Error('沒有可用的 scene');
+    const state = parseState($('state').value);
+    const response = await fetch(`/v1/scenes/${encodeURIComponent(scene)}:evaluate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ state }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error?.message || JSON.stringify(body));
+    render(body);
+  } catch (e) {
+    $('out').innerHTML = `<div class="err">${esc(e.message)}</div>`;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+$('sample').addEventListener('click', () => { $('state').value = SAMPLE; });
+boot();
+</script>
+</body>
+</html>

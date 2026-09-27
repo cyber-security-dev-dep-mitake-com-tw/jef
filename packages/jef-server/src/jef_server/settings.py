@@ -22,6 +22,8 @@ class Settings:
     calibration_path: str | None = None
     model_name: str | None = None
     scenes_dir: str | None = None
+    #: Directory holding the debug UI. Empty disables the route entirely.
+    ui_dir: str | None = None
     #: torch intra-op threads. The target is a 16 vCPU no-GPU Proxmox VM, where
     #: this is the single biggest throughput lever.
     threads: int | None = None
@@ -46,6 +48,7 @@ def load_settings() -> Settings:
         calibration_path=os.environ.get("JEF_CALIBRATION_PATH") or None,
         model_name=os.environ.get("JEF_MODEL_NAME") or None,
         scenes_dir=os.environ.get("JEF_SCENES_DIR") or None,
+        ui_dir=os.environ.get("JEF_UI_DIR") or None,
         threads=_int("JEF_THREADS"),
         max_questions=_int("JEF_MAX_QUESTIONS") or 256,
         max_state_chars=_int("JEF_MAX_STATE_CHARS") or 1_000_000,

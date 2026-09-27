@@ -63,6 +63,11 @@ WORKDIR /app
 COPY scenes/ /app/scenes/
 ENV JEF_SCENES_DIR=/app/scenes
 
+# The decision viewer. One self-contained file, so it needs no build stage and
+# adds ~15KB -- and it is available on the box where the incident is happening.
+COPY packages/jef-ui/ /app/ui/
+ENV JEF_UI_DIR=/app/ui
+
 RUN mkdir -p /app/.cache && chown -R jef:jef /app
 USER jef
 

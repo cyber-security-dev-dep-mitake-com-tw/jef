@@ -103,3 +103,55 @@ def test_scene_metrics_are_exported(client: TestClient) -> None:
     assert "jef_scene_runs_total" in text
     # A deployment where this counter never moves has stopped escalating.
     assert "jef_scene_human_review_total" in text
+
+
+# --------------------------------------------------------------------------- #
+# Debug UI
+# --------------------------------------------------------------------------- #
+
+UI_DIR = Path(__file__).resolve().parents[3] / "packages" / "jef-ui"
+
+
+def _ui_client() -> TestClient:
+    engine = Engine()
+    scene_engine = SceneEngine(engine)
+    registry = SceneRegistry()
+    registry.add(load_scene(SCENES_DIR / "incident-triage.zh-tw.yaml"), compile_with=scene_engine)
+    app = create_app(
+        engine=engine,
+        settings=Settings(ui_dir=str(UI_DIR)),
+        scenes=(scene_engine, registry),
+    )
+    return TestClient(app)
+
+
+def test_ui_is_served_when_configured() -> None:
+    r = _ui_client().get("/ui")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_ui_is_self_contained() -> None:
+    """No build step, no CDN: a debugger that needs the network during an
+    incident is a debugger you cannot use during an incident."""
+    html = UI_DIR.joinpath("index.html").read_text(encoding="utf-8")
+    assert 'src="http' not in html
+    assert 'href="http' not in html
+    assert "cdn" not in html.lower()
+
+
+def test_ui_only_calls_endpoints_the_server_actually_serves(client: TestClient) -> None:
+    html = UI_DIR.joinpath("index.html").read_text(encoding="utf-8")
+    for path in ("/healthz", "/v1/scenes"):
+        assert path in html, f"the UI should read {path}"
+        assert client.get(path).status_code == 200
+
+
+def test_ui_route_absent_when_not_configured(client: TestClient) -> None:
+    assert client.get("/ui").status_code == 404
+
+
+def test_missing_ui_directory_fails_at_startup() -> None:
+    # An operator who configured a UI and gets none should find out now.
+    with pytest.raises(RuntimeError, match=r"no index\.html"):
+        create_app(engine=Engine(), settings=Settings(ui_dir="/nonexistent/jef-ui"))

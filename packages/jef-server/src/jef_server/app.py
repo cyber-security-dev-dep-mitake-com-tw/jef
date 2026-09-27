@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from jef_core import Engine, EvaluateRequest
 from jef_core.errors import JefError
 from jef_scene import SceneEngine, SceneRegistry
@@ -211,6 +212,24 @@ def create_app(
             # Surfaced so a deployment cannot quietly serve the test backbone.
             "test_backbone": settings.is_test_backbone,
         }
+
+    # -- debug UI ----------------------------------------------------------- #
+
+    if settings.ui_dir:
+        ui_index = Path(settings.ui_dir) / "index.html"
+        if not ui_index.is_file():
+            # A UI directory that is configured but empty means the operator
+            # expects a UI and will not get one. Fail at startup, not at 3am.
+            raise RuntimeError(f"JEF_UI_DIR={settings.ui_dir!r} has no index.html")
+
+        @app.get("/ui", include_in_schema=False)
+        def ui() -> FileResponse:
+            """The decision viewer.
+
+            One self-contained file: a debugging tool that needs a build step
+            before it runs is one you cannot open during an incident.
+            """
+            return FileResponse(ui_index, media_type="text/html; charset=utf-8")
 
     @app.get("/metrics")
     def metrics() -> PlainTextResponse:
