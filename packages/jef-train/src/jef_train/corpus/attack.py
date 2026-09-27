@@ -81,6 +81,10 @@ def build_attack_samples(*, refresh: bool = False, max_samples: int | None = Non
 
     samples: list[Sample] = []
     skipped_multi = 0
+    #: Counts techniques, not samples. Deriving polarity from len(samples) is a
+    #: trap: two samples are appended per technique, so the parity never flips
+    #: and every yes/no question comes out with the same label.
+    technique_index = 0
 
     for obj in objects:
         if not _is_technique(obj):
@@ -123,10 +127,11 @@ def build_attack_samples(*, refresh: bool = False, max_samples: int | None = Non
             )
         )
 
-        # A paired yes/no over the same evidence. Alternating the polarity by
-        # index keeps the true/false prior at ~50% -- a skewed prior would let a
+        # A paired yes/no over the same evidence. Polarity alternates per
+        # technique to hold the true/false prior at 50%: a skewed prior lets a
         # head score well by ignoring the state entirely.
-        positive = len(samples) % 2 == 0
+        positive = technique_index % 2 == 0
+        technique_index += 1
         asked = tactic if positive else keys[(keys.index(tactic) + 7) % len(keys)]
         samples.append(
             Sample(
