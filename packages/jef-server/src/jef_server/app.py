@@ -22,10 +22,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from jef_core import Engine, EvaluateRequest
 from jef_core.errors import JefError
+from jef_scene import SceneEngine, SceneRegistry
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import ValidationError
 
-from .deps import get_engine, get_settings
+from .deps import build_scenes, get_engine, get_settings
 from .settings import Settings
 
 log = logging.getLogger("jef.server")
@@ -50,15 +51,27 @@ LATENCY = Histogram(
     buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
 )
 CALIBRATED = Gauge("jef_calibration_loaded", "1 if a fitted calibrator is loaded")
+SCENE_RUNS = Counter("jef_scene_runs_total", "Scene evaluations", ["scene", "action"])
+SCENE_HUMAN = Counter(
+    "jef_scene_human_review_total",
+    "Scene runs that ended at a human. A deployment where this never moves is "
+    "one that has stopped escalating.",
+    ["scene"],
+)
 
 
 def _error(exc: JefError | Exception, status: int, code: str) -> JSONResponse:
     return JSONResponse(status_code=status, content={"error": {"code": code, "message": str(exc)}})
 
 
-def create_app(engine: Engine | None = None, settings: Settings | None = None) -> FastAPI:
+def create_app(
+    engine: Engine | None = None,
+    settings: Settings | None = None,
+    scenes: tuple[SceneEngine, SceneRegistry] | None = None,
+) -> FastAPI:
     settings = settings or get_settings()
     engine = engine or get_engine()
+    scene_engine, registry = scenes or build_scenes(settings, engine)
 
     app = FastAPI(
         title="JEF",
@@ -67,6 +80,8 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None) -
     )
     app.state.engine = engine
     app.state.settings = settings
+    app.state.scene_engine = scene_engine
+    app.state.scenes = registry
     CALIBRATED.set(1 if engine.calibrator.is_fitted() else 0)
 
     # -- error handling ---------------------------------------------------- #
@@ -115,6 +130,52 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None) -
         # not carry a null `probability` field and vice versa.
         return result.model_dump(exclude_none=True)
 
+    # -- scenes: the layer Jev leaves to the caller ------------------------ #
+
+    @app.get("/v1/scenes")
+    def list_scenes() -> dict[str, Any]:
+        reg: SceneRegistry = app.state.scenes
+        return {
+            "data": [
+                {
+                    "id": name,
+                    "version": reg.get(name).version,
+                    "description": reg.get(name).description,
+                    "layers": len(reg.get(name).layers),
+                    "questions": reg.get(name).question_count,
+                }
+                for name in reg.names()
+            ]
+        }
+
+    @app.post("/v1/scenes/{scene_id}:evaluate")
+    def evaluate_scene(scene_id: str, payload: dict[str, Any]) -> Any:
+        """Run a scene against one state and return the full decision trace.
+
+        The trace is the product here, not the verdict. An auditor needs the
+        evidence, the questions, the permitted answers, where the probability
+        mass fell and which gate fired -- which is precisely what hand-written
+        playbook branching cannot produce.
+        """
+        started = time.perf_counter()
+        scene = app.state.scenes.get(scene_id)
+        if "state" not in payload:
+            raise _MissingState("request body must contain 'state'")
+
+        trace = app.state.scene_engine.run(scene, payload["state"])
+
+        SCENE_RUNS.labels(scene=scene_id, action=trace.action or "none").inc()
+        if trace.human_review:
+            SCENE_HUMAN.labels(scene=scene_id).inc()
+        STATE_ENCODES.inc(trace.state_encodes)
+        for layer in trace.layers:
+            for question in layer.questions:
+                QUESTIONS.labels(kind=question.kind).inc()
+        REQUESTS.labels(endpoint="scene", status="200").inc()
+        LATENCY.labels(endpoint="scene").observe(time.perf_counter() - started)
+
+        return trace.to_dict()
+
     # -- discovery --------------------------------------------------------- #
 
     @app.get("/v1/models")
@@ -161,3 +222,8 @@ def create_app(engine: Engine | None = None, settings: Settings | None = None) -
 class _TooMany(JefError):
     code = "too_many_questions"
     status = 413
+
+
+class _MissingState(JefError):
+    code = "invalid_request"
+    status = 422

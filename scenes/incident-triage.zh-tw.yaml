@@ -1,0 +1,115 @@
+scene: incident-triage
+version: 1
+description: >-
+  資安事件分流：先濾掉已知良性樣態與證據不足的告警，再決定團隊與急迫性。
+  三層閘門共用同一次 state 編碼。
+
+# 保守的信心門檻。這些數字應該讀自 report.json 裡 P(correct) 的可靠度曲線，
+# 而不是憑感覺挑的——未校準的機率上設門檻等於擲硬幣。
+alpha: 0.10
+
+# 每層都走完而沒有任何閘門命中時的歸宿。預設是升級給人，
+# 因為一個跑到底卻沒做出決定的 playbook，並沒有做出決定。
+fallthrough: escalate_human
+
+layers:
+  - id: L1-noise-filter
+    description: 先處理最便宜也最常見的情況：這則告警根本不需要人看。
+    questions:
+      is_false_positive:
+        type: noul
+        instructions: 這則告警是否為已知的良性樣態（誤報）？
+        criteria:
+          true: 為既有排程、核准作業或既知良性行為
+          false: 為真實事件，需進一步處理
+      has_evidence:
+        type: noul
+        instructions: 告警內容是否包含足以做出判斷的具體證據？
+        criteria:
+          true: 含主機、帳號、時間或行為等可據以判斷的細節
+          false: 僅有結論性描述，缺乏可驗證的細節
+    gates:
+      - when: 'is_false_positive.probability > 0.90'
+        then: close
+        because: 高度確信為已知良性樣態，直接關閉
+      # 證據不足時不猜。猜出來的答案會帶著同樣的信心分數往下傳，
+      # 而下游閘門無從分辨「有把握」與「沒東西可看」。
+      - when: 'has_evidence.probability < 0.40'
+        then: request_context
+        because: 證據不足，回頭要資料而非硬猜
+      - else: true
+        then: next
+
+  - id: L2-routing
+    description: 決定歸屬團隊與嚴重度。
+    questions:
+      owner:
+        type: choice
+        instructions: 這則告警應由哪一個團隊處理？
+        criteria:
+          soc: 一般資安監控事件：告警分流、惡意連線、端點偵測
+          appsec: 應用程式與程式碼相關：網頁漏洞、API 濫用、相依套件風險
+          infra: 基礎設施層：主機、網路設備、憑證、備份與可用性
+          identity: 身分與存取管理：帳號、權限、單一登入、特權帳號
+          fraud: 金融詐欺與異常交易：盜用帳戶、異常下單、洗錢態樣
+      severity:
+        type: score
+        instructions: 評估這則告警的嚴重程度。
+        criteria: [資訊, 低, 中, 高, 危急]
+    gates:
+      # 自動指派要求的是「答對的機率」，不是分布有多尖。
+      # p_correct 為 None 代表該 bucket 的校準資料不足以誠實回答，
+      # 這時就不該自動指派——那與「機率很低」是兩回事。
+      - when: 'owner.p_correct is not None and owner.p_correct >= 0.95 and severity.score >= 3.0'
+        then: page_oncall
+        because: 歸屬明確且嚴重度高，直接叫人
+      - when: 'owner.p_correct is not None and owner.p_correct >= 0.85 and owner.set_size == 1'
+        then: assign
+        because: 歸屬明確且 conformal 集合唯一，可自動指派
+      - when: 'owner.set_size > 2'
+        then: escalate_human
+        because: 模型無法在承諾的覆蓋率下分辨團隊，交給人
+      - else: true
+        then: next
+
+  - id: L3-urgency
+    description: 歸屬不夠明確時，至少判斷要不要現在處理。
+    questions:
+      urgent:
+        type: noul
+        instructions: 這則告警是否需要立即處理？
+        criteria:
+          true: 正在造成損害或即將造成損害
+          false: 可依既有排程處理
+    gates:
+      - when: 'urgent.probability > 0.80'
+        then: escalate_human
+        because: 急迫但歸屬不明，需人工即刻判斷
+      - else: true
+        then: queue_for_review
+
+actions:
+  close:
+    description: 判定為誤報，關閉並記錄
+    human_review: false
+    params: { queue: closed, reason: known_benign }
+  request_context:
+    description: 證據不足，向來源系統索取更多脈絡
+    human_review: false
+    params: { queue: enrichment }
+  assign:
+    description: 自動指派給歸屬團隊
+    human_review: false
+    params: { queue: team_inbox }
+  page_oncall:
+    description: 呼叫值班人員
+    human_review: true
+    params: { queue: oncall, priority: p1 }
+  escalate_human:
+    description: 交由資安分析師人工判斷
+    human_review: true
+    params: { queue: analyst_review }
+  queue_for_review:
+    description: 排入一般待審佇列
+    human_review: true
+    params: { queue: backlog }

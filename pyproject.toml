@@ -55,9 +55,17 @@ ignore_missing_imports = true
 # Tests are deliberately excluded: they pass raw dict literals on purpose to
 # exercise the wire contract, and demanding full annotations there adds noise
 # without catching anything.
-files = ["packages/jef-core/src", "packages/jef-server/src", "packages/jef-train/src"]
+files = [
+  "packages/jef-core/src",
+  "packages/jef-scene/src",
+  "packages/jef-server/src",
+  "packages/jef-train/src",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
 python_files = ["test_*.py"]
-addopts = "-q"
+# importlib import mode: several packages legitimately have a tests/test_schema.py
+# and a tests/test_engine.py, and the default sys.path-based naming collides on
+# the bare module name.
+addopts = "-q --import-mode=importlib"

@@ -13,12 +13,13 @@ from functools import lru_cache
 from jef_core import BilinearHead, Calibrator, Engine, ZeroShotHead
 from jef_core.backends import load_backbone
 from jef_core.head import DecisionHead
+from jef_scene import SceneEngine, SceneRegistry
 
 from .settings import Settings, load_settings
 
 log = logging.getLogger("jef.server")
 
-__all__ = ["build_engine", "get_engine", "get_settings"]
+__all__ = ["build_engine", "build_scenes", "get_engine", "get_scenes", "get_settings"]
 
 
 @lru_cache(maxsize=1)
@@ -64,3 +65,24 @@ def build_engine(settings: Settings) -> Engine:
 @lru_cache(maxsize=1)
 def get_engine() -> Engine:
     return build_engine(get_settings())
+
+
+def build_scenes(settings: Settings, engine: Engine) -> tuple[SceneEngine, SceneRegistry]:
+    """Load and compile every scene at startup.
+
+    Compiling here rather than lazily means a scene with a bad gate condition
+    fails the deployment, not an incident. A scene directory that does not exist
+    is a configuration error worth failing on for the same reason -- silently
+    serving zero scenes looks identical to serving the wrong ones.
+    """
+    scene_engine = SceneEngine(engine)
+    registry = SceneRegistry()
+    if settings.scenes_dir:
+        count = registry.load_dir(settings.scenes_dir, compile_with=scene_engine)
+        log.info("loaded %d scene(s) from %s", count, settings.scenes_dir)
+    return scene_engine, registry
+
+
+@lru_cache(maxsize=1)
+def get_scenes() -> tuple[SceneEngine, SceneRegistry]:
+    return build_scenes(get_settings(), get_engine())

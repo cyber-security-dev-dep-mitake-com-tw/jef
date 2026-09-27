@@ -8,6 +8,9 @@ cd "$(dirname "$0")/.."
 PORT="${JEF_PORT:-8080}"
 BASE="http://127.0.0.1:${PORT}"
 PY="${PY:-.venv/bin/python}"
+# Scenes are part of what the acceptance suite exercises, so the server under
+# test must be able to see them.
+export JEF_SCENES_DIR="${JEF_SCENES_DIR:-scenes}"
 
 "$PY" -m jef_server >/tmp/jef-acceptance.log 2>&1 &
 SERVER_PID=$!

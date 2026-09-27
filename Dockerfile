@@ -29,6 +29,7 @@ RUN uv venv /opt/venv \
  # pointing at /build, which does not exist in the runtime stage.
  && VIRTUAL_ENV=/opt/venv uv pip install --no-cache --no-editable \
       ./packages/jef-core${JEF_EXTRAS:+[$JEF_EXTRAS]} \
+      ./packages/jef-scene \
       ./packages/jef-server
 
 
@@ -52,9 +53,16 @@ COPY --from=builder /opt/venv /opt/venv
 # The source tree is gone by this stage, so this catches exactly the class of
 # packaging bug -- editable installs, missing modules -- that a build-stage
 # check cannot see.
-RUN python -c "import jef_core, jef_server, jef_server.factory; print('import check ok')"
+RUN python -c "import jef_core, jef_scene, jef_server, jef_server.factory; print('import check ok')"
 
 WORKDIR /app
+
+# Scenes ship with the image so a default deployment has something to run, and
+# so `docker run` demonstrates the layer that distinguishes JEF. Mount over
+# /app/scenes to supply your own.
+COPY scenes/ /app/scenes/
+ENV JEF_SCENES_DIR=/app/scenes
+
 RUN mkdir -p /app/.cache && chown -R jef:jef /app
 USER jef
 
