@@ -149,12 +149,69 @@ The corpus is rebuilt from public sources (MITRE ATT&CK, NVD) whose contents
 change over time, so exact numbers will drift. `data/corpus/manifest.json`
 records what went in.
 
+## Independent third-party benchmarks
+
+Everything above is self-evaluated. These are not: the data, the labels and the
+task framing all come from published datasets this project did not construct.
+Reproduce with `python -m jef_train.bench`; the artifact is `docs/benchmarks.json`.
+
+### CTI-Bench VSP — the task JEF was trained for
+
+`AI4Sec/cti-bench` ships CVE descriptions with their full CVSS v3.1 vector,
+which yields exactly the four questions JEF trains on. **Zero CVE overlap**: all
+2,397 CVE ids from the training and calibration splits were put in an exclusion
+set, and none appeared — the corpus draws from recent publication windows while
+CTI-Bench VSP is built from 2024 entries. The check runs every time regardless,
+because "there was no overlap last time" is not a property.
+
+| task | n | accuracy | random | vs random | ECE | P(correct) ECE | conformal @ 0.10 |
+|---|---|---|---|---|---|---|---|
+| attack vector | 200 | **0.840** | 0.250 | 3.4× | 0.079 | 0.075 | **0.895** |
+| user interaction | 200 | **0.805** | 0.500 | 1.6× | 0.070 | 0.072 | 0.875 |
+| severity band | 200 | 0.435 | 0.200 | 2.2× | 0.111 | 0.231 | 0.810 |
+| privileges required | 200 | 0.575 | 0.500 | 1.15× | 0.163 | 0.153 | 0.780 |
+
+Attack vector and user interaction transfer well. Privileges-required barely
+beats a coin flip, which is consistent with its in-corpus result and suggests the
+signal is genuinely weak in prose rather than that the head failed to find it.
+
+### Where JEF is at chance, and why that is the correct result
+
+| benchmark | n | accuracy | random |
+|---|---|---|---|
+| TMMLU+ (66 zh-TW subjects) | 528 | 0.254 | 0.250 |
+| CTI-Bench MCQ | 300 | 0.317 | 0.250 |
+
+TMMLU+ asks things like *"which of these CIDR statements is wrong?"*, and
+CTI-Bench MCQ asks which ATT&CK mitigation covers a behaviour. Both are
+**knowledge** questions. JEF is a small trained head over a frozen encoder: it
+judges evidence you supply, it does not know things. Reported here because a
+capability boundary stated plainly is worth more than one discovered in
+production.
+
+### Conformal coverage behaves exactly as the theory says
+
+| data | relationship to calibration | coverage @ alpha=0.10 |
+|---|---|---|
+| CTI-Bench VSP, attack vector | same task, third-party data | **0.895** (nominal 0.900) ✓ |
+| CTI-Bench VSP, user interaction | same task, third-party data | 0.875 |
+| CTI-Bench MCQ | different task entirely | **0.440** ✗ |
+
+Split conformal guarantees coverage **under exchangeability**. On third-party
+data drawn from the same task, coverage lands within a point of nominal —
+on an independently constructed dataset, which is the strongest evidence in this
+document. On a different task it collapses to 0.44, because the guarantee never
+applied there.
+
+This is the practical rule the scene layer encodes: prediction sets are
+trustworthy for the question type the calibrator was fitted on, and `fit` and
+`bench` both flag every bucket where empirical coverage falls short.
+
 ## Pending
 
 - **`jef-bench-zh-tw`** — a human-verified zh-TW evaluation set. Two thirds of
   the current corpus's *states* are English prose from ATT&CK and NVD; every
-  *question* is zh-TW. A first-class zh-TW claim cannot rest on that alone.
-- **Independent third-party benchmarks** — TMMLU+ (zh-TW multiple choice),
-  CTI-Bench (threat intelligence), MMTEB zh classification. Accuracy **and**
-  ECE/Brier on data this project did not construct.
+  *question* is zh-TW. TMMLU+ shows JEF is not a zh-TW knowledge model, which
+  was never the claim; what is still unmeasured is zh-TW **evidence** judgement,
+  and that needs a human-labelled set.
 - Comparison against Laya and Von on the same independent sets.

@@ -57,3 +57,7 @@ data/corpus/*.jsonl
 # --- 訓練產物（由 jef_train.fit 重建，上 HF Hub 而非 git）---
 models/
 .cache/features/
+
+# --- npm ---
+packages/jef-sdk-ts/dist/
+packages/jef-sdk-ts/package-lock.json
