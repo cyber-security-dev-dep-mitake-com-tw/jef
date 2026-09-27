@@ -30,6 +30,7 @@ from .types import (
     NoulAnswer,
     Question,
     ScoreAnswer,
+    RawQuestion,
     Usage,
     normalize,
 )
@@ -119,7 +120,7 @@ class Engine:
         return _build_answer(q, probs)
 
     def answer(
-        self, shared: SharedState, questions: Mapping[str, Question | dict[str, object]]
+        self, shared: SharedState, questions: Mapping[str, Question | RawQuestion]
     ) -> dict[str, Answer]:
         """Answer every question against the same encoding, independently.
 
@@ -131,7 +132,7 @@ class Engine:
         return out
 
     def evaluate(
-        self, state: object, questions: Mapping[str, Question | dict[str, object]]
+        self, state: object, questions: Mapping[str, Question | RawQuestion]
     ) -> EvaluateResponse:
         """Full ``/v1/systemone`` evaluation: one state encode, N answers."""
         shared = self.prepare(state)

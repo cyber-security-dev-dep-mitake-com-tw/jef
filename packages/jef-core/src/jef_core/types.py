@@ -13,6 +13,7 @@ official TypeSafe SDK and the AI SDK can both point at a JEF server unchanged.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator
@@ -29,6 +30,7 @@ __all__ = [
     "NoulAnswer",
     "NoulQuestion",
     "Question",
+    "RawQuestion",
     "ScoreAnswer",
     "ScoreQuestion",
     "Usage",
@@ -38,6 +40,13 @@ __all__ = [
 
 # ``noul`` is the native spelling; ``boolean`` is the AI SDK spelling.
 NoulDialect = Literal["noul", "boolean"]
+
+#: An unvalidated question straight off the wire. Typed as ``Mapping[str, Any]``
+#: rather than ``Mapping[str, object]`` on purpose: a JSON question is
+#: heterogeneous, and the narrower type would reject an ordinary
+#: ``{"type": "noul", "instructions": "..."}`` literal because dict is
+#: invariant in its value type.
+RawQuestion = Mapping[str, Any]
 
 State = str | dict[str, Any] | list[Any]
 
@@ -126,7 +135,7 @@ class NormalizedQuestion(_Base):
 _QUESTION_ADAPTER: TypeAdapter[Question] = TypeAdapter(Question)
 
 
-def coerce_question(qid: str, q: Question | dict[str, Any]) -> Question:
+def coerce_question(qid: str, q: Question | RawQuestion) -> Question:
     """Validate a raw wire dict into a typed question.
 
     Raises :class:`InvalidQuestionError` rather than pydantic's ``ValidationError``
@@ -141,7 +150,7 @@ def coerce_question(qid: str, q: Question | dict[str, Any]) -> Question:
         raise InvalidQuestionError(f"question {qid!r}: {exc.errors()[0].get('msg', exc)}") from exc
 
 
-def normalize(qid: str, q: Question | dict[str, Any]) -> NormalizedQuestion:
+def normalize(qid: str, q: Question | RawQuestion) -> NormalizedQuestion:
     """Reduce any wire question to the shared option-scoring form."""
     q = coerce_question(qid, q)
     if isinstance(q, ChoiceQuestion):

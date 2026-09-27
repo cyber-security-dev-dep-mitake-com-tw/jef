@@ -44,7 +44,12 @@ python_version = "3.12"
 warn_unused_ignores = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-files = ["packages/jef-core/src", "packages/jef-scene/src", "packages/jef-server/src", "packages/jef-sdk-python/src", "packages/jef-train/src"]
+# Only packages that currently have code. Each phase adds its own entry when it
+# lands; listing an empty directory here fails the whole run.
+# Tests are deliberately excluded: they pass raw dict literals on purpose to
+# exercise the wire contract, and demanding full annotations there adds noise
+# without catching anything.
+files = ["packages/jef-core/src", "packages/jef-server/src", "packages/jef-train/src"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]

@@ -34,7 +34,7 @@ jobs:
       - name: Format check
         run: uv run ruff format --check packages/
       - name: Type check
-        run: uv run mypy packages/
+        run: uv run mypy
       - name: Test
         run: uv run pytest packages/ -q --cov=packages --cov-report=term-missing
 

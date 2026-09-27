@@ -24,7 +24,10 @@ COPY packages/ ./packages/
 # --build-arg JEF_EXTRAS=torch; the default image stays small and offline-capable.
 ARG JEF_EXTRAS=""
 RUN uv venv /opt/venv \
- && VIRTUAL_ENV=/opt/venv uv pip install --no-cache \
+ # --no-editable is load-bearing: the root pyproject declares a uv workspace,
+ # so without it uv installs the workspace members as editable .pth files
+ # pointing at /build, which does not exist in the runtime stage.
+ && VIRTUAL_ENV=/opt/venv uv pip install --no-cache --no-editable \
       ./packages/jef-core${JEF_EXTRAS:+[$JEF_EXTRAS]} \
       ./packages/jef-server
 
@@ -44,6 +47,12 @@ ENV PATH="/opt/venv/bin:$PATH" \
     JEF_BACKBONE=hashing
 
 COPY --from=builder /opt/venv /opt/venv
+
+# Fail the build rather than ship an image that starts and immediately dies.
+# The source tree is gone by this stage, so this catches exactly the class of
+# packaging bug -- editable installs, missing modules -- that a build-stage
+# check cannot see.
+RUN python -c "import jef_core, jef_server, jef_server.factory; print('import check ok')"
 
 WORKDIR /app
 RUN mkdir -p /app/.cache && chown -R jef:jef /app
