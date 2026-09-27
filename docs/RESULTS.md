@@ -171,18 +171,28 @@ saying so is better than quoting the one row that flatters.
 
 ### The measurement found a real bug
 
-The first run of this table showed **189%** growth, not 46%. The state was being
-encoded once, as designed, but the option texts were being encoded *per
-question*: eleven questions meant eleven separate forward passes over two short
-strings each. `encode_count` was 1 the whole time, which is exactly why it did
-not catch it -- a shared state encoding followed by per-question work still
-reports one state read while costing linearly.
+The first attempt at this measurement showed **189%** growth on a ~330-character
+state. The state was being encoded once, as designed, but the option texts were
+encoded *per question*: eleven questions meant eleven separate forward passes
+over two short strings each. `encode_count` was 1 the whole time, which is
+exactly why nothing caught it -- a shared state encoding followed by
+per-question work still reports one state read while costing linearly, so the
+metric guarding D3 was structurally blind to this.
 
 Option encodes are now batched across every question in a request, the same trick
 Jev applies across the option batch applied across the question batch as well.
-Marginal cost per question fell from 12.3 ms to 2.6 ms. `query_encode_count` is
-now exposed alongside `encode_count`, and tests assert twenty questions cost one
-batched option encode.
+The figure to compare is the marginal cost per question, since unlike a growth
+percentage it does not depend on state length: it fell from **12.3 ms to
+2.6 ms**, and batching an 11-question request went from 3.8x cheaper than 11
+separate calls to 7.5x on the same state. Every row of the table above was
+measured after this fix.
+
+`query_encode_count` is now exposed alongside `encode_count` so the property is
+observable rather than assumed, and tests assert that twenty questions cost one
+batched option encode. Batching must never change an answer, so tests also
+assert that batched and one-at-a-time evaluation agree exactly -- and that
+mmBERT is padding-invariant, checked by batching option texts of deliberately
+different lengths, which gave bit-identical results.
 
 ## Independent third-party benchmarks
 
