@@ -1,0 +1,19 @@
+{{- if .Values.modelCache.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "jef.fullname" . }}-cache
+  labels: {{- include "jef.labels" . | nindent 4 }}
+  annotations:
+    # Weights outlive the release: re-downloading 300M parameters on a
+    # reinstall turns a routine operation into an outage.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ .Values.modelCache.accessMode }}]
+  {{- with .Values.modelCache.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.modelCache.size }}
+{{- end }}

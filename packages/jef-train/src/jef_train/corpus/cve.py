@@ -107,6 +107,9 @@ def _samples_for(cve: dict[str, Any], cvss: dict[str, Any], polarity: int) -> li
     cve_id = cve.get("id", "")
     state = f"漏洞編號：{cve_id}\n\n漏洞描述：\n{_english_description(cve)}"
     meta = {"cve_id": cve_id, "state_lang": "en", "cvss": cvss.get("vectorString", "")}
+    # Severity, attack vector and the boolean facts all read the same
+    # description. One CVE is one split unit.
+    group = f"cve:{cve_id}"
 
     out: list[Sample] = [
         Sample(
@@ -117,6 +120,7 @@ def _samples_for(cve: dict[str, Any], cvss: dict[str, Any], polarity: int) -> li
             option_labels=severity_labels,
             label=severity_band(float(cvss.get("baseScore", 0.0))),
             source="cve.severity",
+            group=group,
             meta={**meta, "base_score": float(cvss.get("baseScore", 0.0))},
         )
     ]
@@ -132,6 +136,7 @@ def _samples_for(cve: dict[str, Any], cvss: dict[str, Any], polarity: int) -> li
                 option_labels=av_labels,
                 label=av_keys.index(ATTACK_VECTOR_ZH[av][0]),
                 source="cve.attack_vector",
+                group=group,
                 meta=meta,
             )
         )
@@ -151,6 +156,7 @@ def _samples_for(cve: dict[str, Any], cvss: dict[str, Any], polarity: int) -> li
                     option_labels=["不需任何權限即可利用", "需要既有帳號或權限"],
                     label=0 if pr == "NONE" else 1,
                     source="cve.privileges",
+                    group=group,
                     meta=meta,
                 )
             )
@@ -166,6 +172,7 @@ def _samples_for(cve: dict[str, Any], cvss: dict[str, Any], polarity: int) -> li
                     option_labels=["無需使用者互動", "需使用者點擊或開啟等操作"],
                     label=1 if ui == "REQUIRED" else 0,
                     source="cve.user_interaction",
+                    group=group,
                     meta=meta,
                 )
             )

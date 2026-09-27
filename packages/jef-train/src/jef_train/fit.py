@@ -30,34 +30,62 @@ __all__ = ["main"]
 _SPLITS = ("train", "calibration", "test")
 
 
-def _cache_for(
-    split: str, corpus: Path, cache_dir: Path, backbone_spec: str, threads: int | None
+def _corpus_cache(
+    corpus: Path, cache_dir: Path, backbone_spec: str, threads: int | None
 ) -> FeatureCache:
-    """Load a cached feature set, or build it once and keep it.
+    """Encode the whole corpus once, and keep it.
 
-    The cache is keyed by backbone because features from a different encoder are
-    not interchangeable -- silently reusing them would train a head against
-    vectors it will never see at inference.
+    Deliberately not per split. The splits changed once already -- from
+    per-sample to grouped-by-evidence, after per-sample splitting was found to
+    put one CVE's description in train and test simultaneously -- and re-running
+    the backbone over 12,000 samples to fix a split is the kind of cost that
+    discourages fixing it. Slicing a whole-corpus cache by uid costs milliseconds.
+
+    Keyed by backbone: features from a different encoder are not interchangeable,
+    and silently reusing them would train a head against vectors it will never
+    see at inference.
     """
     safe = backbone_spec.replace("/", "__")
-    path = cache_dir / f"{split}.{safe}.npz"
+    path = cache_dir / f"all.{safe}.npz"
     if path.exists():
         cached = FeatureCache.load(path)
         log.info("loaded cached features: %s (%d samples)", path, len(cached))
         return cached
 
-    samples = list(read_samples(corpus / f"{split}.jsonl"))
+    samples = list(read_samples(corpus / "all.jsonl"))
     kwargs: dict[str, object] = {}
     if threads and backbone_spec != "hashing":
         kwargs["threads"] = threads
     backbone = load_backbone(backbone_spec, **kwargs)
 
-    log.info("encoding %d %s samples with %s ...", len(samples), split, backbone_spec)
+    log.info("encoding %d samples with %s ...", len(samples), backbone_spec)
     started = time.perf_counter()
     cache = build_feature_cache(samples, backbone)
-    log.info("encoded %s in %.1fs", split, time.perf_counter() - started)
+    log.info("encoded corpus in %.1fs", time.perf_counter() - started)
     cache.save(path)
     return cache
+
+
+def _split_caches(corpus: Path, whole: FeatureCache) -> dict[str, FeatureCache]:
+    """Slice the corpus cache into the splits on disk, and verify the split."""
+    out: dict[str, FeatureCache] = {}
+    for split in _SPLITS:
+        uids = [s.uid for s in read_samples(corpus / f"{split}.jsonl")]
+        out[split] = whole.subset(uids)
+
+    # Belt and braces: the corpus builder already refuses to write a leaking
+    # split, but every number below depends on this holding, so it is checked
+    # again here against what was actually loaded.
+    seen: dict[str, str] = {}
+    for split, cache in out.items():
+        for group in cache.groups:
+            previous = seen.setdefault(group, split)
+            if previous != split:
+                raise SystemExit(
+                    f"evidence group {group!r} appears in both {previous!r} and "
+                    f"{split!r}; every metric from this run would be contaminated"
+                )
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -86,10 +114,13 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    caches = {
-        split: _cache_for(split, corpus, cache_dir, args.backbone, args.threads)
-        for split in _SPLITS
-    }
+    whole = _corpus_cache(corpus, cache_dir, args.backbone, args.threads)
+    caches = _split_caches(corpus, whole)
+    log.info(
+        "splits: %s over %d distinct evidence groups",
+        {k: len(v) for k, v in caches.items()},
+        len({g for c in caches.values() for g in c.groups}),
+    )
 
     head = train_head(
         caches["train"],
@@ -136,6 +167,8 @@ def main(argv: list[str] | None = None) -> int:
         "rank": args.rank,
         "class_weighting": not args.no_class_weighting,
         "splits": {k: len(v) for k, v in caches.items()},
+        "split_unit": "evidence group (ATT&CK technique / CVE id / SOAR template)",
+        "groups": {k: len(set(v.groups)) for k, v in caches.items()},
         "majority_baseline_accuracy": baseline,
         "uncalibrated": before.to_dict(),
         "calibrated": after.to_dict(),

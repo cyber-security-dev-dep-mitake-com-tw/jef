@@ -19,7 +19,7 @@ from pathlib import Path
 from .corpus.attack import build_attack_samples
 from .corpus.cve import build_cve_samples
 from .corpus.soar_zh import build_soar_zh_samples
-from .schema import Sample, split_samples, write_samples
+from .schema import Sample, assert_no_group_leakage, split_samples, write_samples
 
 log = logging.getLogger("jef.train.build")
 
@@ -74,6 +74,9 @@ def summarise(samples: list[Sample]) -> dict[str, object]:
         "total": len(samples),
         "by_bucket": dict(Counter(s.bucket for s in samples)),
         "by_state_lang": dict(Counter(str(s.meta.get("state_lang", "unknown")) for s in samples)),
+        # Groups are the split unit. Far fewer groups than samples is expected
+        # and is the point -- several questions share one piece of evidence.
+        "groups": len({s.group_key for s in samples}),
         "by_source": {
             source: {
                 "count": counts[source],
@@ -114,8 +117,17 @@ def main(argv: list[str] | None = None) -> int:
 
     train, calibration, test = split_samples(samples, seed=args.seed)
 
+    # Contamination fails the build rather than quietly inflating a published
+    # number. This check is the reason the numbers in report.json can be trusted
+    # at all: the first run of this pipeline scored 1.000 on SOAR routing
+    # because the same alert text sat on both sides of the split.
+    assert_no_group_leakage(train, calibration, test)
+
     out = Path(args.out)
     counts = {
+        # all.jsonl lets the feature cache be built once over the whole corpus,
+        # so re-splitting never costs another pass over the backbone.
+        "all": write_samples(samples, out / "all.jsonl"),
         "train": write_samples(train, out / "train.jsonl"),
         "calibration": write_samples(calibration, out / "calibration.jsonl"),
         "test": write_samples(test, out / "test.jsonl"),

@@ -1,0 +1,111 @@
+# JEF is CPU-only by design: frozen backbone, head-only training, encoder-scale
+# model. There is no GPU block anywhere in this chart because the architecture
+# forecloses one, and nodeSelector below keeps pods off GPU nodes rather than
+# wasting them.
+
+replicaCount: 2
+
+image:
+  repository: ghcr.io/cyber-security-dev-dep-mitake-com-tw/jef
+  tag: ""          # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+jef:
+  # 'hashing' is the deterministic test backbone: well-formed answers, no
+  # semantics. The chart refuses to render with it (see _helpers.tpl).
+  backbone: jhu-clsp/mmBERT-base
+
+  # Intra-op threads for the frozen backbone, and the single biggest throughput
+  # lever on a CPU-only node. Deliberately below the CPU limit: the event loop
+  # and the OS need headroom, and oversubscribing this pool makes p99 worse
+  # because the threads contend on the same caches.
+  threads: 6
+
+  workers: 1
+  logLevel: INFO
+  maxQuestions: 256
+  alpha: "0.10"
+
+  # Trained artifacts, mounted from a ConfigMap/Secret/PVC you supply. Empty
+  # means the server falls back to the zero-shot head and an unfitted
+  # calibrator -- it will say so in /healthz, and every scene gate that needs
+  # P(correct) will refuse to fire, routing decisions to humans instead.
+  headPath: ""
+  calibrationPath: ""
+
+  # Scenes ship in the image. Set this to mount your own over /app/scenes.
+  scenesDir: /app/scenes
+
+modelCache:
+  # Weights persist across restarts. Without this every pod restart re-downloads
+  # 300M parameters, which turns a rolling update into an outage.
+  enabled: true
+  storageClass: ""
+  size: 5Gi
+  accessMode: ReadWriteOnce
+
+# Extra files (head.npz, calibration.json, scenes) mounted into the pod.
+extraVolumes: []
+extraVolumeMounts: []
+
+service:
+  type: ClusterIP
+  port: 8080
+
+resources:
+  requests:
+    cpu: "4"
+    memory: 4Gi
+  limits:
+    cpu: "8"
+    memory: 8Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  # CPU, not requests-per-second: the workload is one encoder forward pass per
+  # request and saturates cores long before it saturates anything else.
+  targetCPUUtilizationPercentage: 70
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+serviceMonitor:
+  # jef_state_encodes_total / jef_requests_total must stay at 1.0. A rising
+  # ratio means shared-state encoding has regressed into per-question encoding.
+  enabled: false
+  interval: 30s
+  labels: {}
+
+# A cold model load on CPU is slow enough that an impatient startupProbe would
+# restart-loop a healthy pod.
+probes:
+  startup:
+    failureThreshold: 60
+    periodSeconds: 10
+  readiness:
+    periodSeconds: 10
+  liveness:
+    periodSeconds: 30
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

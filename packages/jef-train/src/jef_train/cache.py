@@ -52,6 +52,8 @@ class FeatureCache:
         kinds: list[str],
         sources: list[str],
         backbone: str,
+        uids: list[str] | None = None,
+        groups: list[str] | None = None,
     ) -> None:
         self.ctx = ctx
         self.queries = queries
@@ -61,6 +63,8 @@ class FeatureCache:
         self.kinds = kinds
         self.sources = sources
         self.backbone = backbone
+        self.uids = uids or []
+        self.groups = groups or []
 
     def __len__(self) -> int:
         return int(self.labels.shape[0])
@@ -88,6 +92,43 @@ class FeatureCache:
             out.setdefault(self.bucket_of(i), []).append(i)
         return out
 
+    def subset(self, uids: list[str]) -> FeatureCache:
+        """Slice out the samples with these uids, preserving their order.
+
+        This is what lets the backbone run once over the whole corpus: changing
+        the split -- or fixing one, as the group-aware split did -- costs a
+        re-index rather than another 12,000 forward passes.
+        """
+        if not self.uids:
+            raise ValueError("this cache carries no uids and cannot be sliced")
+        index = {uid: i for i, uid in enumerate(self.uids)}
+        missing = [u for u in uids if u not in index]
+        if missing:
+            raise ValueError(
+                f"{len(missing)} uid(s) absent from the cache (e.g. {missing[0]}); "
+                "the cache was built from a different corpus"
+            )
+        picked = [index[u] for u in uids]
+
+        ctx_rows = [self.ctx[self.offsets[i] : self.offsets[i + 1]] for i in picked]
+        query_rows = [self.queries[self.offsets[i] : self.offsets[i + 1]] for i in picked]
+        offsets = [0]
+        for rows in ctx_rows:
+            offsets.append(offsets[-1] + rows.shape[0])
+
+        return FeatureCache(
+            ctx=np.vstack(ctx_rows).astype(np.float32),
+            queries=np.vstack(query_rows).astype(np.float32),
+            offsets=np.array(offsets, dtype=np.int64),
+            labels=np.array([self.labels[i] for i in picked], dtype=np.int64),
+            n_options=np.array([self.n_options[i] for i in picked], dtype=np.int64),
+            kinds=[self.kinds[i] for i in picked],
+            sources=[self.sources[i] for i in picked],
+            backbone=self.backbone,
+            uids=[self.uids[i] for i in picked],
+            groups=[self.groups[i] for i in picked] if self.groups else [],
+        )
+
     def save(self, path: str | Path) -> None:
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -101,6 +142,8 @@ class FeatureCache:
             kinds=np.array(self.kinds),
             sources=np.array(self.sources),
             backbone=np.array(self.backbone),
+            uids=np.array(self.uids),
+            groups=np.array(self.groups),
         )
 
     @classmethod
@@ -115,6 +158,8 @@ class FeatureCache:
             kinds=[str(k) for k in z["kinds"]],
             sources=[str(s) for s in z["sources"]],
             backbone=str(z["backbone"]),
+            uids=[str(x) for x in z["uids"]] if "uids" in z else [],
+            groups=[str(g) for g in z["groups"]] if "groups" in z else [],
         )
 
 
@@ -132,6 +177,8 @@ def build_feature_cache(
     n_options: list[int] = []
     kinds: list[str] = []
     sources: list[str] = []
+    uids: list[str] = []
+    groups: list[str] = []
 
     for i, s in enumerate(samples):
         question = NormalizedQuestion(
@@ -152,6 +199,8 @@ def build_feature_cache(
         n_options.append(s.n_options)
         kinds.append(s.kind)
         sources.append(s.source)
+        uids.append(s.uid)
+        groups.append(s.group_key)
 
         if log_every and (i + 1) % log_every == 0:
             log.info("encoded %d/%d", i + 1, len(samples))
@@ -165,4 +214,6 @@ def build_feature_cache(
         kinds=kinds,
         sources=sources,
         backbone=backbone.name,
+        uids=uids,
+        groups=groups,
     )

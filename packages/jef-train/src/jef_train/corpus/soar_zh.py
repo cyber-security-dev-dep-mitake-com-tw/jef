@@ -286,8 +286,14 @@ def build_soar_zh_samples(*, per_scenario: int = 40, seed: int = 20260927) -> li
 
     for scenario in SCENARIOS:
         for i in range(per_scenario):
-            state = _render(scenario.templates[i % len(scenario.templates)], rng)
+            template_index = i % len(scenario.templates)
+            state = _render(scenario.templates[template_index], rng)
             meta = {"scenario": scenario.key, "state_lang": "zh-TW", "synthetic": True}
+            # Slot fills differ; the sentence does not. Two renders of the same
+            # template are ~95% identical text, so the split unit is the
+            # template, not the render. Without this, SOAR routing scored 1.000
+            # by recalling the training set.
+            group = f"soar:{scenario.key}:{template_index}"
 
             samples.append(
                 Sample(
@@ -298,6 +304,7 @@ def build_soar_zh_samples(*, per_scenario: int = 40, seed: int = 20260927) -> li
                     option_labels=team_labels,
                     label=team_keys.index(scenario.team),
                     source="soar_zh.routing",
+                    group=group,
                     meta=meta,
                 )
             )
@@ -310,6 +317,7 @@ def build_soar_zh_samples(*, per_scenario: int = 40, seed: int = 20260927) -> li
                     option_labels=SEVERITY_LEVELS,
                     label=scenario.severity,
                     source="soar_zh.severity",
+                    group=group,
                     meta=meta,
                 )
             )
@@ -326,6 +334,7 @@ def build_soar_zh_samples(*, per_scenario: int = 40, seed: int = 20260927) -> li
                         option_labels=["為真實事件，需進一步處理", "為已知良性樣態，可直接關閉"],
                         label=1 if scenario.false_positive else 0,
                         source="soar_zh.false_positive",
+                        group=group,
                         meta=meta,
                     )
                 )
@@ -339,6 +348,7 @@ def build_soar_zh_samples(*, per_scenario: int = 40, seed: int = 20260927) -> li
                         option_labels=["可依排程處理", "需立即介入"],
                         label=1 if scenario.urgent else 0,
                         source="soar_zh.urgency",
+                        group=group,
                         meta=meta,
                     )
                 )

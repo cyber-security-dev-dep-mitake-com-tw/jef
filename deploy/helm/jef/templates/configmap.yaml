@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jef.fullname" . }}
+  labels: {{- include "jef.labels" . | nindent 4 }}
+data:
+  JEF_BACKBONE: {{ .Values.jef.backbone | quote }}
+  JEF_PORT: {{ .Values.service.port | quote }}
+  JEF_WORKERS: {{ .Values.jef.workers | quote }}
+  JEF_THREADS: {{ .Values.jef.threads | quote }}
+  JEF_LOG_LEVEL: {{ .Values.jef.logLevel | quote }}
+  JEF_MAX_QUESTIONS: {{ .Values.jef.maxQuestions | quote }}
+  JEF_ALPHA: {{ .Values.jef.alpha | quote }}
+  HF_HOME: /app/.cache/huggingface
+  {{- with .Values.jef.scenesDir }}
+  JEF_SCENES_DIR: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.jef.headPath }}
+  JEF_HEAD_PATH: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.jef.calibrationPath }}
+  JEF_CALIBRATION_PATH: {{ . | quote }}
+  {{- end }}

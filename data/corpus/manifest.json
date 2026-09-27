@@ -1,8 +1,9 @@
 {
   "splits": {
-    "train": 7794,
-    "calibration": 2398,
-    "test": 1804
+    "all": 11996,
+    "train": 7571,
+    "calibration": 2218,
+    "test": 2207
   },
   "seed": 1337,
   "summary": {
@@ -18,6 +19,7 @@
       "en": 9296,
       "zh-TW": 2700
     },
+    "groups": 3268,
     "by_source": {
       "attack.tactic": {
         "count": 418,
@@ -53,8 +55,8 @@
         "kind": "choice",
         "n_options": 4,
         "labels": {
-          "network": 2146,
-          "local": 571,
+          "network": 2145,
+          "local": 572,
           "adjacent": 84,
           "physical": 19
         }
@@ -64,8 +66,8 @@
         "kind": "noul",
         "n_options": 2,
         "labels": {
-          "true": 579,
-          "false": 831
+          "true": 618,
+          "false": 792
         }
       },
       "cve.severity": {
@@ -73,8 +75,8 @@
         "kind": "score",
         "n_options": 5,
         "labels": {
-          "高": 1251,
-          "中": 1234,
+          "中": 1237,
+          "高": 1248,
           "危急": 227,
           "低": 108
         }
@@ -84,8 +86,8 @@
         "kind": "noul",
         "n_options": 2,
         "labels": {
-          "false": 926,
-          "true": 484
+          "false": 885,
+          "true": 525
         }
       },
       "soar_zh.false_positive": {

@@ -1,0 +1,12 @@
+apiVersion: v2
+name: jef
+description: JEF — open System One decision engine (CPU-only)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords: [system-one, decision, soar, calibration, zh-TW]
+home: https://github.com/cyber-security-dev-dep-mitake-com-tw/jef
+sources:
+  - https://github.com/cyber-security-dev-dep-mitake-com-tw/jef
+maintainers:
+  - name: Mitake Cyber Security Dev Dept

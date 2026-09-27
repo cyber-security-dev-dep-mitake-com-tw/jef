@@ -1,0 +1,87 @@
+{{- include "jef.validateBackbone" . -}}
+{{- include "jef.validateThreads" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jef.fullname" . }}
+  labels: {{- include "jef.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels: {{- include "jef.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "jef.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Roll pods when configuration changes, not only when the image does.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: jef
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "jef.fullname" . }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          # A cold model load on CPU takes minutes. The startup probe absorbs
+          # that; liveness only takes over once the pod has actually started,
+          # so a slow load cannot restart-loop a healthy pod.
+          startupProbe:
+            httpGet: {path: /healthz, port: http}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            # readOnlyRootFilesystem is on, so anything the process writes needs
+            # an explicit mount.
+            - name: tmp
+              mountPath: /tmp
+            {{- if .Values.modelCache.enabled }}
+            - name: model-cache
+              mountPath: /app/.cache/huggingface
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.modelCache.enabled }}
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: {{ include "jef.fullname" . }}-cache
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints: {{- toYaml . | nindent 8 }}
+      {{- end }}

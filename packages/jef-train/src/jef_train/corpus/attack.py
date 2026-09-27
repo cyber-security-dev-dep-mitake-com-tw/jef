@@ -122,6 +122,9 @@ def build_attack_samples(*, refresh: bool = False, max_samples: int | None = Non
                 option_labels=labels,
                 label=keys.index(tactic),
                 source="attack.tactic",
+                # Both questions below share this technique's description, so
+                # they must land in the same split.
+                group=f"attack:{attack_id or name}",
                 lang="zh-TW",
                 meta={"attack_id": attack_id, "state_lang": "en", "technique": name},
             )
@@ -145,6 +148,7 @@ def build_attack_samples(*, refresh: bool = False, max_samples: int | None = Non
                 ],
                 label=1 if positive else 0,
                 source="attack.tactic_noul",
+                group=f"attack:{attack_id or name}",
                 lang="zh-TW",
                 meta={"attack_id": attack_id, "state_lang": "en", "asked_tactic": asked},
             )
