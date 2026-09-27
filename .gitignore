@@ -53,3 +53,7 @@ Infra/ansible/inventory/hosts.ini
 
 # --- 衍生語料（可重建，且含第三方文字）---
 data/corpus/*.jsonl
+
+# --- 訓練產物（由 jef_train.fit 重建，上 HF Hub 而非 git）---
+models/
+.cache/features/
