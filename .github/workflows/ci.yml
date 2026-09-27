@@ -69,7 +69,20 @@ jobs:
         run: |
           docker run -d --name jef-ci -p 8080:8080 jef:ci
           for _ in $(seq 1 60); do
-            curl -sf http://127.0.0.1:8080/healthz && break || sleep 1
+            curl -sf http://127.0.0.1:8080/healthz >/dev/null 2>&1 && break
+            sleep 1
           done
-          curl -sf http://127.0.0.1:8080/healthz | tee /dev/stderr | grep -q '"status":"ok"'
-          docker rm -f jef-ci
+          if ! curl -sf http://127.0.0.1:8080/healthz | tee /dev/stderr | grep -q '"status":"ok"'; then
+            echo "::error::container never became healthy; logs follow"
+            docker logs jef-ci
+            docker inspect --format '{{.State.Status}} exit={{.State.ExitCode}}' jef-ci
+            exit 1
+          fi
+
+      - name: Container logs
+        if: always()
+        run: docker logs jef-ci 2>&1 | tail -50 || true
+
+      - name: Clean up
+        if: always()
+        run: docker rm -f jef-ci || true

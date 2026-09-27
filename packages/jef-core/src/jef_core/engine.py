@@ -10,6 +10,7 @@ run 20 gates for the price of one state encode (D3).
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -118,7 +119,7 @@ class Engine:
         return _build_answer(q, probs)
 
     def answer(
-        self, shared: SharedState, questions: dict[str, Question | dict[str, object]]
+        self, shared: SharedState, questions: Mapping[str, Question | dict[str, object]]
     ) -> dict[str, Answer]:
         """Answer every question against the same encoding, independently.
 
@@ -130,7 +131,7 @@ class Engine:
         return out
 
     def evaluate(
-        self, state: object, questions: dict[str, Question | dict[str, object]]
+        self, state: object, questions: Mapping[str, Question | dict[str, object]]
     ) -> EvaluateResponse:
         """Full ``/v1/systemone`` evaluation: one state encode, N answers."""
         shared = self.prepare(state)
