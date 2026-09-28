@@ -200,7 +200,17 @@ def main(argv: list[str] | None = None) -> int:
     from huggingface_hub import HfApi
 
     api = HfApi()
-    api.create_repo(args.repo, repo_type="model", private=args.private, exist_ok=True)
+    # Only create when it is actually missing. `create_repo(exist_ok=True)`
+    # still POSTs to /api/repos/create and only forgives a 409, so a token that
+    # may write to this repo but not create new ones gets a 403 on every
+    # publish -- including the second and later ones, when there is nothing
+    # left to create. Fine-grained Hugging Face tokens have repo creation as a
+    # separate permission, so that combination is the common one.
+    if api.repo_exists(args.repo, repo_type="model"):
+        log.info("%s exists; not creating", args.repo)
+    else:
+        log.info("%s does not exist yet; creating", args.repo)
+        api.create_repo(args.repo, repo_type="model", private=args.private)
     api.upload_folder(
         folder_path=str(model_dir),
         repo_id=args.repo,

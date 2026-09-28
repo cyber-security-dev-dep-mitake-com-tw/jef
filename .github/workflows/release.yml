@@ -198,11 +198,11 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      # NPM_TOKEN must be an *automation* token (classic) or a granular access
-      # token. A classic "publish" token still demands a one-time password, and
-      # the publish dies with `EOTP` -- which reads like a missing 2FA code
-      # rather than the wrong kind of token.
-      - name: The token can publish without a one-time password
+      # NPM_TOKEN is a granular access token -- classic tokens were removed in
+      # November 2025 -- and it must have "Bypass 2FA" enabled. That option is
+      # off by default, and without it the publish dies with `EOTP`, which
+      # reads like a missing 2FA code rather than a token setting.
+      - name: Who the token is, and what the account demands
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -210,6 +210,13 @@ jobs:
             echo "::error::NPM_TOKEN is not valid for this registry"
             exit 1
           }
+          # Informational. `whoami` succeeding proves the token authenticates,
+          # not that it may publish: a read-only or classic *publish* token
+          # passes here and then dies with EOTP. The registry does not expose
+          # the token's kind, so the 2FA mode is the closest signal there is.
+          npm profile get --json 2>/dev/null \
+            | python3 -c "import json,sys; print('account 2FA:', (json.load(sys.stdin).get('tfa') or 'none'))" \
+            || echo "account 2FA: could not read (granular tokens cannot)"
 
       - name: Build and publish @jef-ai/sdk
         working-directory: packages/jef-sdk-ts
@@ -219,7 +226,19 @@ jobs:
           npm install
           npm run typecheck && npm test && npm run build
           npm publish --provenance --access public \
-            --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
+            --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }} \
+            2>&1 | tee publish.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ] && grep -q EOTP publish.log; then
+            echo "::error::npm demanded a one-time password. Classic tokens were \
+          removed in November 2025, so NPM_TOKEN is a granular access token -- and \
+          those have 'Bypass 2FA' OFF by default, which is exactly this failure. \
+          Regenerate at https://www.npmjs.com/settings/~/tokens with Bypass 2FA \
+          enabled. Note npm removes bypass-2FA direct publishing in January 2027; \
+          the durable fix is a trusted publisher, which needs the package to exist \
+          first."
+          fi
+          exit "$status"
 
       - name: Build and publish n8n-nodes-jef
         working-directory: connectors/n8n
@@ -335,13 +354,23 @@ jobs:
           token = os.environ.get("HF_TOKEN")
           if not token:
               sys.exit("::error::HF_TOKEN is not set")
-          me = HfApi().whoami(token=token)
-          scopes = (me.get("auth") or {}).get("accessToken", {}).get("role")
-          print(f"authenticated as {me.get('name')} (role={scopes})")
-          if scopes == "read":
-              sys.exit(
-                  "::error::HF_TOKEN is read-only; publishing needs a write token "
-                  "that may create repos under this account"
+          api = HfApi()
+          me = api.whoami(token=token)
+          role = (me.get("auth") or {}).get("accessToken", {}).get("role")
+          print(f"authenticated as {me.get('name')} (role={role})")
+          if role == "read":
+              sys.exit("::error::HF_TOKEN is read-only; publishing needs write access")
+          # Creating a repo is a separate permission from writing to one, and
+          # a fine-grained token routinely has the second without the first.
+          # Saying which path this run will take makes a later 403 legible.
+          if api.repo_exists("dennislee928/jef-v0", repo_type="model", token=token):
+              print("dennislee928/jef-v0 exists; this run only needs write access")
+          else:
+              print(
+                  "dennislee928/jef-v0 does not exist; this run must CREATE it. "
+                  "If the token lacks repo-creation rights, create the repo by hand "
+                  "at https://huggingface.co/new and rerun -- the publisher skips "
+                  "creation when the repo is already there."
               )
           PY
 

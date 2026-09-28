@@ -144,7 +144,7 @@ is a setting only you can change.
 | `build-python` | `InvalidDistribution: Unknown distribution format: 'jef'` | `twine check dist/*` handed twine a *directory*. The distributions build into `dist/<project>/` so each publish job can point at one without globbing; the check needed `dist/*/*`. |
 | `ghcr` | `manifest unknown` on the startup probe | `type=semver,pattern={{version}}` runs the tag through a strict semver parser. `0.2.0rc1` is PEP 440, so it emitted **no tag at all** — silently — and the image went up as `sha-<short>` only. Now `type=raw`. |
 | `weights` | `ModuleNotFoundError: jef_train` | `uv run` at the workspace root syncs the root project, a virtual package with no members. Two minutes of installing, then nothing importable. Now `--no-project` with `PYTHONPATH`, which is cheaper anyway — publishing 400KB does not need torch. |
-| `npm` | `npm error code EOTP` | **Yours.** `NPM_TOKEN` is a classic *publish* token, which still demands a one-time password. It needs to be an **automation** token, or a granular access token. |
+| `npm` | `npm error code EOTP` | **Yours.** `NPM_TOKEN` lacks *Bypass 2FA* — see below. |
 
 ### What the second rehearsal found
 
@@ -179,11 +179,24 @@ To fix the Hugging Face token: <https://huggingface.co/settings/tokens> → a
 **Write** token, or a fine-grained token with permission to create repos under
 your account. The job now calls `whoami` first and stops on a read-only token.
 
-To fix the npm token: <https://www.npmjs.com/settings/~/tokens> → *Generate New
-Token* → **Classic → Automation** (or *Granular Access* scoped to `@jef-ai` and
-`n8n-nodes-jef`). Replace the `NPM_TOKEN` repository secret. The release
-workflow now runs `npm whoami` before it builds anything, so a bad token fails
-in seconds instead of after two package builds.
+### The npm token needs "Bypass 2FA"
+
+Classic tokens were removed in November 2025, so every npm token is now a
+**granular access token** — and those ship with **Bypass 2FA off by default**.
+Publishing with one hits `EOTP`, which reads like a missing authenticator code
+rather than a token setting. Advice naming a "classic automation token" is
+describing a token type that no longer exists.
+
+<https://www.npmjs.com/settings/~/tokens> → *Generate New Token* → **Granular
+Access**, scoped to `@jef-ai` and `n8n-nodes-jef`, read **and write**, with
+**Bypass 2FA** enabled. Replace the `NPM_TOKEN` secret.
+
+npm removes bypass-2FA direct publishing in **January 2027**. The durable
+answer is npm's own trusted publishing (OIDC, no token — the same model as
+PyPI), but unlike PyPI it has no pending-publisher flow: the package has to
+exist before a trusted publisher can be attached to it. So the first publish
+uses the token, and the workflow switches to OIDC afterwards. That also needs
+npm CLI ≥ 11.5.1, newer than what Node 22 bundles.
 
 ## What a release does
 
