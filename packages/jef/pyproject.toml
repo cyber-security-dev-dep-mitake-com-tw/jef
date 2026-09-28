@@ -1,6 +1,6 @@
 [project]
 name = "jef"
-version = "0.2.0rc3"
+version = "0.2.0rc4"
 description = "JEF — an open System One decision engine: typed decisions with calibrated confidence, scene gates, and a CLI."
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
@@ -42,14 +42,14 @@ Issues = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/issues"
 # which answers in the right shape and means nothing.
 torch = ["torch>=2.5", "transformers>=4.46"]
 onnx = ["onnxruntime>=1.20", "tokenizers>=0.20"]
-server = ["jef-server==0.2.0rc3"]
+server = ["jef-server==0.2.0rc4"]
 mcp = ["mcp>=1.2"]
-train = ["jef-train==0.2.0rc3"]
+train = ["jef-train==0.2.0rc4"]
 all = [
   "torch>=2.5",
   "transformers>=4.46",
-  "jef-server==0.2.0rc3",
-  "jef-train==0.2.0rc3",
+  "jef-server==0.2.0rc4",
+  "jef-train==0.2.0rc4",
   "mcp>=1.2",
 ]
 
