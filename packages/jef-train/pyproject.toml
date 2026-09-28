@@ -1,10 +1,10 @@
 [project]
 name = "jef-train"
-version = "0.2.0rc1"
+version = "0.2.0rc2"
 description = "JEF training: embedding cache, head training, temperature + conformal calibration"
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
-dependencies = ["jef==0.2.0rc1", "torch>=2.5", "transformers>=4.46", "scikit-learn>=1.5", "datasets>=3.0"]
+dependencies = ["jef==0.2.0rc2", "torch>=2.5", "transformers>=4.46", "scikit-learn>=1.5", "datasets>=3.0"]
 
 authors = [{ name = "Mitake Cyber Security Dev Dept" }]
 maintainers = [{ name = "dennislee928" }]
