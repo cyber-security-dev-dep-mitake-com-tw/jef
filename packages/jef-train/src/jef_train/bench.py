@@ -30,7 +30,7 @@ import re
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 from jef_core import Engine
@@ -42,7 +42,7 @@ from .schema import read_samples
 
 log = logging.getLogger("jef.train.bench")
 
-__all__ = ["BenchCase", "main", "run_benchmark"]
+__all__ = ["BenchCase", "EngineScorer", "Scorer", "main", "run_benchmark"]
 
 _CVE_RE = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 
@@ -424,13 +424,62 @@ def context_sweep(
 # --------------------------------------------------------------------------- #
 
 
-def run_benchmark(engine: Engine, cases: list[BenchCase], alpha: float = 0.10) -> dict[str, Any]:
-    """Evaluate the engine over benchmark cases, grouped by task."""
+class Scorer(Protocol):
+    """Anything that can answer a `BenchCase` with a probability vector.
+
+    The benchmark used to take an `Engine` directly, which quietly made "the
+    number" and "JEF's number" the same thing -- there was nowhere to put a
+    comparator. P1.5d needs the opposite: several systems over *identical*
+    cases, because a comparison against someone else's reported figure on
+    someone else's subset is not a comparison. So the runner depends on this
+    much and no more.
+
+    `probs` returns one probability per entry of `case.option_keys`, in that
+    order, already normalised. `calibrator` may be unfitted -- a baseline
+    generally has nothing fitted, and the runner simply reports fewer columns
+    for it rather than pretending otherwise.
+    """
+
+    name: str
+
+    # A property, not a plain attribute: a scorer that wraps something else
+    # generally forwards its calibrator rather than owning one, and a settable
+    # attribute here would reject exactly that.
+    @property
+    def calibrator(self) -> Calibrator: ...
+
+    def probs(self, case: BenchCase) -> np.ndarray: ...
+
+
+@dataclass
+class EngineScorer:
+    """A JEF `Engine` as a scorer. This is the path every existing number took."""
+
+    engine: Engine
+    name: str = "jef"
+
+    @property
+    def calibrator(self) -> Calibrator:
+        return self.engine.calibrator
+
+    def probs(self, case: BenchCase) -> np.ndarray:
+        answer = self.engine.evaluate(case.state, {"q": case.question}).answers["q"]
+        dump = answer.model_dump(exclude_none=True)
+        if "probabilities" in dump:
+            probs = np.array([dump["probabilities"][k] for k in case.option_keys])
+        else:
+            value = dump.get("noul", dump.get("probability", 0.5))
+            probs = np.array([1.0 - value, value])
+        return probs / probs.sum()
+
+
+def run_benchmark(scorer: Scorer, cases: list[BenchCase], alpha: float = 0.10) -> dict[str, Any]:
+    """Evaluate a scorer over benchmark cases, grouped by task."""
     by_task: dict[str, list[BenchCase]] = {}
     for case in cases:
         by_task.setdefault(case.task, []).append(case)
 
-    calibrator: Calibrator = engine.calibrator
+    calibrator: Calibrator = scorer.calibrator
     results: dict[str, Any] = {}
 
     for task, items in sorted(by_task.items()):
@@ -444,14 +493,7 @@ def run_benchmark(engine: Engine, cases: list[BenchCase], alpha: float = 0.10) -
         set_sizes: list[int] = []
 
         for case in items:
-            answer = engine.evaluate(case.state, {"q": case.question}).answers["q"]
-            dump = answer.model_dump(exclude_none=True)
-            if "probabilities" in dump:
-                probs = np.array([dump["probabilities"][k] for k in case.option_keys])
-            else:
-                value = dump.get("noul", dump.get("probability", 0.5))
-                probs = np.array([1.0 - value, value])
-            probs = probs / probs.sum()
+            probs = scorer.probs(case)
 
             kind = "noul" if case.question["type"] in ("noul", "boolean") else case.question["type"]
             width = len(case.option_keys)
@@ -519,7 +561,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-dir", default="models/jef-v0")
     parser.add_argument("--backbone", default="jhu-clsp/mmBERT-base")
     parser.add_argument("--corpus", default="data/corpus", help="used to exclude seen CVEs")
-    parser.add_argument("--out", default="docs/benchmarks.json")
+    parser.add_argument(
+        "--scorer",
+        choices=["jef", "zero-shot"],
+        default="jef",
+        help="which system answers the cases. 'zero-shot' is the same backbone "
+        "with no trained head and nothing calibrated -- the floor the head has "
+        "to beat, measured on exactly the cases JEF is measured on.",
+    )
+    # Defaults per scorer, because docs/benchmarks.json is what the badge script
+    # reads: a baseline run must not be able to overwrite JEF's published
+    # numbers just by leaving a flag off.
+    parser.add_argument("--out", default=None)
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--tmmlu-per-subject", type=int, default=12)
     parser.add_argument("--tmmlu-subjects", nargs="*", default=None)
@@ -545,13 +598,32 @@ def main(argv: list[str] | None = None) -> int:
 
     from jef_core import BilinearHead
     from jef_core.backends import load_backbone
+    from jef_core.head import DecisionHead, ZeroShotHead
+
+    if args.out is None:
+        args.out = (
+            "docs/benchmarks.json"
+            if args.scorer == "jef"
+            else f"docs/benchmarks-{args.scorer}.json"
+        )
 
     model_dir = Path(args.model_dir)
-    head = BilinearHead.load(model_dir / "head.npz")
-    calibrator = (
-        Calibrator() if args.uncalibrated else Calibrator.load(model_dir / "calibration.json")
-    )
+    head: DecisionHead
+    if args.scorer == "zero-shot":
+        # The baseline is the untrained system, so it gets neither the head nor
+        # the calibrator -- loading either would be measuring JEF again. Same
+        # backbone, same cases, same exclusions: the only difference is the
+        # thing P1.3 trained.
+        head = ZeroShotHead()
+        calibrator = Calibrator()
+        log.info("scorer: zero-shot (%s, no trained head, uncalibrated)", args.backbone)
+    else:
+        head = BilinearHead.load(model_dir / "head.npz")
+        calibrator = (
+            Calibrator() if args.uncalibrated else Calibrator.load(model_dir / "calibration.json")
+        )
     engine = Engine(load_backbone(args.backbone, threads=args.threads), head, calibrator)
+    scorer = EngineScorer(engine, name=args.scorer)
 
     excluded = training_cve_ids(Path(args.corpus))
     log.info("training corpus contributed %d CVE id(s) to the exclusion set", len(excluded))
@@ -571,7 +643,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         log.info("context sweep over %d cases", len(sweep_cases))
         sweep = context_sweep(engine, sweep_cases, args.sweep_lengths)
-        out = Path(args.out).with_name("context-sweep.json")
+        suffix = "" if args.scorer == "jef" else f"-{args.scorer}"
+        out = Path(args.out).with_name(f"context-sweep{suffix}.json")
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(
             json.dumps(
@@ -594,10 +667,11 @@ def main(argv: list[str] | None = None) -> int:
         log.info("wrote %s", out)
         return 0
 
-    results = run_benchmark(engine, cases)
+    results = run_benchmark(scorer, cases)
 
     payload = {
-        "model_dir": str(model_dir),
+        "scorer": scorer.name,
+        "model_dir": str(model_dir) if args.scorer != "zero-shot" else None,
         "backbone": args.backbone,
         "calibrated": calibrator.is_fitted(),
         "excluded_training_cves": len(excluded),
