@@ -389,13 +389,51 @@ jobs:
           path: artifacts
         continue-on-error: true
 
+      # The notes lead with what each channel actually did. v0.2.0rc3 shipped
+      # with no weights attached and nothing on npm, and said neither -- the
+      # asset list just quietly lacked head.npz. A release that names only the
+      # tag invites the reader to assume everything in it worked.
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYPI_RESULT: ${{ needs.pypi.result }}
+          NPM_RESULT: ${{ needs.npm.result }}
+          GHCR_RESULT: ${{ needs.ghcr.result }}
+          WEIGHTS_RESULT: ${{ needs.weights.result }}
+          IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         run: |
+          set -e
           version="${{ needs.verify.outputs.version }}"
+          index=$([ "$IS_PRERELEASE" = "true" ] && echo TestPyPI || echo PyPI)
+          npm_tag=$([ "$IS_PRERELEASE" = "true" ] && echo "npm \`next\`" || echo "npm")
+
+          mark() {
+            case "$1" in
+              success) echo "shipped" ;;
+              skipped) echo "**skipped**" ;;
+              *)       echo "**FAILED — nothing published here**" ;;
+            esac
+          }
+
+          {
+            echo "| Channel | |"
+            echo "|---|---|"
+            echo "| $index | $(mark "$PYPI_RESULT") |"
+            echo "| $npm_tag | $(mark "$NPM_RESULT") |"
+            echo "| GHCR image | $(mark "$GHCR_RESULT") |"
+            echo "| Hugging Face weights | $(mark "$WEIGHTS_RESULT") |"
+            echo
+            if [ "$WEIGHTS_RESULT" != "success" ]; then
+              echo "> Without the weights this build cannot automate anything:"
+              echo "> \`p_correct\` is unavailable and every scene gate routes to a human."
+              echo
+            fi
+            gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -f tag_name="v${version}" --jq .body
+          } > notes.md
+
           files=$(find artifacts -type f 2>/dev/null | tr '\n' ' ')
           gh release create "v${version}" $files \
             --title "v${version}" \
-            --generate-notes \
+            --notes-file notes.md \
             ${{ needs.verify.outputs.prerelease == 'true' && '--prerelease' || '' }}
