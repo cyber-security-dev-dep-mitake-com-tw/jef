@@ -9,7 +9,7 @@ The model card is generated from `report.json`, not written by hand. A card that
 drifts from the numbers it describes is worse than no card, and these numbers
 change every time the corpus is rebuilt from NVD.
 
-    python -m jef_train.publish_weights --repo dennislee928/jef-v0 --version 0.2.0
+    python -m jef_train.publish_weights --repo dennislee928tw/jef-v0 --version 0.2.0
 """
 
 from __future__ import annotations
@@ -172,7 +172,7 @@ why it was wrong, in
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Publish JEF weights to Hugging Face")
     parser.add_argument("--model-dir", default="models/jef-v0")
-    parser.add_argument("--repo", default="dennislee928/jef-v0")
+    parser.add_argument("--repo", default="dennislee928tw/jef-v0")
     parser.add_argument("--version", required=True)
     parser.add_argument("--private", action="store_true")
     parser.add_argument(

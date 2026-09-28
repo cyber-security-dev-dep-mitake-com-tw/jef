@@ -153,7 +153,7 @@ is a setting only you can change.
 | Job | Failure | Cause |
 |---|---|---|
 | `smoke` | `ConnectError: Connection refused` | The CLI defaults to a server on `localhost:8080`, and the job had none — so `jef models` was never exercising the installed package at all. It now passes `--local`. My local check of the same command had silently talked to a leftover server from the Robot suite, which is exactly the trap this job exists to close. The CLI now also answers a refused connection with the address and the three ways out, instead of a bare traceback. |
-| `weights` | `403 Forbidden` on `api/repos/create` | **Yours.** `HF_TOKEN` cannot create a repo under `dennislee928`. It needs write access, or `dennislee928/jef-v0` needs to exist already. |
+| `weights` | `403 Forbidden` on `api/repos/create` | **Not a token problem — the namespace was wrong.** The workflow targeted `dennislee928`, an empty Hugging Face account; `HF_TOKEN` belongs to `dennislee928tw`, which is the account that actually holds this project's models. No token permission could have fixed that. Retargeted to `dennislee928tw/jef-v0` (created 2026-09-28, public, Apache-2.0). |
 
 ### Verifying a TestPyPI build
 

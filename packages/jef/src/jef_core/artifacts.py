@@ -4,8 +4,8 @@ A trained head is ~400KB, so it can reasonably live in three places: next to the
 code, attached to a GitHub release, or on Hugging Face. The last one is where
 people look for model weights, so paths like
 
-    hf://dennislee928/jef-v0/head.npz
-    hf://dennislee928/jef-v0@v0.2.0/calibration.json
+    hf://dennislee928tw/jef-v0/head.npz
+    hf://dennislee928tw/jef-v0@v0.2.0/calibration.json
 
 resolve to a local file via the Hub cache. Everything else is treated as an
 ordinary path, so nothing changes for a local file or a mounted volume.

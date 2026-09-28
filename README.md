@@ -133,7 +133,7 @@ dialects of the yes/no primitive are accepted and echoed back: TypeSafe calls it
 | CLI | `jef ask` · `jef scene` · `jef validate` · `jef serve` |
 | MCP | `jef-mcp` — typed decisions as tools for Claude Desktop, Cursor and agents |
 | Agent skill | [`skills/jef`](skills/jef) — when to reach for JEF and how to read the answer |
-| Weights | [`dennislee928/jef-v0`](https://huggingface.co/dennislee928/jef-v0) on Hugging Face, and in this repo |
+| Weights | [`dennislee928tw/jef-v0`](https://huggingface.co/dennislee928tw/jef-v0) on Hugging Face, and in this repo |
 
 There is also a decision viewer at `/ui`: one self-contained file, shipped in
 the image, because a debugger that needs a build step is one you cannot open
