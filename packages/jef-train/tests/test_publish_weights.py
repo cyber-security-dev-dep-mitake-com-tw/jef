@@ -15,9 +15,7 @@ import ast
 import sys
 from pathlib import Path
 
-MODULE = (
-    Path(__file__).resolve().parents[1] / "src" / "jef_train" / "publish_weights.py"
-)
+MODULE = Path(__file__).resolve().parents[1] / "src" / "jef_train" / "publish_weights.py"
 
 #: Imported inside the function that uses it, so it is not needed to load the
 #: module -- but the job does install it.

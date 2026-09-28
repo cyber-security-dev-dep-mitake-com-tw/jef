@@ -133,6 +133,25 @@ That exercises the whole pipeline — version check, tests, builds, metadata
 validation, TestPyPI upload, npm `next`, the multi-arch image and its startup
 probe — without touching the real registries' version space.
 
+### What the first rehearsal found
+
+`v0.2.0rc1` failed in four independent places, none of which any earlier check
+could have caught. Recorded because three of the four were mine and the fourth
+is a setting only you can change.
+
+| Job | Failure | Cause |
+|---|---|---|
+| `build-python` | `InvalidDistribution: Unknown distribution format: 'jef'` | `twine check dist/*` handed twine a *directory*. The distributions build into `dist/<project>/` so each publish job can point at one without globbing; the check needed `dist/*/*`. |
+| `ghcr` | `manifest unknown` on the startup probe | `type=semver,pattern={{version}}` runs the tag through a strict semver parser. `0.2.0rc1` is PEP 440, so it emitted **no tag at all** — silently — and the image went up as `sha-<short>` only. Now `type=raw`. |
+| `weights` | `ModuleNotFoundError: jef_train` | `uv run` at the workspace root syncs the root project, a virtual package with no members. Two minutes of installing, then nothing importable. Now `--no-project` with `PYTHONPATH`, which is cheaper anyway — publishing 400KB does not need torch. |
+| `npm` | `npm error code EOTP` | **Yours.** `NPM_TOKEN` is a classic *publish* token, which still demands a one-time password. It needs to be an **automation** token, or a granular access token. |
+
+To fix the npm token: <https://www.npmjs.com/settings/~/tokens> → *Generate New
+Token* → **Classic → Automation** (or *Granular Access* scoped to `@jef-ai` and
+`n8n-nodes-jef`). Replace the `NPM_TOKEN` repository secret. The release
+workflow now runs `npm whoami` before it builds anything, so a bad token fails
+in seconds instead of after two package builds.
+
 ## What a release does
 
 | Job | |
