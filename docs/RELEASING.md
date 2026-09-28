@@ -155,6 +155,26 @@ is a setting only you can change.
 | `smoke` | `ConnectError: Connection refused` | The CLI defaults to a server on `localhost:8080`, and the job had none — so `jef models` was never exercising the installed package at all. It now passes `--local`. My local check of the same command had silently talked to a leftover server from the Robot suite, which is exactly the trap this job exists to close. The CLI now also answers a refused connection with the address and the three ways out, instead of a bare traceback. |
 | `weights` | `403 Forbidden` on `api/repos/create` | **Yours.** `HF_TOKEN` cannot create a repo under `dennislee928`. It needs write access, or `dennislee928/jef-v0` needs to exist already. |
 
+### Verifying a TestPyPI build
+
+TestPyPI is not a usable index on its own: anyone may claim a name there, and
+it holds placeholders at absurd versions. Pointing a resolver at both indexes
+picks `fastapi==1.0` — a stub that does not build — over the real 0.115. So
+take the dependencies from PyPI and only the packages under test from TestPyPI:
+
+```bash
+uv venv --python 3.12 /tmp/check
+VIRTUAL_ENV=/tmp/check uv pip install --index-url https://pypi.org/simple/ \
+  numpy pydantic pyyaml httpx fastapi "uvicorn[standard]" prometheus-client
+VIRTUAL_ENV=/tmp/check uv pip install --prerelease allow --no-deps \
+  --index-url https://test.pypi.org/simple/ "jef==X" "jef-server==X"
+
+/tmp/check/bin/jef ask "..." --local --yes-no "是否緊急？"
+```
+
+`v0.2.0rc3` passes this: four modules import, the server factory loads, and the
+CLI returns a distribution.
+
 To fix the Hugging Face token: <https://huggingface.co/settings/tokens> → a
 **Write** token, or a fine-grained token with permission to create repos under
 your account. The job now calls `whoami` first and stops on a read-only token.
