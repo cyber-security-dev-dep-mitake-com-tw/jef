@@ -22,7 +22,7 @@ neither registry lets you reuse one.
 
 ### PyPI Trusted Publishing
 
-Twelve forms: six projects on each of the two registries. Tedious once, then
+Six forms: three projects on each of the two registries. Tedious once, then
 never again — and it means there is no PyPI token in this repository at all.
 
 **PyPI** → <https://pypi.org/manage/account/publishing/>
@@ -33,52 +33,56 @@ except the project name:
 
 | Field | Value |
 |---|---|
-| PyPI Project Name | one of the six below |
+| PyPI Project Name | one of the three below |
 | Owner | `cyber-security-dev-dep-mitake-com-tw` |
 | Repository name | `jef` |
 | Workflow name | `release.yml` |
 | Environment name | **`pypi-<project>`** on pypi.org · **`testpypi-<project>`** on test.pypi.org |
 
-### The environment must differ per project
+### Two limits shaped this, and both fail confusingly
 
-This is the part that is not obvious and that fails confusingly. PyPI enforces
-uniqueness on `(owner, repository, workflow, environment)` — not on the project
-name. A monorepo publishing six projects from one workflow can therefore
-register **exactly one** pending publisher under a shared environment; the
-second submission is rejected, and the page comes back with `#errors` rather
-than an explanation ([warehouse#16920](https://github.com/pypi/warehouse/issues/16920)).
+Neither is documented where you would look for it, and both come back as a
+bare `#errors` anchor on the form.
 
-So each project gets its own:
+**1. The environment must differ per project.** PyPI enforces uniqueness on
+`(owner, repository, workflow, environment)` — *not* on the project name. A
+monorepo publishing several projects from one workflow can register exactly one
+pending publisher under a shared environment; the rest are rejected as
+duplicates ([warehouse#16920](https://github.com/pypi/warehouse/issues/16920)).
 
-| Project | pypi.org | test.pypi.org |
-|---|---|---|
-| `jef` | `pypi-jef` | `testpypi-jef` |
-| `jef-core` | `pypi-jef-core` | `testpypi-jef-core` |
-| `jef-scene` | `pypi-jef-scene` | `testpypi-jef-scene` |
-| `jef-server` | `pypi-jef-server` | `testpypi-jef-server` |
-| `jef-sdk` | `pypi-jef-sdk` | `testpypi-jef-sdk` |
-| `jef-train` | `pypi-jef-train` | `testpypi-jef-train` |
+**2. Three pending publishers per account, total.**
+
+```python
+# warehouse/accounts/views.py
+# we limit users to no more than 3 pending publishers at once.
+if len(self.request.user.pending_oidc_publishers) >= 3:
+```
+
+The cap counts only *pending* ones: publishing converts a pending publisher
+into an ordinary one and frees the slot. So six projects would have meant two
+release waves.
+
+They do not, because the second limit prompted a question worth asking anyway:
+`jef-core`, `jef-scene` and `jef-sdk` were never installable apart. Each
+depended on the one below it and `jef` pulled in all three, so the split bought
+three extra PyPI pages and no user any choice. They are now four modules in the
+`jef` distribution — `jef_core`, `jef_scene`, `jef_sdk`, `jef_cli` — and the
+import paths are unchanged. What is left matches the real dependency
+boundaries: light, `+fastapi`, `+torch`.
+
+| Project | Modules | pypi.org | test.pypi.org |
+|---|---|---|---|
+| `jef` | `jef_core`, `jef_scene`, `jef_sdk`, `jef_cli` | `pypi-jef` | `testpypi-jef` |
+| `jef-server` | `jef_server` | `pypi-jef-server` | `testpypi-jef-server` |
+| `jef-train` | `jef_train` | `pypi-jef-train` | `testpypi-jef-train` |
 
 The release workflow publishes each project in its own matrix job under the
-matching environment, and all twelve GitHub environments already exist. The
+matching environment, and the six GitHub environments already exist. The
 filling script derives the name from the project and the hostname, so you do
 not have to keep the table in your head.
 
-`scripts/pypi/` has a console script and a bookmarklet that fill everything but
-the project name, and pick the environment from the hostname. They do not
-submit.
-
-The six project names — note the fifth: the directory is `jef-sdk-python` but
-the distribution is **`jef-sdk`**, and PyPI wants the distribution name:
-
-```
-jef
-jef-core
-jef-scene
-jef-server
-jef-sdk
-jef-train
-```
+`scripts/pypi/fill-trusted-publisher.js` fills everything but the project name
+and picks the environment from the hostname. It does not submit.
 
 Three things that are easy to get wrong:
 
@@ -89,7 +93,7 @@ Three things that are easy to get wrong:
   registries because the workflow picks `testpypi` for prereleases.
 - **A pending publisher does not reserve the name.** PyPI only creates the
   project on first successful publish, so until then someone else can take it.
-  All six were free as of 2026-09-27.
+  All three were free as of 2026-09-28.
 
 ## Rehearse first
 
@@ -111,14 +115,14 @@ probe — without touching the real registries' version space.
 | Job | |
 |---|---|
 | `verify` | Tag matches the files, then lint, types, tests and the scene lint. Runs before anything is built: a tag that disagrees with the packages is the one mistake that cannot be undone after upload. |
-| `build-python` | Six sdists and six wheels, then `twine check` — a malformed long description is far clearer here than in PyPI's rejection. |
+| `build-python` | Three sdists and three wheels, then `twine check` — a malformed long description is far clearer here than in PyPI's rejection. |
 | `pypi` | Trusted Publishing via OIDC. No token. |
 | `npm` | `@jef-ai/sdk` and `n8n-nodes-jef`, with provenance. |
 | `ghcr` | Multi-arch `linux/amd64,linux/arm64`, then actually runs the pushed image and probes `/healthz`. arm64 matters: the Proxmox and Apple Silicon paths in `Infra/` assume it. |
 | `weights` | `head.npz` and `calibration.json` to Hugging Face and the release. Skipped, not failed, if `models/jef-v0/` is absent. |
 | `github-release` | Notes and artifacts. |
 
-`pypi` runs before `ghcr` because the image installs from PyPI.
+`ghcr` does not wait for `pypi`: the Dockerfile installs from `./packages` in the build context rather than from the index, so a PyPI problem should not hold back the image.
 
 ## Afterwards
 

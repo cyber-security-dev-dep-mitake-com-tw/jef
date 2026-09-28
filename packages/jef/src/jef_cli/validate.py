@@ -22,7 +22,7 @@ from jef_core.errors import SceneError
 from jef_scene import Scene, load_scene_text
 from jef_scene.expr import ExpressionError, validate_condition
 
-__all__ = ["Problem", "validate_paths", "validate_scene_text"]
+__all__ = ["Problem", "discover_scenes", "validate_files", "validate_paths", "validate_scene_text"]
 
 #: Fields whose value cannot exceed 1.0, so a comparison above it never fires.
 _UNIT_FIELDS = {"confidence", "p_correct", "probability", "noul"}
@@ -275,27 +275,43 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
     return problems
 
 
-def validate_paths(paths: list[Path]) -> list[Problem]:
-    """Lint every scene under the given files or directories."""
+def discover_scenes(paths: list[Path]) -> tuple[list[Path], list[Problem]]:
+    """Expand files and directories into scene files, and say what was missing.
+
+    Split out from `validate_paths` so the CLI can report how many *files* it
+    checked. It used to print the number of path arguments, so linting a
+    directory of twenty scenes said "1 path(s) checked" -- indistinguishable
+    from a glob that matched nothing.
+    """
+    files: list[Path] = []
     problems: list[Problem] = []
     for path in paths:
         if path.is_dir():
-            files = sorted([*path.rglob("*.yaml"), *path.rglob("*.yml")])
-            if not files:
+            found = sorted([*path.rglob("*.yaml"), *path.rglob("*.yml")])
+            if not found:
                 problems.append(Problem(str(path), "warning", "no scene files found"))
-            targets = files
+            files.extend(found)
         elif path.is_file():
-            targets = [path]
+            files.append(path)
         else:
             problems.append(Problem(str(path), "error", "no such file or directory"))
+    return files, problems
+
+
+def validate_files(files: list[Path]) -> list[Problem]:
+    """Lint scene files that have already been discovered."""
+    problems: list[Problem] = []
+    for file in files:
+        try:
+            text = file.read_text(encoding="utf-8")
+        except OSError as exc:
+            problems.append(Problem(str(file), "error", f"cannot read: {exc}"))
             continue
-
-        for file in targets:
-            try:
-                text = file.read_text(encoding="utf-8")
-            except OSError as exc:
-                problems.append(Problem(str(file), "error", f"cannot read: {exc}"))
-                continue
-            problems.extend(validate_scene_text(text, str(file)))
-
+        problems.extend(validate_scene_text(text, str(file)))
     return problems
+
+
+def validate_paths(paths: list[Path]) -> list[Problem]:
+    """Lint every scene under the given files or directories."""
+    files, problems = discover_scenes(paths)
+    return problems + validate_files(files)

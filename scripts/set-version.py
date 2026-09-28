@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Set one version across every package in the monorepo.
 
-Versions are locked in lockstep: `jef-core`, `jef-scene`, `jef-server`,
-`jef-sdk`, `jef-train`, the `jef` metapackage and both npm packages all carry
-the same number, and inter-package dependencies pin to it exactly.
+Versions are locked in lockstep: `jef`, `jef-server`, `jef-train` and both npm
+packages all carry the same number, and inter-package dependencies pin to it
+exactly.
 
-That pinning is the point. Without it `jef-server` would accept any `jef-core`
-on PyPI, including a future incompatible one -- a user could end up with
-`jef-server==0.2.0` against `jef-core==0.9.0` and get an import error at
-startup rather than a resolver error at install time.
+That pinning is the point. Without it `jef-server` would accept any `jef` on
+PyPI, including a future incompatible one -- a user could end up with
+`jef-server==0.2.0` against `jef==0.9.0` and get an import error at startup
+rather than a resolver error at install time.
 
     python scripts/set-version.py 0.2.0
     python scripts/set-version.py --check 0.2.0   # verify without writing
@@ -26,22 +26,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 #: Python distributions, in dependency order.
 PY_PACKAGES = [
-    "jef-core",
-    "jef-scene",
-    "jef-server",
-    "jef-sdk-python",
-    "jef-train",
     "jef",
+    "jef-server",
+    "jef-train",
 ]
 
 #: Distribution names that siblings may depend on, mapped from directory name.
 DIST_NAMES = {
-    "jef-core": "jef-core",
-    "jef-scene": "jef-scene",
-    "jef-server": "jef-server",
-    "jef-sdk-python": "jef-sdk",
-    "jef-train": "jef-train",
     "jef": "jef",
+    "jef-server": "jef-server",
+    "jef-train": "jef-train",
 }
 
 NPM_PACKAGES = [
@@ -89,17 +83,17 @@ _DEPENDENCY_BLOCK = re.compile(
 def _rewrite_dependencies(text: str, version: str) -> str:
     """Pin every sibling dependency to an exact version.
 
-    Rewrites `"jef-core"`, `"jef-core[torch]"` and an already-pinned
-    `"jef-core==0.1.0"` alike, so the script is idempotent and safe to re-run.
+    Rewrites `"jef-server"`, `"jef[torch]"` and an already-pinned
+    `"jef-train==0.1.0"` alike, so the script is idempotent and safe to re-run.
     """
 
     def pin(match: re.Match[str]) -> str:
         name = match.group("name")
         if name not in _SIBLINGS:
             return match.group(0)
-        # Extras must survive the rewrite: "jef-core[torch]" has to become
-        # "jef-core[torch]==0.2.0", not "jef-core==0.2.0", or the torch extra
-        # silently stops being installed.
+        # Extras must survive the rewrite: "jef[torch]" has to become
+        # "jef[torch]==0.2.0", not "jef==0.2.0", or the torch extra silently
+        # stops being installed.
         extras = match.group("extras") or ""
         return f'"{name}{extras}=={version}"'
 

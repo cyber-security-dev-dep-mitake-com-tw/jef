@@ -189,9 +189,10 @@ def cmd_scene(args: argparse.Namespace) -> int:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     """Lint scenes without a model, so it can run in CI on every commit."""
-    from jef_cli.validate import validate_paths
+    from jef_cli.validate import discover_scenes, validate_files
 
-    problems = validate_paths([Path(p) for p in args.paths])
+    files, problems = discover_scenes([Path(p) for p in args.paths])
+    problems += validate_files(files)
 
     if args.json:
         print(json.dumps([p.as_dict() for p in problems], ensure_ascii=False, indent=2))
@@ -206,7 +207,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
         if problems:
             print(f"\n{errors} error(s), {warnings} warning(s)")
         else:
-            print(style.green(f"{len(args.paths)} path(s) checked, no problems"))
+            print(style.green(f"{len(files)} scene(s) checked, no problems"))
 
     return EXIT_INVALID if any(p.severity == "error" for p in problems) else EXIT_OK
 

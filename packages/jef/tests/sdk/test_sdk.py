@@ -12,7 +12,18 @@ from jef_sdk import Jef, JefClient, JefHTTPError, boolean, choice, noul, score
 from jef_server.app import create_app
 from jef_server.settings import Settings
 
-SCENES = Path(__file__).resolve().parents[3] / "scenes"
+
+def _repo_root() -> Path:
+    """Walk up to the repository root.
+
+    Not `parents[N]`: these files moved one directory deeper when the four
+    light packages merged into one distribution, and every hard-coded depth
+    silently started pointing at `packages/scenes`.
+    """
+    return next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+
+
+SCENES = _repo_root() / "scenes"
 ALERT = "付款服務連續三天失敗，已影響營收。"
 
 

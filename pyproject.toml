@@ -7,20 +7,14 @@ requires-python = ">=3.12,<3.14"
 [tool.uv.workspace]
 members = [
   "packages/jef",
-  "packages/jef-core",
-  "packages/jef-scene",
-  "packages/jef-sdk-python",
   "packages/jef-server",
   "packages/jef-train",
 ]
 
 [tool.uv.sources]
-jef-core  = { workspace = true }
-jef-scene = { workspace = true }
-jef-train = { workspace = true }
-jef-server = { workspace = true }
-jef-sdk    = { workspace = true }
 jef        = { workspace = true }
+jef-server = { workspace = true }
+jef-train  = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -72,9 +66,6 @@ ignore_missing_imports = true
 # without catching anything.
 files = [
   "packages/jef/src",
-  "packages/jef-core/src",
-  "packages/jef-scene/src",
-  "packages/jef-sdk-python/src",
   "packages/jef-server/src",
   "packages/jef-train/src",
 ]
@@ -82,7 +73,8 @@ files = [
 [tool.pytest.ini_options]
 testpaths = ["packages", "connectors/tests", "tests"]
 python_files = ["test_*.py"]
-# importlib import mode: several packages legitimately have a tests/test_schema.py
-# and a tests/test_engine.py, and the default sys.path-based naming collides on
-# the bare module name.
+# importlib import mode: several test directories legitimately have a
+# test_schema.py and a test_engine.py -- jef/tests/core and jef/tests/scene
+# among them -- and the default sys.path-based naming collides on the bare
+# module name.
 addopts = "-q --import-mode=importlib"

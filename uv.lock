@@ -10,9 +10,6 @@ resolution-markers = [
 [manifest]
 members = [
     "jef",
-    "jef-core",
-    "jef-scene",
-    "jef-sdk",
     "jef-server",
     "jef-train",
     "jef-workspace",
@@ -760,26 +757,33 @@ name = "jef"
 version = "0.1.0"
 source = { editable = "packages/jef" }
 dependencies = [
-    { name = "jef-core" },
-    { name = "jef-scene" },
-    { name = "jef-sdk" },
+    { name = "httpx" },
+    { name = "numpy" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [package.optional-dependencies]
 all = [
-    { name = "jef-core", extra = ["torch"] },
     { name = "jef-server" },
     { name = "jef-train" },
     { name = "mcp" },
+    { name = "torch" },
+    { name = "transformers" },
 ]
 mcp = [
     { name = "mcp" },
+]
+onnx = [
+    { name = "onnxruntime" },
+    { name = "tokenizers" },
 ]
 server = [
     { name = "jef-server" },
 ]
 torch = [
-    { name = "jef-core", extra = ["torch"] },
+    { name = "torch" },
+    { name = "transformers" },
 ]
 train = [
     { name = "jef-train" },
@@ -787,83 +791,24 @@ train = [
 
 [package.metadata]
 requires-dist = [
-    { name = "jef-core", editable = "packages/jef-core" },
-    { name = "jef-core", extras = ["torch"], marker = "extra == 'all'", editable = "packages/jef-core" },
-    { name = "jef-core", extras = ["torch"], marker = "extra == 'torch'", editable = "packages/jef-core" },
-    { name = "jef-scene", editable = "packages/jef-scene" },
-    { name = "jef-sdk", editable = "packages/jef-sdk-python" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "jef-server", marker = "extra == 'all'", editable = "packages/jef-server" },
     { name = "jef-server", marker = "extra == 'server'", editable = "packages/jef-server" },
     { name = "jef-train", marker = "extra == 'all'", editable = "packages/jef-train" },
     { name = "jef-train", marker = "extra == 'train'", editable = "packages/jef-train" },
     { name = "mcp", marker = "extra == 'all'", specifier = ">=1.2" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.2" },
-]
-provides-extras = ["torch", "server", "mcp", "train", "all"]
-
-[[package]]
-name = "jef-core"
-version = "0.1.0"
-source = { editable = "packages/jef-core" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pydantic" },
-]
-
-[package.optional-dependencies]
-onnx = [
-    { name = "onnxruntime" },
-    { name = "tokenizers" },
-]
-torch = [
-    { name = "torch" },
-    { name = "transformers" },
-]
-
-[package.metadata]
-requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "onnxruntime", marker = "extra == 'onnx'", specifier = ">=1.20" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "tokenizers", marker = "extra == 'onnx'", specifier = ">=0.20" },
+    { name = "torch", marker = "extra == 'all'", specifier = ">=2.5" },
     { name = "torch", marker = "extra == 'torch'", specifier = ">=2.5" },
+    { name = "transformers", marker = "extra == 'all'", specifier = ">=4.46" },
     { name = "transformers", marker = "extra == 'torch'", specifier = ">=4.46" },
 ]
-provides-extras = ["torch", "onnx"]
-
-[[package]]
-name = "jef-scene"
-version = "0.1.0"
-source = { editable = "packages/jef-scene" }
-dependencies = [
-    { name = "jef-core" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "jef-core", editable = "packages/jef-core" },
-    { name = "pydantic", specifier = ">=2.9" },
-    { name = "pyyaml", specifier = ">=6.0" },
-]
-
-[[package]]
-name = "jef-sdk"
-version = "0.1.0"
-source = { editable = "packages/jef-sdk-python" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jef-core" },
-    { name = "jef-scene" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.28" },
-    { name = "jef-core", editable = "packages/jef-core" },
-    { name = "jef-scene", editable = "packages/jef-scene" },
-]
+provides-extras = ["torch", "onnx", "server", "mcp", "train", "all"]
 
 [[package]]
 name = "jef-server"
@@ -871,8 +816,7 @@ version = "0.1.0"
 source = { editable = "packages/jef-server" }
 dependencies = [
     { name = "fastapi" },
-    { name = "jef-core" },
-    { name = "jef-scene" },
+    { name = "jef" },
     { name = "prometheus-client" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -880,8 +824,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "jef-core", editable = "packages/jef-core" },
-    { name = "jef-scene", editable = "packages/jef-scene" },
+    { name = "jef", editable = "packages/jef" },
     { name = "prometheus-client", specifier = ">=0.21" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
 ]
@@ -892,7 +835,7 @@ version = "0.1.0"
 source = { editable = "packages/jef-train" }
 dependencies = [
     { name = "datasets" },
-    { name = "jef-core" },
+    { name = "jef" },
     { name = "scikit-learn" },
     { name = "torch" },
     { name = "transformers" },
@@ -901,7 +844,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "datasets", specifier = ">=3.0" },
-    { name = "jef-core", editable = "packages/jef-core" },
+    { name = "jef", editable = "packages/jef" },
     { name = "scikit-learn", specifier = ">=1.5" },
     { name = "torch", specifier = ">=2.5" },
     { name = "transformers", specifier = ">=4.46" },

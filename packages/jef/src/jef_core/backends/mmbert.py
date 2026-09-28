@@ -42,7 +42,7 @@ class MmBertBackbone:
             from transformers import AutoModel, AutoTokenizer
         except ImportError as exc:  # pragma: no cover -- depends on extras
             raise BackendUnavailableError(
-                "the 'torch' extra is required for model backbones: pip install 'jef-core[torch]'"
+                "the 'torch' extra is required for model backbones: pip install 'jef[torch]'"
             ) from exc
 
         self._torch = torch

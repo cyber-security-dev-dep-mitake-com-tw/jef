@@ -1,11 +1,15 @@
-# jef-sdk
+# `jef_sdk` — embedded engine and HTTP client
+
+Shipped inside the `jef` distribution (`pip install jef`); it is not a
+separate package on PyPI.
 
 Python client for [JEF](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef).
 Embedded and remote share one shape, so moving a workload between them is a
 change of constructor rather than a change of code.
 
 ```bash
-pip install jef-sdk
+pip install jef              # this module and the other three
+pip install 'jef[torch]'     # + the real backbone
 ```
 
 ```python

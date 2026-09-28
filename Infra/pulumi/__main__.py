@@ -77,9 +77,7 @@ for i in range(node_count):
                 ssd=True,
             )
         ],
-        network_devices=[
-            proxmox.vm.VirtualMachineNetworkDeviceArgs(bridge=network_bridge)
-        ],
+        network_devices=[proxmox.vm.VirtualMachineNetworkDeviceArgs(bridge=network_bridge)],
         agent=proxmox.vm.VirtualMachineAgentArgs(enabled=True),
         operating_system=proxmox.vm.VirtualMachineOperatingSystemArgs(type="l26"),
         initialization=proxmox.vm.VirtualMachineInitializationArgs(

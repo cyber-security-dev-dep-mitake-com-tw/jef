@@ -32,7 +32,7 @@ case "$RUNTIME" in
     # with "cannot find main module".
     (cd packages/jef-go && go build -o /tmp/jef-server-go ./cmd/jef-server)
     JEF_ADDR=":${PORT}" /tmp/jef-server-go >/tmp/jef-acceptance.log 2>&1 &
-    # Scenes live in jef-scene, which has no Go port yet.
+    # Scenes live in jef_scene, which has no Go port yet.
     EXCLUDE=(--exclude scene)
     OUTDIR="${JEF_OUTDIR:-test/results-go}"
     ;;

@@ -35,10 +35,10 @@ PYPROJECT = """[project]
 name = "jef-server"
 version = "0.1.0"
 description = "test"
-dependencies = ["jef-core", "jef-scene==0.0.9", "fastapi>=0.115"]
+dependencies = ["jef", "fastapi>=0.115"]
 
 [project.optional-dependencies]
-torch = ["jef-core[torch]"]
+torch = ["jef[torch]"]
 extra = ["jef-train==0.0.1", "requests>=2"]
 
 [tool.hatch.build.targets.wheel]
@@ -48,15 +48,14 @@ packages = ["src/jef_server"]
 
 def test_version_and_dependencies_are_rewritten() -> None:
     out = set_version._rewrite_dependencies(PYPROJECT, "0.2.0")
-    assert '"jef-core==0.2.0"' in out
-    assert '"jef-scene==0.2.0"' in out
+    assert '"jef==0.2.0"' in out
     assert '"jef-train==0.2.0"' in out
 
 
 def test_extras_survive_the_rewrite() -> None:
-    """`jef-core[torch]` must not become `jef-core`, or torch stops installing."""
+    """`jef[torch]` must not become `jef`, or torch stops installing."""
     out = set_version._rewrite_dependencies(PYPROJECT, "0.2.0")
-    assert '"jef-core[torch]==0.2.0"' in out
+    assert '"jef[torch]==0.2.0"' in out
 
 
 def test_the_name_field_is_never_touched() -> None:
@@ -85,7 +84,7 @@ def test_rewriting_is_idempotent() -> None:
 def test_rewriting_an_already_pinned_version_updates_it() -> None:
     once = set_version._rewrite_dependencies(PYPROJECT, "0.2.0")
     twice = set_version._rewrite_dependencies(once, "0.3.0")
-    assert '"jef-core==0.3.0"' in twice
+    assert '"jef==0.3.0"' in twice
     assert "0.2.0" not in twice
 
 
@@ -112,7 +111,7 @@ def test_check_passes_on_the_current_version() -> None:
 def test_the_repo_is_in_lockstep() -> None:
     """Every package, python and npm, carries the same version."""
     versions = set_version.read_versions()
-    assert len(versions) == 8, f"expected 8 packages, found {sorted(versions)}"
+    assert len(versions) == 5, f"expected 5 packages, found {sorted(versions)}"
     assert len(set(versions.values())) == 1, versions
 
 
@@ -136,10 +135,7 @@ def test_npm_packages_keep_their_formatting(tmp_path: Path) -> None:
 
 EXPECTED_NAMES = {
     "jef": "jef",
-    "jef-core": "jef-core",
-    "jef-scene": "jef-scene",
     "jef-server": "jef-server",
-    "jef-sdk-python": "jef-sdk",
     "jef-train": "jef-train",
 }
 
@@ -188,3 +184,33 @@ def test_every_package_declares_pypi_metadata(directory: str) -> None:
     for field in ("readme", "classifiers", "keywords", "authors", "[project.urls]"):
         assert field in text, f"{directory} is missing {field}"
     assert (ROOT / "packages" / directory / "README.md").is_file(), f"{directory} has no README"
+
+
+def test_the_jef_wheel_carries_all_four_modules(tmp_path: Path) -> None:
+    """`jef` is one distribution holding four modules, not a metapackage.
+
+    Nothing else would notice if a module fell out of the wheel: the workspace
+    install puts all four on the path from source regardless, so the tests --
+    and every developer -- would keep passing while `pip install jef` shipped
+    an engine with no scenes.
+    """
+    import shutil
+    import subprocess
+    import zipfile
+
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is not on PATH")
+
+    result = subprocess.run(  # noqa: S603
+        [uv, "build", "--wheel", str(ROOT / "packages" / "jef"), "-o", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr[-1500:]
+
+    (wheel,) = tmp_path.glob("jef-*.whl")
+    top_level = {name.split("/")[0] for name in zipfile.ZipFile(wheel).namelist()}
+    assert {"jef_core", "jef_scene", "jef_sdk", "jef_cli"} <= top_level, sorted(top_level)

@@ -51,9 +51,9 @@ result = engine.evaluate(
     },
 )
 
-result.answers["team"].choice        # 'billing'
-result.answers["team"].confidence    # 0.91
-result.usage.outputTokens            # 0 -- nothing is ever generated
+result.answers["team"].choice  # 'billing'
+result.answers["team"].confidence  # 0.91
+result.usage.outputTokens  # 0 -- nothing is ever generated
 ```
 
 ## Why another one?
@@ -129,7 +129,7 @@ dialects of the yes/no primitive are accepted and echoed back: TypeSafe calls it
 | n8n | [`connectors/n8n`](connectors/n8n) — `n8n-nodes-jef` |
 | TheHive / Cortex | [`connectors/cortex`](connectors/cortex) |
 | TypeScript | [`@jef-ai/sdk`](packages/jef-sdk-ts) |
-| Python | [`jef-sdk`](packages/jef-sdk-python) — embedded or remote, same API |
+| Python | [`jef_sdk`](docs/modules/jef_sdk.md) — embedded or remote, same API |
 | CLI | `jef ask` · `jef scene` · `jef validate` · `jef serve` |
 | MCP | `jef-mcp` — typed decisions as tools for Claude Desktop, Cursor and agents |
 | Agent skill | [`skills/jef`](skills/jef) — when to reach for JEF and how to read the answer |

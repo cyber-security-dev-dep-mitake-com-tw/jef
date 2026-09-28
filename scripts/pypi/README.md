@@ -9,7 +9,7 @@ and the hostname.
 monorepo can register exactly one pending publisher under a shared environment
 — the second is rejected with nothing but an `#errors` anchor to explain it
 ([warehouse#16920](https://github.com/pypi/warehouse/issues/16920)). Hence
-`pypi-jef-core`, `testpypi-jef-core`, and so on, matching the per-project
+`pypi-jef-server`, `testpypi-jef-server`, and so on, matching the per-project
 environments the release workflow uses.
 
 **It never submits, and it only does one at a time.** You read what it filled

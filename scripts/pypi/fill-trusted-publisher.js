@@ -27,14 +27,18 @@
  * `allow pasting` and press enter. That is the browser, not this script.
  *
  *     jef.next()            fill the next project not yet registered
- *     jef.fill('jef-sdk')   fill a specific one
+ *     jef.fill('jef-train')  fill a specific one
  *     jef.status()          what the page says is registered
  *
  * Workflow: run jef.next(), click Add, let the page reload, paste this script
- * again, run jef.next(). Six times, then the same on test.pypi.org.
+ * again, run jef.next(). Three times, then the same on test.pypi.org.
+ *
+ * Three is also PyPI's hard ceiling: an account may hold no more than three
+ * *pending* publishers at once, and a fourth is refused. Publishing converts a
+ * pending publisher into an ordinary one and frees the slot.
  */
 (() => {
-  const PROJECTS = ["jef", "jef-core", "jef-scene", "jef-server", "jef-sdk", "jef-train"];
+  const PROJECTS = ["jef", "jef-server", "jef-train"];
   const OWNER = "cyber-security-dev-dep-mitake-com-tw";
   const REPOSITORY = "jef";
   // The filename, not the path. `.github/workflows/release.yml` is rejected in
@@ -42,7 +46,7 @@
   const WORKFLOW = "release.yml";
 
   const host = location.hostname;
-  // `pypi-jef-core` on pypi.org, `testpypi-jef-core` on test.pypi.org. The
+  // `pypi-jef-server` on pypi.org, `testpypi-jef-server` on test.pypi.org. The
   // prefix differs because the release workflow routes prereleases to TestPyPI.
   const PREFIX = host.startsWith("test.") ? "testpypi-" : "pypi-";
   const environmentFor = (project) => `${PREFIX}${project}`;

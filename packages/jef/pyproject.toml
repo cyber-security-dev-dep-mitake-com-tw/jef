@@ -1,10 +1,14 @@
 [project]
 name = "jef"
 version = "0.1.0"
-description = "JEF — an open System One decision engine. Typed decisions with calibrated confidence, plus a CLI."
+description = "JEF — an open System One decision engine: typed decisions with calibrated confidence, scene gates, and a CLI."
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
-dependencies = ["jef-core==0.1.0", "jef-scene==0.1.0", "jef-sdk==0.1.0"]
+# One distribution, four modules: jef_core (engine), jef_scene (gates),
+# jef_sdk (embedded + HTTP client), jef_cli. They are always installed
+# together — nothing depends on one without the others — so shipping them
+# as separate distributions bought nothing but four more PyPI pages.
+dependencies = ["numpy>=2.0", "pydantic>=2.9", "pyyaml>=6.0", "httpx>=0.28"]
 
 authors = [{ name = "Mitake Cyber Security Dev Dept" }]
 maintainers = [{ name = "dennislee928" }]
@@ -36,11 +40,18 @@ Issues = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/issues"
 [project.optional-dependencies]
 # The real backbone. Without it `--local` runs the deterministic test stub,
 # which answers in the right shape and means nothing.
-torch = ["jef-core[torch]==0.1.0"]
+torch = ["torch>=2.5", "transformers>=4.46"]
+onnx = ["onnxruntime>=1.20", "tokenizers>=0.20"]
 server = ["jef-server==0.1.0"]
 mcp = ["mcp>=1.2"]
 train = ["jef-train==0.1.0"]
-all = ["jef-core[torch]==0.1.0", "jef-server==0.1.0", "jef-train==0.1.0", "mcp>=1.2"]
+all = [
+  "torch>=2.5",
+  "transformers>=4.46",
+  "jef-server==0.1.0",
+  "jef-train==0.1.0",
+  "mcp>=1.2",
+]
 
 [project.scripts]
 jef = "jef_cli.__main__:main"
@@ -51,4 +62,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jef_cli"]
+packages = ["src/jef_core", "src/jef_scene", "src/jef_sdk", "src/jef_cli"]

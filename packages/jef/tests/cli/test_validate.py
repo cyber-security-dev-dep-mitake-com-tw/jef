@@ -7,8 +7,21 @@ fire does not raise, it just quietly stops being part of the policy.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from jef_cli.validate import validate_paths, validate_scene_text
+
+
+def _repo_root() -> Path:
+    """Walk up to the repository root.
+
+    Not `parents[N]`: these files moved one directory deeper when the four
+    light packages merged into one distribution, and every hard-coded depth
+    silently started pointing at `packages/scenes`.
+    """
+    return next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+
 
 GOOD = """
 scene: ok
@@ -147,9 +160,8 @@ def test_empty_directory_warns(tmp_path) -> None:
 
 def test_the_shipped_scene_lints_clean() -> None:
     """scenes/ is documentation people copy. It must pass its own linter."""
-    from pathlib import Path
 
-    scenes = Path(__file__).resolve().parents[3] / "scenes"
+    scenes = _repo_root() / "scenes"
     problems = validate_paths([scenes])
     assert not errors(problems), [p.message for p in errors(problems)]
     assert not warnings(problems), [p.message for p in warnings(problems)]
@@ -169,9 +181,8 @@ def test_the_committed_schema_matches_the_model() -> None:
     import json
     import subprocess
     import sys
-    from pathlib import Path
 
-    root = Path(__file__).resolve().parents[3]
+    root = _repo_root()
     committed = root / "docs" / "scene.schema.json"
     assert committed.is_file(), "docs/scene.schema.json is missing"
 
@@ -190,13 +201,8 @@ def test_the_committed_schema_matches_the_model() -> None:
 
 def test_the_schema_describes_what_a_scene_needs() -> None:
     import json
-    from pathlib import Path
 
-    schema = json.loads(
-        (Path(__file__).resolve().parents[3] / "docs" / "scene.schema.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    schema = json.loads((_repo_root() / "docs" / "scene.schema.json").read_text(encoding="utf-8"))
     assert set(schema["required"]) == {"scene", "layers", "actions"}
     assert "$defs" in schema
     assert {"Layer", "Gate", "Action"} <= set(schema["$defs"])
@@ -205,15 +211,30 @@ def test_the_schema_describes_what_a_scene_needs() -> None:
 def test_the_shipped_scenes_validate_against_the_schema() -> None:
     """The schema is only useful if the examples pass it."""
     import json
-    from pathlib import Path
 
     jsonschema = pytest.importorskip("jsonschema")
     import yaml
 
-    root = Path(__file__).resolve().parents[3]
+    root = _repo_root()
     schema = json.loads((root / "docs" / "scene.schema.json").read_text(encoding="utf-8"))
     from jef_scene.loader import _normalise_bool_keys
 
     for path in sorted((root / "scenes").glob("*.yaml")):
         document = _normalise_bool_keys(yaml.safe_load(path.read_text(encoding="utf-8")))
         jsonschema.validate(document, schema)
+
+
+def test_the_summary_counts_scenes_not_arguments(tmp_path, capsys) -> None:
+    """`jef validate scenes/` used to say "1 path(s) checked".
+
+    One argument, twenty files -- and the message was identical to a glob that
+    had matched nothing, so a linter silently checking zero scenes looked
+    exactly like a clean run.
+    """
+    from jef_cli.__main__ import main
+
+    for name in ("a.yaml", "b.yaml"):
+        (tmp_path / name).write_text(GOOD, encoding="utf-8")
+
+    assert main(["validate", str(tmp_path)]) == 0
+    assert "2 scene(s) checked" in capsys.readouterr().out

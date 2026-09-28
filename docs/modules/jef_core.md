@@ -1,4 +1,7 @@
-# jef-core
+# `jef_core` — engine
+
+Shipped inside the `jef` distribution (`pip install jef`); it is not a
+separate package on PyPI.
 
 The engine behind [JEF](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef),
 an open System One decision engine. Evaluate typed questions against a shared
@@ -6,8 +9,8 @@ state and get back probability distributions with calibrated confidence. No text
 generation, no parsing.
 
 ```bash
-pip install jef-core          # engine only, no model
-pip install jef-core[torch]   # + the real backbone
+pip install jef              # this module and the other three
+pip install 'jef[torch]'     # + the real backbone
 ```
 
 Most users want [`jef`](https://pypi.org/project/jef/) instead, which bundles

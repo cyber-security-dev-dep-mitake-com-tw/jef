@@ -110,6 +110,17 @@ evidence you give it; it does not know things.
 Full numbers, including a contaminated run that scored 1.000 and why that was
 wrong, are in [`docs/RESULTS.md`](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/RESULTS.md).
 
+## Module reference
+
+`pip install jef` gives you four modules in one distribution:
+
+| Module | What it is |
+|---|---|
+| [`jef_core`](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/modules/jef_core.md) | shared-state encoding, decision head, calibration |
+| [`jef_scene`](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/modules/jef_scene.md) | YAML DAG gates, expression sandbox, decision trace |
+| [`jef_sdk`](https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/modules/jef_sdk.md) | embedded engine and HTTP client |
+| `jef_cli` | the `jef` command |
+
 ## Also available
 
 `@jef-ai/sdk` on npm · `n8n-nodes-jef` · Shuffle app · Cortex analyzers ·

@@ -2,9 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from jef_core.errors import SceneError
 from jef_scene import SceneEngine, load_scene_text
+
+
+def _repo_root() -> Path:
+    """Walk up to the repository root.
+
+    Not `parents[N]`: these files moved one directory deeper when the four
+    light packages merged into one distribution, and every hard-coded depth
+    silently started pointing at `packages/scenes`.
+    """
+    return next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+
 
 OK = """
 scene: t
@@ -171,11 +184,10 @@ def test_invalid_yaml_is_rejected() -> None:
 
 def test_shipped_triage_scene_is_valid_and_compiles() -> None:
     """The scene in scenes/ is documentation people will copy. It must work."""
-    from pathlib import Path
 
     from jef_scene import load_scene
 
-    path = Path(__file__).resolve().parents[3] / "scenes" / "incident-triage.zh-tw.yaml"
+    path = _repo_root() / "scenes" / "incident-triage.zh-tw.yaml"
     scene = load_scene(path)
     SceneEngine().compile(scene)
     assert scene.question_count == 5

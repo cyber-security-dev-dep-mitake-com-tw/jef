@@ -152,7 +152,7 @@ def fit_conformal_quantile(
 def isotonic_fit(x: Sequence[float], y: Sequence[float]) -> list[list[float]]:
     """Pool-adjacent-violators isotonic regression, returning breakpoints.
 
-    Implemented here rather than pulled from scikit-learn because jef-core is a
+    Implemented here rather than pulled from scikit-learn because the engine is a
     serving dependency: it ships in the container and is the reference the Go
     port follows, so it stays on numpy alone.
 

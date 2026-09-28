@@ -27,7 +27,7 @@ Shuffle Health Gates The Workflow
 
 Shuffle Run Scene Returns A Branchable Verdict
     # Tagged `scene` so runs against the Go server skip it: scenes live in
-    # jef-scene, which has no Go port yet.
+    # jef_scene, which has no Go port yet.
     [Tags]    scene
     ${trace}=    Shuffle Run Scene    ${JEF_BASE_URL}    incident-triage    ${ALERT}
     Should Not Be Equal    ${trace}[action]    ${None}

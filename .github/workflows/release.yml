@@ -82,13 +82,9 @@ jobs:
       - name: Build every distribution
         run: |
           set -e
-          build() { uv build "packages/$1" -o "dist/$2"; }
-          build jef            jef
-          build jef-core       jef-core
-          build jef-scene      jef-scene
-          build jef-server     jef-server
-          build jef-sdk-python jef-sdk
-          build jef-train      jef-train
+          for project in jef jef-server jef-train; do
+            uv build "packages/$project" -o "dist/$project"
+          done
           find dist -type f | sort
 
       # Catches a broken long_description or a malformed classifier before
@@ -108,12 +104,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [jef, jef-core, jef-scene, jef-server, jef-sdk, jef-train]
+        project: [jef, jef-server, jef-train]
     # One environment per project, and that is not cosmetic. PyPI's pending
     # publishers are unique on (owner, repository, workflow, environment), so a
-    # monorepo publishing six projects from one workflow can only register one
-    # pending publisher unless the environment differs -- the second is rejected
-    # as a duplicate. See pypi/warehouse#16920.
+    # monorepo publishing several projects from one workflow can only register
+    # one pending publisher unless the environment differs -- the rest are
+    # rejected as duplicates. See pypi/warehouse#16920. A second, separate
+    # limit caps a user at three pending publishers at once, which is why this
+    # repo ships three distributions rather than six.
     environment: ${{ needs.verify.outputs.prerelease == 'true' && 'testpypi-' || 'pypi-' }}${{ matrix.project }}
     permissions:
       # Trusted Publishing: OIDC instead of a long-lived API token, so there is
@@ -170,7 +168,11 @@ jobs:
 
   ghcr:
     name: publish container
-    needs: [verify, pypi]
+    # Not gated on pypi: the Dockerfile installs from ./packages in the build
+    # context, not from the index. An earlier comment here claimed otherwise,
+    # which would have made a partial PyPI failure block the image for no
+    # reason.
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read

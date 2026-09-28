@@ -1,11 +1,15 @@
-# jef-scene
+# `jef_scene` — scene gates
+
+Shipped inside the `jef` distribution (`pip install jef`); it is not a
+separate package on PyPI.
 
 Layered typed questions with calibrated confidence gates — the decision layer
 [Jev](https://docs.typesafe.ai) leaves to the caller, and which every open
 reimplementation therefore also omits.
 
 ```bash
-pip install jef-scene
+pip install jef              # this module and the other three
+pip install 'jef[torch]'     # + the real backbone
 ```
 
 Most users want [`jef`](https://pypi.org/project/jef/) instead, which bundles
