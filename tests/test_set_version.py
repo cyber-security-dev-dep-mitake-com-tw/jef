@@ -103,9 +103,18 @@ def test_check_reports_a_mismatch_with_a_nonzero_exit() -> None:
 
 
 def test_check_passes_on_the_current_version() -> None:
+    """The python version is the one to check against, not any of them.
+
+    This compared `set(values)` for a single element, which quietly assumed
+    npm and PyPI spell a version identically. On a prerelease they do not --
+    `0.2.0rc1` against `0.2.0-rc.1` -- and the release workflow runs exactly
+    this check before it builds anything, so an rc tag would have failed
+    `verify` rather than publishing.
+    """
     current = set_version.read_versions()
-    assert len(set(current.values())) == 1, f"repo is not in lockstep: {current}"
-    assert set_version.main(["--check", next(iter(current.values()))]) == 0
+    assert set_version._in_lockstep(current), f"repo is not in lockstep: {current}"
+    python = {v for label, v in current.items() if label.startswith("py:")}
+    assert set_version.main(["--check", next(iter(python))]) == 0
 
 
 def test_the_repo_is_in_lockstep() -> None:

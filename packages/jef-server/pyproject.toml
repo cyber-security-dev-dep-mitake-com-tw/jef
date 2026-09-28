@@ -1,10 +1,10 @@
 [project]
 name = "jef-server"
-version = "0.1.0"
+version = "0.2.0rc1"
 description = "JEF server: /v1/systemone + /v1/scenes HTTP API"
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
-dependencies = ["jef==0.1.0", "fastapi>=0.115", "uvicorn[standard]>=0.32", "prometheus-client>=0.21"]
+dependencies = ["jef==0.2.0rc1", "fastapi>=0.115", "uvicorn[standard]>=0.32", "prometheus-client>=0.21"]
 
 authors = [{ name = "Mitake Cyber Security Dev Dept" }]
 maintainers = [{ name = "dennislee928" }]
