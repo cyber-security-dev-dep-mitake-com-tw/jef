@@ -1,12 +1,12 @@
 /**
  * Fill PyPI's pending trusted-publisher form.
  *
- * Twelve forms: six projects on pypi.org and six on test.pypi.org. This fills
+ * Six forms: three projects on pypi.org and three on test.pypi.org. This fills
  * all five fields, deriving the environment from both the project and the
  * hostname.
  *
  * The environment must differ per project. PyPI's pending publishers are unique
- * on (owner, repository, workflow, environment), so a monorepo publishing six
+ * on (owner, repository, workflow, environment), so a monorepo publishing several
  * projects from one workflow can register exactly one of them under a shared
  * environment -- the second submission is rejected as a duplicate, which is
  * what happens if you give them all `pypi`. See pypi/warehouse#16920. The
@@ -75,9 +75,9 @@
         PROJECTS.map((p) => `  ${have.has(p) ? "✓" : "·"} ${p}`).join("\n") +
         (left.length
           ? `\n\nNext: jef.next()  →  ${left[0]}`
-          : `\n\nAll six registered on ${host}. Now do the other registry.`),
+          : `\n\nAll ${PROJECTS.length} registered on ${host}. Now do the other registry.`),
       "font-weight:bold",
-      "color:inherit"
+      "color:inherit",
     );
     return left;
   };
@@ -89,7 +89,7 @@
       "color:#c00;font-weight:bold",
       document.querySelector('form[action*="/account/login"]')
         ? "\nThis is the login page — the publishing page redirects when signed out."
-        : "\nOpen /manage/account/publishing/ and scroll to 'Add a new pending publisher'."
+        : "\nOpen /manage/account/publishing/ and scroll to 'Add a new pending publisher'.",
     );
     return;
   }
@@ -131,7 +131,7 @@
       "color:#080;font-weight:bold",
       "color:inherit",
       "color:#a60;font-weight:bold",
-      "color:inherit"
+      "color:inherit",
     );
     return name;
   };
@@ -144,7 +144,7 @@
     next: () => {
       const left = remaining();
       if (!left.length) {
-        console.log(`All six are registered on ${host}.`);
+        console.log(`All ${PROJECTS.length} are registered on ${host}.`);
         return null;
       }
       return fill(left[0]);
@@ -154,7 +154,7 @@
   console.log(
     `%cJEF trusted-publisher helper%c — ${host}, environments ${PREFIX}<project>`,
     "color:#2d5f8a;font-weight:bold",
-    "color:inherit"
+    "color:inherit",
   );
   status();
 
@@ -168,7 +168,7 @@
           "and re-add that project — a shared environment can only hold one " +
           "project, and it is holding the slot the others need.",
         "color:#a60;font-weight:bold",
-        "color:inherit"
+        "color:inherit",
       );
       break;
     }

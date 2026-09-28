@@ -1,6 +1,6 @@
 # Filling PyPI's trusted-publisher forms
 
-Twelve forms — six projects on pypi.org, six on test.pypi.org. The script fills
+Six forms — three projects on pypi.org, three on test.pypi.org. The script fills
 all five fields, including the environment, which is derived from the project
 and the hostname.
 

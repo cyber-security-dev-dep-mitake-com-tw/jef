@@ -93,7 +93,8 @@ Three things that are easy to get wrong:
   registries because the workflow picks `testpypi` for prereleases.
 - **A pending publisher does not reserve the name.** PyPI only creates the
   project on first successful publish, so until then someone else can take it.
-  All three were free as of 2026-09-28.
+  All three were free as of 2026-09-28, and pending publishers for all three
+  are registered on both registries as of the same day.
 
 ## Rehearse first
 
@@ -105,6 +106,28 @@ out on TestPyPI:
 python scripts/set-version.py 0.2.0rc1
 git commit -am "chore: 0.2.0rc1" && git tag v0.2.0rc1 && git push --follow-tags
 ```
+
+### The npm version is spelled differently, on purpose
+
+`0.2.0rc1` is PEP 440. npm rejects it under strict semver, and its *loose*
+parser reads it as `0.2.0-rc1` — which the publish path then normalises, so
+the registry would hold a third spelling matching neither the tag nor the
+pyproject files. Nothing in CI would catch it: `--check` reads the files, and
+the files would say what we wrote.
+
+So `set-version.py` translates when it writes `package.json`:
+
+| tag | PyPI | npm |
+|---|---|---|
+| `v0.2.0` | `0.2.0` | `0.2.0` |
+| `v0.2.0rc1` | `0.2.0rc1` | `0.2.0-rc.1` |
+| `v0.2.0a1` | `0.2.0a1` | `0.2.0-alpha.1` |
+| `v0.2.0b2` | `0.2.0b2` | `0.2.0-beta.2` |
+
+The dot in `-rc.1` matters: semver compares dot-separated numeric identifiers
+numerically, so `rc.9 < rc.10`, while `rc9` and `rc10` are single alphanumeric
+identifiers compared as strings — which puts the tenth candidate *before* the
+ninth.
 
 That exercises the whole pipeline — version check, tests, builds, metadata
 validation, TestPyPI upload, npm `next`, the multi-arch image and its startup

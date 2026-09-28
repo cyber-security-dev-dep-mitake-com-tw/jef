@@ -44,9 +44,49 @@ NPM_PACKAGES = [
 ]
 
 #: PEP 440 subset: what a release tag may look like.
-VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?$")
+VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+)(?:(a|b|rc)(\d+))?$")
+
+#: PEP 440 prerelease markers to the words npm expects.
+_NPM_LABELS = {"a": "alpha", "b": "beta", "rc": "rc"}
+
+
+def npm_version(version: str) -> str:
+    """Translate a PEP 440 version into npm's strict semver.
+
+    npm rejects `0.2.0rc1` under strict semver, but its *loose* parser reads it
+    as `0.2.0-rc1` -- and the publish path normalises. So a prerelease would
+    land on the registry under a version that matches neither the git tag nor
+    the pyproject files, and nothing here would notice: `--check` reads the
+    files, which still hold the string we wrote.
+
+    The dot in `-rc.1` is not cosmetic. Semver compares dot-separated numeric
+    identifiers numerically, so `rc.9 < rc.10`; without the dot they are one
+    alphanumeric identifier compared as a string, and `rc10 < rc9`.
+    """
+    match = VERSION_RE.match(version)
+    if not match:
+        raise ValueError(f"not a release version: {version}")
+    base, kind, number = match.groups()
+    return base if kind is None else f"{base}-{_NPM_LABELS[kind]}.{number}"
+
 
 _SIBLINGS = set(DIST_NAMES.values())
+
+
+def _in_lockstep(current: dict[str, str]) -> bool:
+    """One Python version, and npm carrying its semver translation.
+
+    The two families are compared through `npm_version` rather than for string
+    equality, because a prerelease is spelled differently on each side.
+    """
+    python = {v for label, v in current.items() if label.startswith("py:")}
+    npm = {v for label, v in current.items() if label.startswith("npm:")}
+    if len(python) != 1:
+        return False
+    try:
+        return npm == {npm_version(next(iter(python)))}
+    except ValueError:
+        return False
 
 
 def _pyproject(package: str) -> Path:
@@ -126,11 +166,12 @@ def apply(version: str, *, check: bool) -> list[str]:
             continue
         original = path.read_text(encoding="utf-8")
         data = json.loads(original)
+        wanted = npm_version(version)
         if check:
-            if data.get("version") != version:
-                problems.append(f"{rel} is at {data.get('version')}, not {version}")
+            if data.get("version") != wanted:
+                problems.append(f"{rel} is at {data.get('version')}, not {wanted}")
             continue
-        data["version"] = version
+        data["version"] = wanted
         # Keep npm's own formatting: two-space indent and a trailing newline.
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
@@ -145,13 +186,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.show or not args.version:
-        for label, value in read_versions().items():
+        current = read_versions()
+        for label, value in current.items():
             print(f"{label:28s} {value}")
-        distinct = set(read_versions().values())
-        if len(distinct) > 1:
-            print(
-                f"\nWARNING: {len(distinct)} distinct versions in a lockstep repo", file=sys.stderr
-            )
+        if not _in_lockstep(current):
+            print("\nWARNING: versions disagree in a lockstep repo", file=sys.stderr)
             return 1
         return 0
 
@@ -171,9 +210,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    npm = npm_version(version)
+    suffix = f" (npm: {npm})" if npm != version else ""
     print(
         f"{'verified' if args.check else 'set'} {version} across {len(PY_PACKAGES)} python "
-        f"+ {len(NPM_PACKAGES)} npm package(s)"
+        f"+ {len(NPM_PACKAGES)} npm package(s){suffix}"
     )
     return 0
 

@@ -112,7 +112,7 @@ def test_the_repo_is_in_lockstep() -> None:
     """Every package, python and npm, carries the same version."""
     versions = set_version.read_versions()
     assert len(versions) == 5, f"expected 5 packages, found {sorted(versions)}"
-    assert len(set(versions.values())) == 1, versions
+    assert set_version._in_lockstep(versions), versions
 
 
 def test_npm_packages_keep_their_formatting(tmp_path: Path) -> None:
@@ -214,3 +214,61 @@ def test_the_jef_wheel_carries_all_four_modules(tmp_path: Path) -> None:
     (wheel,) = tmp_path.glob("jef-*.whl")
     top_level = {name.split("/")[0] for name in zipfile.ZipFile(wheel).namelist()}
     assert {"jef_core", "jef_scene", "jef_sdk", "jef_cli"} <= top_level, sorted(top_level)
+
+
+# --------------------------------------------------------------------------- #
+# PEP 440 is not semver
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("pep440", "semver"),
+    [
+        ("0.2.0", "0.2.0"),
+        ("0.2.0rc1", "0.2.0-rc.1"),
+        ("0.2.0a1", "0.2.0-alpha.1"),
+        ("0.2.0b2", "0.2.0-beta.2"),
+        ("1.0.0rc10", "1.0.0-rc.10"),
+    ],
+)
+def test_npm_versions_are_translated(pep440: str, semver: str) -> None:
+    assert set_version.npm_version(pep440) == semver
+
+
+def test_the_npm_prerelease_is_dotted() -> None:
+    """`rc.9 < rc.10`, but `rc10 < rc9`.
+
+    Semver compares dot-separated numeric identifiers numerically and
+    alphanumeric ones as strings, so dropping the dot silently reverses the
+    order of the tenth release candidate and the ninth.
+    """
+    assert set_version.npm_version("1.0.0rc10").endswith("-rc.10")
+
+
+def test_a_prerelease_writes_different_strings_to_each_ecosystem(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """npm would otherwise publish a version matching neither tag nor pyproject.
+
+    `0.2.0rc1` fails npm's strict semver, but its loose parser reads it as
+    `0.2.0-rc1` and the publish path normalises -- so the registry ends up
+    holding a third spelling, and `--check` cannot see it because it reads the
+    files we wrote rather than the registry.
+
+    PY_PACKAGES is emptied as well as redirecting NPM_PACKAGES. `apply` writes
+    to both lists, and an earlier draft of this test left the real pyproject
+    files sitting at 0.2.0rc1 -- the same shape of accident this file exists to
+    guard against.
+    """
+    pkg = tmp_path / "package.json"
+    pkg.write_text(json.dumps({"name": "x", "version": "0.0.0"}, indent=2) + "\n")
+
+    monkeypatch.setattr(set_version, "PY_PACKAGES", [])
+    monkeypatch.setattr(set_version, "NPM_PACKAGES", [pkg])
+
+    assert set_version.apply("0.2.0rc1", check=False) == []
+    assert json.loads(pkg.read_text())["version"] == "0.2.0-rc.1"
+
+
+def test_a_release_writes_the_same_string_to_both() -> None:
+    assert set_version.npm_version("1.2.3") == "1.2.3"
