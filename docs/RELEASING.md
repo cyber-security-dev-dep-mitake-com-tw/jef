@@ -39,6 +39,10 @@ except the project name:
 | Workflow name | `release.yml` |
 | Environment name | `pypi` on pypi.org · `testpypi` on test.pypi.org |
 
+`scripts/pypi/` has a console script and a bookmarklet that fill everything but
+the project name, and pick the environment from the hostname. They do not
+submit.
+
 The six project names — note the fifth: the directory is `jef-sdk-python` but
 the distribution is **`jef-sdk`**, and PyPI wants the distribution name:
 
