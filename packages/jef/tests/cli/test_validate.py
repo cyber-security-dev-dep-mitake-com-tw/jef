@@ -238,3 +238,21 @@ def test_the_summary_counts_scenes_not_arguments(tmp_path, capsys) -> None:
 
     assert main(["validate", str(tmp_path)]) == 0
     assert "2 scene(s) checked" in capsys.readouterr().out
+
+
+def test_a_missing_server_says_what_to_do_instead(capsys) -> None:
+    """`ConnectError: [Errno 111] Connection refused` names neither the address
+    nor the fact that `--local` exists.
+
+    The commands default to a server on localhost, so this is the most likely
+    thing a first-time user sees -- and it is what broke the release pipeline's
+    smoke job on its first run.
+    """
+    from jef_cli.__main__ import main
+
+    # Port 9 is discard: reserved, and nothing listens on it.
+    assert main(["models", "--url", "http://127.0.0.1:9"]) != 0
+    err = capsys.readouterr().err
+    assert "http://127.0.0.1:9" in err
+    assert "jef models --local" in err
+    assert "jef serve" in err

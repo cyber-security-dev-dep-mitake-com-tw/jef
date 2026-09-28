@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-jef",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.3",
   "description": "n8n node for JEF — typed decisions with calibrated confidence. Route, score and judge without generating text.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef",

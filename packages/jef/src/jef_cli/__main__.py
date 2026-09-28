@@ -394,6 +394,24 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _is_connection_failure(exc: BaseException) -> bool:
+    """Whether an exception means "nothing is listening there".
+
+    Matched on httpx's class hierarchy by name rather than by import: the CLI
+    must keep working when the SDK's transport is swapped, and importing httpx
+    here to compare types would pull it in on every error path.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        names = {base.__name__ for base in type(current).__mro__}
+        if {"ConnectError", "ConnectTimeout", "ConnectionRefusedError"} & names:
+            return True
+        current = current.__cause__ or current.__context__
+    return False
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -414,6 +432,21 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:
         style = styler(args)
         print(style.red(f"{type(exc).__name__}: {exc}"), file=sys.stderr)
+        # The commands default to a server on localhost, so "connection
+        # refused" is the single most likely first-run failure -- and
+        # `ConnectError: [Errno 111] Connection refused` says nothing about
+        # which address, or that running in-process is an option.
+        if _is_connection_failure(exc):
+            command = getattr(args, "command", "<command>")
+            options = [
+                ("jef serve", "start one (needs the server extra)"),
+                (f"jef {command} --local", "run the engine in this process"),
+                ("--url URL", "point at a server elsewhere"),
+            ]
+            width = max(len(option) for option, _ in options)
+            print(f"\nNo JEF server at {getattr(args, 'url', '?')}. Either:", file=sys.stderr)
+            for option, what in options:
+                print(f"  {option:<{width}}  {what}", file=sys.stderr)
         return EXIT_ERROR
 
 

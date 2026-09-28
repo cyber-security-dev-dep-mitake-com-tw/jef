@@ -142,7 +142,11 @@ jobs:
           set -e
           /tmp/smoke/bin/python -c "import jef_core, jef_scene, jef_sdk, jef_cli, jef_server.factory"
           /tmp/smoke/bin/jef validate scenes/
-          /tmp/smoke/bin/jef models
+          # --local, because the commands default to a server on localhost and
+          # this job has none. Without it the first run of this job failed on
+          # "connection refused" -- and so would every first-time user.
+          /tmp/smoke/bin/jef models --local
+          /tmp/smoke/bin/jef ask "付款連續三天失敗" --local --yes-no "是否緊急？"
           test -x /tmp/smoke/bin/jef-mcp
 
   pypi:
@@ -316,6 +320,30 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::notice::no trained weights in models/jef-v0; skipping the weights job"
           fi
+
+      # Symmetric with the npm preflight. The first rehearsal reached
+      # `api/repos/create` and came back 403, which reads like the repo is
+      # protected rather than like the token cannot write.
+      - name: The token can write
+        if: steps.check.outputs.present == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          uv run --no-project --with huggingface_hub python - <<'PY'
+          import os, sys
+          from huggingface_hub import HfApi
+          token = os.environ.get("HF_TOKEN")
+          if not token:
+              sys.exit("::error::HF_TOKEN is not set")
+          me = HfApi().whoami(token=token)
+          scopes = (me.get("auth") or {}).get("accessToken", {}).get("role")
+          print(f"authenticated as {me.get('name')} (role={scopes})")
+          if scopes == "read":
+              sys.exit(
+                  "::error::HF_TOKEN is read-only; publishing needs a write token "
+                  "that may create repos under this account"
+              )
+          PY
 
       - name: Publish to Hugging Face
         if: steps.check.outputs.present == 'true'

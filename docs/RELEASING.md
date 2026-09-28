@@ -146,6 +146,19 @@ is a setting only you can change.
 | `weights` | `ModuleNotFoundError: jef_train` | `uv run` at the workspace root syncs the root project, a virtual package with no members. Two minutes of installing, then nothing importable. Now `--no-project` with `PYTHONPATH`, which is cheaper anyway — publishing 400KB does not need torch. |
 | `npm` | `npm error code EOTP` | **Yours.** `NPM_TOKEN` is a classic *publish* token, which still demands a one-time password. It needs to be an **automation** token, or a granular access token. |
 
+### What the second rehearsal found
+
+`v0.2.0rc2`: `build-python` and `ghcr` passed. Two more, both real:
+
+| Job | Failure | Cause |
+|---|---|---|
+| `smoke` | `ConnectError: Connection refused` | The CLI defaults to a server on `localhost:8080`, and the job had none — so `jef models` was never exercising the installed package at all. It now passes `--local`. My local check of the same command had silently talked to a leftover server from the Robot suite, which is exactly the trap this job exists to close. The CLI now also answers a refused connection with the address and the three ways out, instead of a bare traceback. |
+| `weights` | `403 Forbidden` on `api/repos/create` | **Yours.** `HF_TOKEN` cannot create a repo under `dennislee928`. It needs write access, or `dennislee928/jef-v0` needs to exist already. |
+
+To fix the Hugging Face token: <https://huggingface.co/settings/tokens> → a
+**Write** token, or a fine-grained token with permission to create repos under
+your account. The job now calls `whoami` first and stops on a read-only token.
+
 To fix the npm token: <https://www.npmjs.com/settings/~/tokens> → *Generate New
 Token* → **Classic → Automation** (or *Granular Access* scoped to `@jef-ai` and
 `n8n-nodes-jef`). Replace the `NPM_TOKEN` repository secret. The release

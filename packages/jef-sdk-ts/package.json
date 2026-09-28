@@ -1,6 +1,6 @@
 {
   "name": "@jef-ai/sdk",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.0-rc.3",
   "description": "Client for JEF — an open System One decision engine. Typed questions, calibrated confidence, no text generation.",
   "license": "Apache-2.0",
   "type": "module",

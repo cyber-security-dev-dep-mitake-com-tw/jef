@@ -754,7 +754,7 @@ wheels = [
 
 [[package]]
 name = "jef"
-version = "0.2.0rc2"
+version = "0.2.0rc3"
 source = { editable = "packages/jef" }
 dependencies = [
     { name = "httpx" },
@@ -812,7 +812,7 @@ provides-extras = ["torch", "onnx", "server", "mcp", "train", "all"]
 
 [[package]]
 name = "jef-server"
-version = "0.2.0rc2"
+version = "0.2.0rc3"
 source = { editable = "packages/jef-server" }
 dependencies = [
     { name = "fastapi" },
@@ -831,7 +831,7 @@ requires-dist = [
 
 [[package]]
 name = "jef-train"
-version = "0.2.0rc2"
+version = "0.2.0rc3"
 source = { editable = "packages/jef-train" }
 dependencies = [
     { name = "datasets" },
