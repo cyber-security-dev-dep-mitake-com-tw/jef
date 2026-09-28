@@ -37,7 +37,32 @@ except the project name:
 | Owner | `cyber-security-dev-dep-mitake-com-tw` |
 | Repository name | `jef` |
 | Workflow name | `release.yml` |
-| Environment name | `pypi` on pypi.org · `testpypi` on test.pypi.org |
+| Environment name | **`pypi-<project>`** on pypi.org · **`testpypi-<project>`** on test.pypi.org |
+
+### The environment must differ per project
+
+This is the part that is not obvious and that fails confusingly. PyPI enforces
+uniqueness on `(owner, repository, workflow, environment)` — not on the project
+name. A monorepo publishing six projects from one workflow can therefore
+register **exactly one** pending publisher under a shared environment; the
+second submission is rejected, and the page comes back with `#errors` rather
+than an explanation ([warehouse#16920](https://github.com/pypi/warehouse/issues/16920)).
+
+So each project gets its own:
+
+| Project | pypi.org | test.pypi.org |
+|---|---|---|
+| `jef` | `pypi-jef` | `testpypi-jef` |
+| `jef-core` | `pypi-jef-core` | `testpypi-jef-core` |
+| `jef-scene` | `pypi-jef-scene` | `testpypi-jef-scene` |
+| `jef-server` | `pypi-jef-server` | `testpypi-jef-server` |
+| `jef-sdk` | `pypi-jef-sdk` | `testpypi-jef-sdk` |
+| `jef-train` | `pypi-jef-train` | `testpypi-jef-train` |
+
+The release workflow publishes each project in its own matrix job under the
+matching environment, and all twelve GitHub environments already exist. The
+filling script derives the name from the project and the hostname, so you do
+not have to keep the table in your head.
 
 `scripts/pypi/` has a console script and a bookmarklet that fill everything but
 the project name, and pick the environment from the hostname. They do not

@@ -1,8 +1,16 @@
 # Filling PyPI's trusted-publisher forms
 
-Twelve forms — six projects on pypi.org, six on test.pypi.org — differing in one
-field. This types the other four and picks the environment from the hostname,
-which is the field most likely to be got wrong.
+Twelve forms — six projects on pypi.org, six on test.pypi.org. The script fills
+all five fields, including the environment, which is derived from the project
+and the hostname.
+
+**Each project needs its own environment.** PyPI enforces uniqueness on
+`(owner, repository, workflow, environment)`, not on the project name, so a
+monorepo can register exactly one pending publisher under a shared environment
+— the second is rejected with nothing but an `#errors` anchor to explain it
+([warehouse#16920](https://github.com/pypi/warehouse/issues/16920)). Hence
+`pypi-jef-core`, `testpypi-jef-core`, and so on, matching the per-project
+environments the release workflow uses.
 
 **It never submits, and it only does one at a time.** You read what it filled
 and click **Add**.
@@ -36,6 +44,12 @@ There was one, and it could never have worked. PyPI sends
 `script-src 'self'` with no `unsafe-inline`, and Chromium blocks `javascript:`
 URLs under such a policy — so it failed silently on click. Console execution is
 exempt from CSP; bookmarklets are not.
+
+## If you already added one with a bare `pypi` environment
+
+Remove it and re-add. A shared environment occupies the one tuple slot every
+other project would need, so nothing else can be registered while it exists.
+The script warns when it spots one.
 
 ## Why progress is read from the page
 

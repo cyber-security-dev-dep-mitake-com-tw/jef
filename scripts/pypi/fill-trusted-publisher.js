@@ -1,11 +1,16 @@
 /**
  * Fill PyPI's pending trusted-publisher form.
  *
- * Twelve near-identical forms -- six projects on pypi.org and six on
- * test.pypi.org -- differing in one field. This types the other four and picks
- * the environment from the hostname, which is the field most likely to be got
- * wrong: the release workflow routes prereleases to TestPyPI, so the two
- * registries need different environment names.
+ * Twelve forms: six projects on pypi.org and six on test.pypi.org. This fills
+ * all five fields, deriving the environment from both the project and the
+ * hostname.
+ *
+ * The environment must differ per project. PyPI's pending publishers are unique
+ * on (owner, repository, workflow, environment), so a monorepo publishing six
+ * projects from one workflow can register exactly one of them under a shared
+ * environment -- the second submission is rejected as a duplicate, which is
+ * what happens if you give them all `pypi`. See pypi/warehouse#16920. The
+ * release workflow uses matching per-project environments.
  *
  * It never submits. It fills, prints what it filled, and you click Add.
  *
@@ -37,7 +42,10 @@
   const WORKFLOW = "release.yml";
 
   const host = location.hostname;
-  const ENVIRONMENT = host.startsWith("test.") ? "testpypi" : "pypi";
+  // `pypi-jef-core` on pypi.org, `testpypi-jef-core` on test.pypi.org. The
+  // prefix differs because the release workflow routes prereleases to TestPyPI.
+  const PREFIX = host.startsWith("test.") ? "testpypi-" : "pypi-";
+  const environmentFor = (project) => `${PREFIX}${project}`;
 
   /** Project names PyPI already lists, from the publisher tables. */
   const registered = () => {
@@ -101,18 +109,19 @@
       console.warn(`${name} is not one of: ${PROJECTS.join(", ")}`);
     }
 
+    const environment = environmentFor(name);
     set("project_name", name);
     set("owner", OWNER);
     set("repository", REPOSITORY);
     set("workflow_filename", WORKFLOW);
-    set("environment", ENVIRONMENT);
+    set("environment", environment);
 
     console.log(
       `%cFilled ${name}%c — now click Add.\n` +
         `  owner        ${OWNER}\n` +
         `  repository   ${REPOSITORY}\n` +
         `  workflow     ${WORKFLOW}\n` +
-        `  environment  ${ENVIRONMENT}\n\n` +
+        `  environment  ${environment}\n\n` +
         "%cOne at a time.%c Calling next() again without clicking Add just " +
         "overwrites these fields, and nothing is registered.",
       "color:#080;font-weight:bold",
@@ -139,9 +148,25 @@
   };
 
   console.log(
-    `%cJEF trusted-publisher helper%c — ${host}, environment ${ENVIRONMENT}`,
+    `%cJEF trusted-publisher helper%c — ${host}, environments ${PREFIX}<project>`,
     "color:#2d5f8a;font-weight:bold",
     "color:inherit"
   );
   status();
+
+  // A row registered under a bare `pypi` predates the per-project scheme and
+  // will block every other project, since the tuple it occupies is the one they
+  // would all need.
+  for (const table of document.querySelectorAll(".table--publisher-list")) {
+    if (/Environment name:\s*(pypi|testpypi)\s*$/m.test(table.textContent)) {
+      console.warn(
+        "%cOne registered publisher uses the bare environment name.%c Remove it " +
+          "and re-add that project — a shared environment can only hold one " +
+          "project, and it is holding the slot the others need.",
+        "color:#a60;font-weight:bold",
+        "color:inherit"
+      );
+      break;
+    }
+  }
 })();
