@@ -23,6 +23,7 @@ jobs:
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
+      minor: ${{ steps.resolve.outputs.minor }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -38,6 +39,10 @@ jobs:
             version="${GITHUB_REF_NAME#v}"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          # The moving tag, for the container only. Computed here rather than
+          # by docker/metadata-action's {{major}}.{{minor}}, which only comes
+          # from its semver parser -- and that parser rejects PEP 440.
+          echo "minor=${version%.*}" >> "$GITHUB_OUTPUT"
           case "$version" in
             *rc*|*a*|*b*) echo "prerelease=true"  >> "$GITHUB_OUTPUT" ;;
             *)            echo "prerelease=false" >> "$GITHUB_OUTPUT" ;;
@@ -89,8 +94,12 @@ jobs:
 
       # Catches a broken long_description or a malformed classifier before
       # upload, where PyPI's rejection message is far less specific.
+      # dist/*/* , not dist/* : the distributions each build into their own
+      # directory so the publish jobs can point at one without globbing, and
+      # `twine check dist/*` hands twine a directory -- "Unknown distribution
+      # format: 'jef'".
       - name: Validate metadata
-        run: uvx twine check dist/*
+        run: uvx twine check dist/*/*
 
       - uses: actions/upload-artifact@v4
         with:
@@ -185,6 +194,19 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      # NPM_TOKEN must be an *automation* token (classic) or a granular access
+      # token. A classic "publish" token still demands a one-time password, and
+      # the publish dies with `EOTP` -- which reads like a missing 2FA code
+      # rather than the wrong kind of token.
+      - name: The token can publish without a one-time password
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm whoami || {
+            echo "::error::NPM_TOKEN is not valid for this registry"
+            exit 1
+          }
+
       - name: Build and publish @jef-ai/sdk
         working-directory: packages/jef-sdk-ts
         env:
@@ -231,9 +253,16 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # raw, not semver: `type=semver` runs the tag through a strict
+          # semver parser, and `0.2.0rc1` is PEP 440. It does not fail -- it
+          # quietly emits no tag, so the image went up as sha-<short> only and
+          # the probe below pulled a manifest that did not exist.
+          #
+          # The moving tags are withheld from prereleases on purpose: an rc
+          # should never become what `:0.2` or `:latest` resolves to.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.verify.outputs.version }}
+            type=raw,value=${{ needs.verify.outputs.minor }},enable=${{ needs.verify.outputs.prerelease == 'false' }}
             type=raw,value=latest,enable=${{ needs.verify.outputs.prerelease == 'false' }}
             type=sha,format=short
 
@@ -293,7 +322,15 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          uv run --with huggingface_hub python -m jef_train.publish_weights \
+          # `uv run` at the workspace root syncs the root project, which is a
+          # virtual package with no members, so jef_train was never importable
+          # here -- ModuleNotFoundError after two minutes of installing.
+          #
+          # --no-project plus PYTHONPATH instead of --package jef-train: this
+          # module is stdlib and huggingface_hub only (tested), and
+          # --package would pull torch and transformers to upload 400KB.
+          PYTHONPATH=packages/jef-train/src \
+          uv run --no-project --with huggingface_hub python -m jef_train.publish_weights \
             --model-dir models/jef-v0 \
             --repo dennislee928/jef-v0 \
             --version "${{ needs.verify.outputs.version }}"
