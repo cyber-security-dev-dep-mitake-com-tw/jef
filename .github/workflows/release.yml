@@ -97,9 +97,48 @@ jobs:
           name: python-dist
           path: dist/
 
+  # Installs what is about to be published, from the artifact, into a venv that
+  # has none of this repository on its path. The workspace install puts all
+  # four modules on sys.path from source no matter what the wheel contains, so
+  # nothing else here would notice `jef` shipping an engine with no scenes, a
+  # missing console script, or the jef <-> jef-server dependency cycle failing
+  # to resolve. An upload cannot be taken back, so this gates it.
+  smoke:
+    name: installs from the built artifact
+    # verify too, not just build-python: `needs.verify.outputs.version` is only
+    # in scope for jobs that declare it, and an out-of-scope expression is the
+    # empty string -- `pip install "jef[server]=="`, which fails obscurely.
+    needs: [verify, build-python]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4      # for scenes/, nothing else
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: pip install jef[server]
+        run: |
+          set -e
+          python -m venv /tmp/smoke
+          # --find-links for the local wheels; the index stays reachable so
+          # third-party dependencies still resolve.
+          /tmp/smoke/bin/pip install -q --find-links dist/jef --find-links dist/jef-server \
+            "jef[server]==${{ needs.verify.outputs.version }}"
+
+      - name: The four modules, the console script, and the server
+        run: |
+          set -e
+          /tmp/smoke/bin/python -c "import jef_core, jef_scene, jef_sdk, jef_cli, jef_server.factory"
+          /tmp/smoke/bin/jef validate scenes/
+          /tmp/smoke/bin/jef models
+          test -x /tmp/smoke/bin/jef-mcp
+
   pypi:
     name: ${{ matrix.project }} → ${{ needs.verify.outputs.prerelease == 'true' && 'TestPyPI' || 'PyPI' }}
-    needs: [verify, build-python]
+    needs: [verify, build-python, smoke]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
