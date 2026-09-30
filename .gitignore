@@ -70,3 +70,4 @@ models/jef-v0/*
 packages/jef-sdk-ts/dist/
 packages/jef-sdk-ts/package-lock.json
 *.png
+*.png
