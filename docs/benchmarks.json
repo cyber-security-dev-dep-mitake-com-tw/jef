@@ -3,7 +3,7 @@
   "model_dir": "models/jef-v0",
   "backbone": "jhu-clsp/mmBERT-base",
   "calibrated": true,
-  "excluded_training_cves": 2330,
+  "excluded_training_cves": 2262,
   "note": "Third-party benchmarks. CTI-Bench VSP is NVD-derived and so is JEF's corpus, so CVEs seen in training or calibration are excluded; evaluating on those would repeat the contamination that made SOAR routing score 1.000.",
   "tasks": {
     "cti-mcq": {
