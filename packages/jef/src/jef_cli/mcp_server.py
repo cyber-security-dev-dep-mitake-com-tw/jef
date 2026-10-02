@@ -42,11 +42,14 @@ _TEST_BACKBONE_NOTE = (
 def _client(args: argparse.Namespace) -> Any:
     from jef_sdk import Jef, JefClient
 
+    from .defaults import resolve_model
+
     if args.local:
+        backbone, head, calibration = resolve_model(args.backbone, args.head, args.calibration)
         return Jef(
-            args.backbone,
-            head=args.head,
-            calibration=args.calibration,
+            backbone,
+            head=head,
+            calibration=calibration,
             scenes=args.scenes,
             threads=args.threads,
         )
@@ -297,7 +300,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--url", default=os.environ.get("JEF_URL", "http://localhost:8080"))
     parser.add_argument("--local", action="store_true", help="run the engine in-process")
-    parser.add_argument("--backbone", default=os.environ.get("JEF_BACKBONE", "hashing"))
+    parser.add_argument("--backbone", default=os.environ.get("JEF_BACKBONE", "auto"))
     parser.add_argument("--head", default=os.environ.get("JEF_HEAD_PATH"))
     parser.add_argument("--calibration", default=os.environ.get("JEF_CALIBRATION_PATH"))
     parser.add_argument("--scenes", default=os.environ.get("JEF_SCENES_DIR"))

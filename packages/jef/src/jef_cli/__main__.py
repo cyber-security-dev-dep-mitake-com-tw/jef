@@ -85,11 +85,14 @@ def styler(args: argparse.Namespace) -> Style:
 def build_client(args: argparse.Namespace) -> Any:
     from jef_sdk import Jef, JefClient
 
+    from .defaults import resolve_model
+
     if args.local:
+        backbone, head, calibration = resolve_model(args.backbone, args.head, args.calibration)
         return Jef(
-            args.backbone,
-            head=args.head,
-            calibration=args.calibration,
+            backbone,
+            head=head,
+            calibration=calibration,
             scenes=args.scenes,
             threads=args.threads,
         )
@@ -316,10 +319,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--local", action="store_true", help="run in-process instead of calling a server"
     )
     common.add_argument(
-        "--backbone", default="hashing", help="[--local] model id, or 'hashing' test stub"
+        "--backbone",
+        default="auto",
+        help="[--local] 'auto' (default) uses the real backbone with the "
+        "published weights, or falls back to the 'hashing' test stub when the "
+        "torch extra is missing. Pass a model id or 'hashing' to pin it.",
     )
-    common.add_argument("--head", help="[--local] head.npz")
-    common.add_argument("--calibration", help="[--local] calibration.json")
+    common.add_argument("--head", help="[--local] head.npz, or an hf:// path")
+    common.add_argument("--calibration", help="[--local] calibration.json, or an hf:// path")
     common.add_argument("--scenes", help="[--local] scene directory")
     common.add_argument("--threads", type=int, help="[--local] intra-op threads")
     common.add_argument("--timeout", type=float, default=120.0, help="request timeout in seconds")
@@ -384,7 +391,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1", help="default: %(default)s")
     serve.add_argument("--port", type=int, default=8080)
     serve.add_argument("--workers", type=int, default=1)
-    serve.add_argument("--backbone", default="hashing")
+    serve.add_argument("--backbone", default="auto")
     serve.add_argument("--head")
     serve.add_argument("--calibration")
     serve.add_argument("--scenes")
