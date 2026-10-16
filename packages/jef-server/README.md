@@ -31,6 +31,16 @@ Or `pip install "jef[server]"` to get it with the CLI.
 | `JEF_SCENES_DIR` | Scenes to load and compile at startup |
 | `JEF_THREADS` | Intra-op threads. Set below the CPU limit — oversubscribing worsens p99. |
 | `JEF_UI_DIR` | Enables `/ui` |
+| `JEF_API_KEYS` | Comma-separated keys, optionally labelled (`soc-prod:<secret>`). When set, every endpoint but `/healthz` requires `Authorization: Bearer <key>` or `X-API-Key`. Empty means no app-level auth: only acceptable behind an ingress that authenticates, and `/healthz` says `auth: none`. |
+| `JEF_REQUIRE_AUTH` | Refuse to start when `JEF_API_KEYS` is empty. |
+| `JEF_MAX_BODY_BYTES` | Request body limit by `Content-Length` (default 8 000 000). Bodies without `Content-Length` are 411; compressed bodies are 415. |
+| `JEF_MAX_STATE_CHARS` `JEF_MAX_JSON_DEPTH` `JEF_MAX_QUESTIONS` | Per-request budgets checked after parsing and before inference (413 / 422 / 413). |
+| `JEF_RATE_LIMIT_PER_MINUTE` | Per-caller fixed window; 429 with `Retry-After`. 0 disables. |
+| `JEF_METRICS_PUBLIC` | Leave `/metrics` reachable without a key. |
+
+### Readiness
+
+`GET /healthz` always answers `status: ok` when the process is up, and adds what a deployer needs to decide whether it is *fit to serve*: `test_backbone`, `calibrated`, `calibration_scope`, `auth`, and `production_safe`, which is true only with a real backbone, a fitted calibrator and app-level authentication. Gate a production rollout on `production_safe`, not on `status`.
 
 ## The metric worth alerting on
 
