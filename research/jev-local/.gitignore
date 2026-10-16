@@ -1,0 +1,6 @@
+node_modules/
+.jev-cache/
+.env.local
+.env
+*.log
+.DS_Store

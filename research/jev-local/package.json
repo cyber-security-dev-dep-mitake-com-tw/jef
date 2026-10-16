@@ -1,0 +1,23 @@
+{
+  "name": "jev-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local, behaviourally compatible reproduction of TypeSafe AI's Jev decision model API (native + Vercel AI Gateway dialects).",
+  "scripts": {
+    "start": "node bin/jev.mjs serve",
+    "start:heuristic": "node bin/jev.mjs serve --backend heuristic",
+    "test": "node test-decide.mjs",
+    "test:sdk": "node test-typesafe-sdk.mjs",
+    "bench": "node bench-fidelity.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/gateway": "^4.0.114",
+    "@typesafe-ai/sdk": "^0.7.0",
+    "ai": "^7.0.141",
+    "zod": "^4.0.0"
+  },
+  "bin": {
+    "jev": "bin/jev.mjs"
+  }
+}
