@@ -241,19 +241,29 @@ class Calibrator:
     ) -> list[int]:
         """Indices whose probability clears the conformal threshold.
 
-        An empty-or-singleton set means the answer is safe to act on; a larger
-        set is the statistically honest signal that the model cannot separate
-        the candidates and the decision belongs to a human.
+        A singleton set means the answer is safe to act on; a larger set is the
+        statistically honest signal that the model cannot separate the
+        candidates and the decision belongs to a human.
+
+        The method fails closed. Whenever no fitted quantile applies -- the
+        bucket for ``(kind, n_options)`` was never fitted, the bucket has no
+        quantile for this ``alpha``, or no probability clears the threshold --
+        it returns the full index set ``list(range(len(probabilities)))``.
+        That is the only set whose coverage is actually guaranteed without a
+        quantile, and it keeps ``set_size`` gates from automating on a bucket
+        nobody calibrated. Returning ``[argmax]`` in those cases would dress an
+        uncalibrated guess up as a certified singleton.
         """
-        b = self.buckets.get(bucket_key(kind, n_options))
         p = np.asarray(probabilities, dtype=np.float64)
+        full = list(range(len(p)))
+        b = self.buckets.get(bucket_key(kind, n_options))
         if b is None:
-            return [int(np.argmax(p))]
+            return full
         qhat = b.conformal.get(_akey(alpha))
         if qhat is None:
-            return [int(np.argmax(p))]
+            return full
         keep = [int(i) for i in np.flatnonzero(p >= 1.0 - qhat)]
-        return keep or [int(np.argmax(p))]
+        return keep or full
 
     def p_correct(self, confidence: float, kind: str, n_options: int) -> float | None:
         """Calibrated probability that the top answer is correct.

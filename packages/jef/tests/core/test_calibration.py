@@ -126,6 +126,51 @@ def test_prediction_set_is_never_empty() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# M0-01: prediction_set fails closed. A missing quantile must never collapse
+# to [argmax] -- a singleton reads as "safe to automate" to every set_size gate.
+# --------------------------------------------------------------------------- #
+
+
+def test_cal_001_missing_bucket_returns_full_set() -> None:
+    """CAL-001: a fitted calibrator queried for a bucket it never saw excludes nothing."""
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels)
+    assert c.is_fitted()
+    peaked = np.array([0.97, 0.01, 0.01, 0.01])
+    # Same width, different kind.
+    assert c.prediction_set(peaked, "score", 4) == [0, 1, 2, 3]
+    # Same kind, different width.
+    assert c.prediction_set(np.array([0.98, 0.01, 0.01]), "choice", 3) == [0, 1, 2]
+    # Entirely unfitted calibrator.
+    assert Calibrator().prediction_set(peaked, "choice", 4) == [0, 1, 2, 3]
+
+
+def test_cal_002_missing_alpha_returns_full_set() -> None:
+    """CAL-002: a bucket that exists but has no quantile for this alpha excludes nothing."""
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels, alphas=(0.10,))
+    peaked = np.array([0.97, 0.01, 0.01, 0.01])
+    # The fitted alpha still produces a real conformal set...
+    assert len(c.prediction_set(peaked, "choice", 4, alpha=0.10)) < 4
+    # ...but an alpha nobody fitted must not borrow argmax.
+    assert c.prediction_set(peaked, "choice", 4, alpha=0.05) == [0, 1, 2, 3]
+    assert c.prediction_set(peaked, "choice", 4, alpha=0.01) == [0, 1, 2, 3]
+
+
+def test_cal_003_empty_keep_set_returns_full_set() -> None:
+    """CAL-003: when nothing clears the threshold the honest set is everything, not argmax."""
+    from jef_core.calibration import Bucket
+
+    # A tiny quantile demands p >= 0.95; a split distribution clears it nowhere.
+    c = Calibrator(buckets={bucket_key("choice", 2): Bucket(conformal={"0.1000": 0.05})})
+    assert c.prediction_set(np.array([0.6, 0.4]), "choice", 2, alpha=0.10) == [0, 1]
+    # Sanity: a distribution that does clear it yields the singleton.
+    assert c.prediction_set(np.array([0.99, 0.01]), "choice", 2, alpha=0.10) == [0]
+
+
+# --------------------------------------------------------------------------- #
 # Confidence -> P(correct): the answer to "confidence is not correctness"
 # --------------------------------------------------------------------------- #
 
