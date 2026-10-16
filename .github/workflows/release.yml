@@ -11,8 +11,10 @@ on:
     inputs:
       version:
         description: >-
-          Version to verify against (no publishing). Leave blank to use the
-          version the packages already carry. Any spelling works: 0.2.0rc4,
+          Version to release. A manual run performs the full release for it,
+          exactly like a tag push (TestPyPI/PyPI, npm, GHCR, weights, GitHub
+          release), so the files must already be at this version. Leave blank
+          to use the version the packages carry. Any spelling works: 0.2.0rc4,
           0.2.0rc.4, v0.2.0-rc.4.
         required: false
         default: ""
@@ -578,7 +580,26 @@ jobs:
           } > notes.md
 
           files=$(find artifacts -type f 2>/dev/null | tr '\n' ' ')
-          gh release create "$tag" $files \
-            --title "$tag" \
-            --notes-file notes.md \
-            ${{ needs.verify.outputs.prerelease == 'true' && '--prerelease' || '' }}
+          prerelease_flag="${{ needs.verify.outputs.prerelease == 'true' && '--prerelease' || '' }}"
+
+          # Idempotent on purpose. A release for this tag already exists when
+          # the run is a re-run, a manual dispatch of a version whose tag was
+          # already pushed, or a second tag spelling of the same version
+          # (Release #12: everything published, then `gh release create`
+          # refused "a release with the same tag name already exists" and the
+          # whole run showed red for a release that was in fact complete).
+          # Editing keeps the release's URL and its existing assets; --clobber
+          # replaces the ones this run rebuilt so the notes and the files
+          # describe the same build.
+          if gh release view "$tag" --json id >/dev/null 2>&1; then
+            echo "::notice::release $tag already exists; updating its notes and assets instead of failing"
+            gh release edit "$tag" --title "$tag" --notes-file notes.md $prerelease_flag
+            if [ -n "$files" ]; then
+              gh release upload "$tag" $files --clobber
+            fi
+          else
+            gh release create "$tag" $files \
+              --title "$tag" \
+              --notes-file notes.md \
+              $prerelease_flag
+          fi
