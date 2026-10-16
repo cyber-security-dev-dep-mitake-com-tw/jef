@@ -92,3 +92,30 @@ audit needs and what hand-written playbook branching cannot produce.
 ## License
 
 Apache-2.0
+
+
+## Policy verdict
+
+A gate selecting an action is a proposal, not an authorization. After the
+deciding gate fires, `jef_scene.policy.authorize` produces a deterministic
+verdict that the trace carries as `policy_verdict` (`allow` or
+`review_required`), `action_tier` and `reason_codes`. When the verdict is
+`review_required`, `human_review` is true whatever the action declared, and
+nothing downstream may flip it back.
+
+Two rules. Actions are tiered T0 to T4, explicitly via `tier:` on the action or
+inferred from the name (`close` is T2, `isolate`/`disable`/`block` T3, anything
+else T1); only T0 and T1 may run without a human. And an automating action
+must rest on questions whose calibration can be checked: if any question the
+firing gate read has no `p_correct`, or the gate read nothing (an `else` gate
+or the fallthrough), the verdict is `review_required`.
+
+Reason codes are stable strings: `AUTO_CLOSE_PROHIBITED`,
+`DISRUPTIVE_ACTION_REQUIRES_APPROVAL`, `NO_EVIDENCE_QUESTION`,
+`UNVALIDATED_CALIBRATION:<question>`, `HUMAN_REVIEW_ACTION`.
+
+`jef validate` reports an error for any gate that automates to a T2+ action,
+so a scene learns this at lint time rather than from a trace after deployment.
+The trace also carries `proposed_action`, `executed_action` (always `null`
+here: the engine executes nothing) and `execution_status`
+(`not_dispatched`), so a reader never mistakes a proposal for an outcome.

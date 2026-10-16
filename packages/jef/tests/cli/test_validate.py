@@ -256,3 +256,26 @@ def test_a_missing_server_says_what_to_do_instead(capsys) -> None:
     assert "http://127.0.0.1:9" in err
     assert "jef models --local" in err
     assert "jef serve" in err
+
+
+def test_automating_a_state_changing_action_is_an_error() -> None:
+    """P0-A: `close` with human_review: false was how the shipped scene read."""
+    scene = GOOD.replace("then: assign", "then: close").replace(
+        "actions:\n  assign: {}", "actions:\n  close: {}"
+    )
+    found = errors(validate_scene_text(scene, "bad.yaml"))
+    assert any("Only T0/T1 actions may run without a human" in p.message for p in found)
+
+
+def test_declaring_a_lower_tier_than_the_name_suggests_is_warned() -> None:
+    scene = GOOD.replace("then: assign", "then: close").replace(
+        "actions:\n  assign: {}", "actions:\n  close: {tier: 1}"
+    )
+    assert not errors(validate_scene_text(scene, "ok.yaml"))
+    found = warnings(validate_scene_text(scene, "ok.yaml"))
+    assert any("reads as T2" in p.message for p in found)
+
+
+def test_shipped_scenes_lint_clean() -> None:
+    found = validate_paths([_repo_root() / "scenes"])
+    assert not errors(found), [p.message for p in errors(found)]

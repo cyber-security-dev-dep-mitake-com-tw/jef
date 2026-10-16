@@ -21,6 +21,7 @@ import yaml
 from jef_core.errors import SceneError
 from jef_scene import Scene, load_scene_text
 from jef_scene.expr import ExpressionError, validate_condition
+from jef_scene.policy import MAX_AUTO_TIER, inferred_tier, tier_of
 
 __all__ = ["Problem", "discover_scenes", "validate_files", "validate_paths", "validate_scene_text"]
 
@@ -223,13 +224,47 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
                     )
                 )
 
+            action = scene.actions.get(gate.then)
+            automating = action is not None and not action.human_review
+            # Automating a state-changing action. The runtime policy refuses
+            # it anyway (jef_scene.policy), but a scene author should learn
+            # that at `jef validate`, not from a trace that says
+            # review_required after deployment.
+            if action is not None and automating and tier_of(gate.then, action) > MAX_AUTO_TIER:
+                problems.append(
+                    Problem(
+                        source,
+                        "error",
+                        f"layer {layer.id} gate {index} automates to '{gate.then}', a "
+                        f"T{tier_of(gate.then, action)} action (closing, suppressing, "
+                        "isolating, disabling or blocking). Only T0/T1 actions may run "
+                        "without a human; set human_review: true, or tier: 1 if the "
+                        "name is misleading",
+                        _line_of(text, gate.when),
+                    )
+                )
+            if (
+                action is not None
+                and automating
+                and action.tier is not None
+                and action.tier < inferred_tier(gate.then)
+            ):
+                problems.append(
+                    Problem(
+                        source,
+                        "warning",
+                        f"action '{gate.then}' declares tier {action.tier} but its name "
+                        f"reads as T{inferred_tier(gate.then)}; make sure it really only "
+                        "routes or enriches",
+                        _line_of(text, f"{gate.then}:"),
+                    )
+                )
+
             # The thesis check. `confidence` is distribution sharpness; a gate
             # that acts *because* it is high is saying "the model sounded sure",
             # which is not the same as "the model is likely right". Flagged only
             # when the gate both asserts high confidence and leads somewhere no
             # human will see -- escalating on low confidence is correct use.
-            action = scene.actions.get(gate.then)
-            automating = action is not None and not action.human_review
             if automating:
                 for name in _referenced_names(gate.when):
                     attributes = _attributes_on(gate.when, name)

@@ -21,6 +21,20 @@
           "title": "Human Review",
           "type": "boolean"
         },
+        "tier": {
+          "anyOf": [
+            {
+              "maximum": 4,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tier"
+        },
         "params": {
           "additionalProperties": true,
           "title": "Params",

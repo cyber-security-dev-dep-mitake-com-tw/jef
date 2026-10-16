@@ -10,12 +10,14 @@ from __future__ import annotations
 from .engine import AnswerView, SceneEngine
 from .expr import ExpressionError, validate_condition
 from .loader import SceneRegistry, load_scene, load_scene_text, load_scenes
+from .policy import MAX_AUTO_TIER, PolicyVerdict, authorize, tier_of
 from .schema import NEXT, Action, Gate, Layer, Scene
 from .trace import GateTrace, LayerTrace, QuestionTrace, SceneTrace
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "MAX_AUTO_TIER",
     "NEXT",
     "Action",
     "AnswerView",
@@ -24,14 +26,17 @@ __all__ = [
     "GateTrace",
     "Layer",
     "LayerTrace",
+    "PolicyVerdict",
     "QuestionTrace",
     "Scene",
     "SceneEngine",
     "SceneRegistry",
     "SceneTrace",
     "__version__",
+    "authorize",
     "load_scene",
     "load_scene_text",
     "load_scenes",
+    "tier_of",
     "validate_condition",
 ]

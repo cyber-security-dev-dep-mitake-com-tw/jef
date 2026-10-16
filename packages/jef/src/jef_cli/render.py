@@ -169,6 +169,12 @@ def render_trace(trace: dict[str, Any], style: Style) -> str:
     else:
         heading += "  " + style.green("[automated]")
     lines.append(heading)
+    # Why it needs a human, when the policy (not the action) said so. A
+    # reviewer should see "the bucket was never calibrated" rather than infer
+    # it from a yellow badge.
+    reasons = [r for r in trace.get("reason_codes", []) if r != "HUMAN_REVIEW_ACTION"]
+    if trace.get("policy_verdict") == "review_required" and reasons:
+        lines.append(style.dim("  policy: " + ", ".join(reasons)))
 
     badges = [
         f"scene {trace.get('scene')} v{trace.get('version')}",
