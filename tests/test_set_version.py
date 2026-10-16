@@ -102,6 +102,93 @@ def test_check_reports_a_mismatch_with_a_nonzero_exit() -> None:
     assert set_version.main(["--check", "9.9.9"]) == 1
 
 
+# --------------------------------------------------------------------------- #
+# Tag spelling is not version identity
+# --------------------------------------------------------------------------- #
+#
+# Release #10 was tagged `v0.2.0rc.4` -- the semver spelling, the one the npm
+# packages carry -- against pyproject files at `0.2.0rc4`. The strict check
+# failed the release at the first step over a dot. The workflow now
+# canonicalises the tag first; these pin what that accepts and refuses.
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("0.2.0", "0.2.0"),
+        ("v0.2.0", "0.2.0"),
+        ("0.2.0rc4", "0.2.0rc4"),
+        ("v0.2.0rc4", "0.2.0rc4"),
+        ("v0.2.0rc.4", "0.2.0rc4"),  # Release #10
+        ("v0.2.0-rc.4", "0.2.0rc4"),  # npm's own spelling
+        ("0.2.0-rc4", "0.2.0rc4"),
+        ("0.2.0_rc4", "0.2.0rc4"),
+        ("0.2.0.rc4", "0.2.0rc4"),
+        ("0.2.0RC4", "0.2.0rc4"),
+        ("V0.2.0-RC.4", "0.2.0rc4"),
+        ("0.2.0-alpha.1", "0.2.0a1"),
+        ("0.2.0-beta.2", "0.2.0b2"),
+        ("0.2.0c1", "0.2.0rc1"),  # PEP 440 synonyms for rc
+        ("0.2.0-pre.1", "0.2.0rc1"),
+        ("0.2.0preview1", "0.2.0rc1"),
+        ("1.0.0-rc.10", "1.0.0rc10"),
+        ("0.2.0rc04", "0.2.0rc4"),  # PEP 440 drops leading zeros
+        (" v0.2.0rc4\n", "0.2.0rc4"),
+    ],
+)
+def test_canonical_accepts_every_reasonable_spelling(raw: str, expected: str) -> None:
+    assert set_version.canonical(raw) == expected
+    assert set_version.VERSION_RE.match(set_version.canonical(raw))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "0.2",
+        "0.2.0.1",
+        "latest",
+        "0.2.0.post1",
+        "0.2.0.dev1",
+        "1!0.2.0",
+        "0.2.0rc",  # a label with no number
+        "0.2.0-rc.4.1",
+        "0.2.0rc4-final",
+        "",
+        "v",
+    ],
+)
+def test_canonical_refuses_what_is_not_a_release_version(raw: str) -> None:
+    with pytest.raises(ValueError, match="not a release version"):
+        set_version.canonical(raw)
+
+
+def test_canonical_flag_prints_the_pep440_spelling(capsys: pytest.CaptureFixture[str]) -> None:
+    assert set_version.main(["--canonical", "v0.2.0rc.4"]) == 0
+    assert capsys.readouterr().out.strip() == "0.2.0rc4"
+
+
+def test_canonical_flag_fails_loudly_on_garbage(capsys: pytest.CaptureFixture[str]) -> None:
+    assert set_version.main(["--canonical", "latest"]) == 2
+    assert "not a release version" in capsys.readouterr().err
+
+
+def test_check_accepts_the_tag_spelling_of_the_current_version() -> None:
+    """The exact failure of Release #10, against the real files."""
+    current = set_version.read_versions()
+    python = next(v for label, v in current.items() if label.startswith("py:"))
+    match = set_version.VERSION_RE.match(python)
+    assert match, python
+    base, kind, number = match.groups()
+    if kind is None:
+        pytest.skip("the repo is at a final release; no prerelease spelling to vary")
+    for spelling in (
+        f"v{base}{kind}.{number}",
+        f"v{base}-{kind}.{number}",
+        f"{base}-{kind}{number}",
+    ):
+        assert set_version.main(["--check", spelling]) == 0, spelling
+
+
 def test_check_passes_on_the_current_version() -> None:
     """The python version is the one to check against, not any of them.
 

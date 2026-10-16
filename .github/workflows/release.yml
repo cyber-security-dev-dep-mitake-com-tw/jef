@@ -30,13 +30,26 @@ jobs:
         with:
           enable-cache: true
 
+      # The tag is canonicalised to PEP 440 before anything reads it. Release
+      # #10 was `v0.2.0rc.4` -- the semver spelling, and the one the npm
+      # packages carry -- against files at `0.2.0rc4`, and the strict check
+      # below failed the run at the first step although every package would
+      # have published correctly. Only the *spelling* was wrong; the script
+      # fixes that and still refuses anything that is not a release version.
       - name: Resolve version
         id: resolve
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            version="${{ inputs.version }}"
+            raw="${{ inputs.version }}"
           else
-            version="${GITHUB_REF_NAME#v}"
+            raw="$GITHUB_REF_NAME"
+          fi
+          version="$(python scripts/set-version.py --canonical "$raw")" || {
+            echo "::error::'$raw' is not a release version. Tag like v0.2.0 or v0.2.0rc1 (v0.2.0-rc.1 is accepted too)."
+            exit 1
+          }
+          if [ "${raw#v}" != "$version" ]; then
+            echo "::notice::tag '$raw' read as version $version"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           # The moving tag, for the container only. Computed here rather than

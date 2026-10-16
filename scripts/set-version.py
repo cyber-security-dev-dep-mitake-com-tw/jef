@@ -11,7 +11,13 @@ PyPI, including a future incompatible one -- a user could end up with
 rather than a resolver error at install time.
 
     python scripts/set-version.py 0.2.0
-    python scripts/set-version.py --check 0.2.0   # verify without writing
+    python scripts/set-version.py --check 0.2.0        # verify without writing
+    python scripts/set-version.py --canonical v0.2.0-rc.4   # -> 0.2.0rc4
+
+Any reasonable spelling of a version is accepted on input (`v0.2.0rc.4`,
+`0.2.0-rc.4`, `0.2.0-alpha.1`) and normalised to PEP 440 before anything is
+compared or written. The release workflow uses `--canonical` so a tag typed
+the semver way does not fail the release at the first step.
 """
 
 from __future__ import annotations
@@ -45,6 +51,56 @@ NPM_PACKAGES = [
 
 #: PEP 440 subset: what a release tag may look like.
 VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+)(?:(a|b|rc)(\d+))?$")
+
+#: Every spelling of a prerelease a human has typed into a tag, mapped to the
+#: canonical PEP 440 marker. `c`, `pre` and `preview` are PEP 440's own
+#: synonyms for `rc`; `alpha` and `beta` are what npm and semver call `a`/`b`.
+_PRERELEASE_LABELS = {
+    "a": "a",
+    "alpha": "a",
+    "b": "b",
+    "beta": "b",
+    "rc": "rc",
+    "c": "rc",
+    "pre": "rc",
+    "preview": "rc",
+}
+
+#: Loose form: optional `v`, the base, then an optional prerelease with any of
+#: the separators people reach for -- `0.2.0rc4`, `0.2.0rc.4`, `0.2.0-rc.4`,
+#: `0.2.0-rc4`, `v0.2.0_rc4`, `0.2.0-alpha.1` are all one version.
+_LOOSE_RE = re.compile(
+    r"^[vV]?(?P<base>\d+\.\d+\.\d+)"
+    r"(?:[-._]?(?P<label>alpha|beta|preview|pre|rc|a|b|c)[-._]?(?P<number>\d+))?$",
+    re.IGNORECASE,
+)
+
+
+def canonical(raw: str) -> str:
+    """Normalise a tag or user-typed version to the PEP 440 spelling.
+
+    The release workflow runs on `v*` tags, and `v0.2.0rc.4` is a perfectly
+    natural thing to type -- it is how semver spells a prerelease and how the
+    npm packages carry it. It is not PEP 440, so a strict check against the
+    pyproject files failed the whole release at the first step (Release #10),
+    even though the files were at `0.2.0rc4` and every package would have
+    published correctly. Canonicalising first means the tag only has to name
+    the right version, not spell it the Python way.
+
+    Raises ``ValueError`` for anything that is not a release version at all.
+    Post-releases, dev releases and epochs are rejected on purpose: this repo
+    does not publish them, and silently accepting one would get a version onto
+    PyPI that nothing else in the pipeline expects.
+    """
+    text = raw.strip()
+    match = _LOOSE_RE.match(text)
+    if not match:
+        raise ValueError(f"'{text}' is not a release version (expected 1.2.3 or 1.2.3rc1)")
+    base, label, number = match.group("base", "label", "number")
+    if label is None:
+        return base
+    return f"{base}{_PRERELEASE_LABELS[label.lower()]}{int(number)}"
+
 
 #: PEP 440 prerelease markers to the words npm expects.
 _NPM_LABELS = {"a": "alpha", "b": "beta", "rc": "rc"}
@@ -183,6 +239,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("version", nargs="?", help="e.g. 0.2.0 or 0.2.0rc1")
     parser.add_argument("--check", action="store_true", help="verify without writing")
     parser.add_argument("--show", action="store_true", help="print current versions")
+    parser.add_argument(
+        "--canonical",
+        action="store_true",
+        help="print the PEP 440 spelling of VERSION (accepts v0.2.0-rc.4 etc.) and exit",
+    )
     args = parser.parse_args(argv)
 
     if args.show or not args.version:
@@ -194,10 +255,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         return 0
 
-    version = args.version.removeprefix("v")
-    if not VERSION_RE.match(version):
-        print(f"'{version}' is not a release version (expected 1.2.3 or 1.2.3rc1)", file=sys.stderr)
+    try:
+        version = canonical(args.version)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
         return 2
+    if args.canonical:
+        print(version)
+        return 0
 
     problems = apply(version, check=args.check)
     if problems:

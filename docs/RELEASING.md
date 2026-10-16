@@ -153,6 +153,14 @@ numerically, so `rc.9 < rc.10`, while `rc9` and `rc10` are single alphanumeric
 identifiers compared as strings — which puts the tenth candidate *before* the
 ninth.
 
+The tag itself may use either spelling. `verify` canonicalises it with
+`set-version.py --canonical` before the check, so `v0.2.0rc4`, `v0.2.0rc.4`
+and `v0.2.0-rc.4` all resolve to `0.2.0rc4` and are compared against the
+files as that. Release #10 failed at the first step on exactly this: the
+tag was `v0.2.0rc.4` against files at `0.2.0rc4`, a spelling difference and
+nothing else. Only release versions are accepted; `.post1`, `.dev1` and
+epochs are refused because nothing downstream expects them.
+
 That exercises the whole pipeline — version check, tests, builds, metadata
 validation, TestPyPI upload, npm `next`, the multi-arch image and its startup
 probe — without touching the real registries' version space.
