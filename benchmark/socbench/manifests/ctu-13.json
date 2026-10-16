@@ -1,0 +1,21 @@
+{
+  "source": "ctu-13",
+  "note": "mcfp.felk.cvut.cz public directory, CC-BY. No upstream checksum is published. only-exes-of-ctu-13.zip (botnet binaries, password 'infected') is excluded on purpose.",
+  "artifacts": [
+    {
+      "name": "CTU-13-Dataset.tar.bz2",
+      "url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-13-Dataset/CTU-13-Dataset.tar.bz2",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "~1.9 GB; listed as 2014-11-01. Background flows are unknown, never benign (item 10)."
+    },
+    {
+      "name": "README.md",
+      "url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-13-Dataset/README.md",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null
+    }
+  ]
+}

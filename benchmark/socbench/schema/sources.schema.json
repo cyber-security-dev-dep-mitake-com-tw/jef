@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/benchmark/socbench/schema/sources.schema.json",
+  "title": "SOCBench source manifest",
+  "description": "Provenance for every dataset SOCBench may draw on. No data lives in the repository; this records what each source labels, how it is obtained, and the caveat that must survive into every derived case.",
+  "type": "object",
+  "required": ["version", "checked", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "checked": { "type": "string", "format": "date" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/source" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "id", "name", "url", "language", "ground_truth_level", "realism",
+        "hard_negatives", "jef_use", "access", "license", "priority", "caveat"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "portal": { "type": "string", "format": "uri" },
+        "reference": { "type": "string", "format": "uri" },
+        "full_dataset": { "type": "string", "format": "uri" },
+        "open_data": { "type": "string", "format": "uri" },
+        "language": { "type": "string", "minLength": 1 },
+        "ground_truth_level": {
+          "type": "string",
+          "description": "What the source actually labels. Never an analyst verdict unless the two-reviewer workflow produced it.",
+          "minLength": 1
+        },
+        "realism": { "type": "string", "minLength": 1 },
+        "hard_negatives": { "type": "string", "minLength": 1 },
+        "jef_use": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "access": {
+          "type": "string",
+          "description": "How the data is obtained. Only public-download and public may be fetched by the pipeline; everything else needs a human.",
+          "enum": [
+            "public",
+            "public-download",
+            "public-download-verify",
+            "request-form",
+            "registration-or-contact",
+            "sample-public-full-restricted"
+          ]
+        },
+        "license": { "type": "string", "minLength": 1 },
+        "priority": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "enum": ["secondary", "reference", "evaluate", "context"] }
+          ]
+        },
+        "caveat": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

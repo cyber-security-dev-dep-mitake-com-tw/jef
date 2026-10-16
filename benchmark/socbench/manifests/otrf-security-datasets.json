@@ -1,0 +1,13 @@
+{
+  "source": "otrf-security-datasets",
+  "note": "Pinned at tag 0.0.2 = commit acf9f6be6a386783a20139ceb2faf8146378d603. GitHub regenerates archives, so the sha256 of the zip can change while the commit does not; if `check` reports a MISMATCH here, confirm the commit still resolves and re-pin after reviewing. Licence is per dataset inside the repository.",
+  "artifacts": [
+    {
+      "name": "Security-Datasets-0.0.2.zip",
+      "url": "https://codeload.github.com/OTRF/Security-Datasets/zip/acf9f6be6a386783a20139ceb2faf8146378d603",
+      "size": null,
+      "upstream_checksum": "git:acf9f6be6a386783a20139ceb2faf8146378d603",
+      "sha256": null
+    }
+  ]
+}

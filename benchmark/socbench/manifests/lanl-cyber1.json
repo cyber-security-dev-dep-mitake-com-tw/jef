@@ -1,0 +1,46 @@
+{
+  "source": "lanl-cyber1",
+  "note": "request-form: LANL asks for email and intended use before download (https://csr.lanl.gov/data/cyber1/). CC0. Files, once obtained by a human and placed under the data directory, are pinned with `jef-bench pin --source lanl-cyber1 --local`. URLs below are the landing page, not direct links; nothing is fetched automatically.",
+  "artifacts": [
+    {
+      "name": "auth.txt.gz",
+      "url": "https://csr.lanl.gov/data/cyber1/",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "~7.2 GB"
+    },
+    {
+      "name": "proc.txt.gz",
+      "url": "https://csr.lanl.gov/data/cyber1/",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "~2.2 GB"
+    },
+    {
+      "name": "flows.txt.gz",
+      "url": "https://csr.lanl.gov/data/cyber1/",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "~1.1 GB"
+    },
+    {
+      "name": "dns.txt.gz",
+      "url": "https://csr.lanl.gov/data/cyber1/",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "~177 MB"
+    },
+    {
+      "name": "redteam.txt.gz",
+      "url": "https://csr.lanl.gov/data/cyber1/",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "~4.8 KB; known compromise events only. Everything not listed here is unknown, not benign."
+    }
+  ]
+}

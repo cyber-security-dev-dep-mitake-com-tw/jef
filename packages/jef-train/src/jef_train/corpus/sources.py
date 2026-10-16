@@ -28,6 +28,8 @@ __all__ = [
     "NVD_API_URL",
     "fetch",
     "fetch_json",
+    "fetch_to",
+    "sha256_of",
 ]
 
 CACHE_DIR = Path(os.environ.get("JEF_CORPUS_CACHE", ".cache/corpus"))
@@ -59,28 +61,49 @@ def _cache_path(url: str, suffix: str) -> Path:
     return CACHE_DIR / f"{digest}{suffix}"
 
 
+def fetch_to(url: str, dest: Path, *, refresh: bool = False, timeout: int = 120) -> Path:
+    """Download ``url`` to exactly ``dest`` and return it.
+
+    The one download routine in this repository: https only, streamed in 1 MiB
+    chunks, written to a ``.part`` sibling and renamed into place, so a killed
+    download never leaves a valid-looking file behind. ``fetch`` (the
+    URL-keyed corpus cache) and the SOCBench dataset adapters both sit on it;
+    a second copy of this loop would be a second place to forget the scheme
+    check.
+    """
+    _require_https(url)
+    if dest.exists() and not refresh:
+        log.debug("cache hit %s -> %s", url, dest)
+        return dest
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    log.info("fetching %s", url)
+    # Scheme is validated above, so neither line can open file: or ftp:.
+    req = urllib.request.Request(url, headers={"User-Agent": _UA})  # noqa: S310
+    tmp = dest.with_name(dest.name + ".part")
+    with urllib.request.urlopen(req, timeout=timeout) as resp, tmp.open("wb") as fh:  # noqa: S310
+        while chunk := resp.read(1 << 20):
+            fh.write(chunk)
+    tmp.replace(dest)  # atomic: a killed download never leaves a valid-looking cache entry
+    return dest
+
+
 def fetch(url: str, *, suffix: str = ".bin", refresh: bool = False, timeout: int = 120) -> Path:
     """Download ``url`` into the cache and return the local path.
 
     A cached file is reused unless ``refresh`` is set, so corpus builds are
     reproducible and work behind an air gap once primed.
     """
-    _require_https(url)
-    path = _cache_path(url, suffix)
-    if path.exists() and not refresh:
-        log.debug("cache hit %s -> %s", url, path)
-        return path
+    return fetch_to(url, _cache_path(url, suffix), refresh=refresh, timeout=timeout)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    log.info("fetching %s", url)
-    # Scheme is validated above, so neither line can open file: or ftp:.
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})  # noqa: S310
-    tmp = path.with_suffix(path.suffix + ".part")
-    with urllib.request.urlopen(req, timeout=timeout) as resp, tmp.open("wb") as fh:  # noqa: S310
-        while chunk := resp.read(1 << 20):
-            fh.write(chunk)
-    tmp.replace(path)  # atomic: a killed download never leaves a valid-looking cache entry
-    return path
+
+def sha256_of(path: Path) -> str:
+    """Hex SHA-256 of a file, streamed so a multi-gigabyte archive is fine."""
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while chunk := fh.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def fetch_json(url: str, *, refresh: bool = False, timeout: int = 120) -> Any:

@@ -1,0 +1,15 @@
+{
+  "source": "ts-bench",
+  "note": "mtkresearch/TS-Bench at commit b53fd7fabec6e053677cdfa68cdff4d7d1fba1b4 (2026-03-18). upstream_checksum is the git blob sha of data/TSB400.csv.",
+  "artifacts": [
+    {
+      "name": "TSB400.csv",
+      "url": "https://raw.githubusercontent.com/mtkresearch/TS-Bench/b53fd7fabec6e053677cdfa68cdff4d7d1fba1b4/data/TSB400.csv",
+      "sha256": "22d023bad5b1517ca5a1321a60635054980fed44128bce549a171020fab469b6",
+      "size": 76509,
+      "upstream_checksum": "git:4dd7c2e1e841609430a433e382f57a5a07bb239f",
+      "recorded_at": "2026-10-16",
+      "note": "400 zh-TW prompts; scam vs paired hard negative."
+    }
+  ]
+}

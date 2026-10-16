@@ -4,7 +4,7 @@ version = "0.2.0rc4"
 description = "JEF training: embedding cache, head training, temperature + conformal calibration"
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
-dependencies = ["jef==0.2.0rc4", "torch>=2.5", "transformers>=4.46", "scikit-learn>=1.5", "datasets>=3.0"]
+dependencies = ["jef==0.2.0rc4", "torch>=2.5", "transformers>=4.46", "scikit-learn>=1.5", "datasets>=3.0", "jsonschema>=4.23"]
 
 authors = [{ name = "Mitake Cyber Security Dev Dept" }]
 maintainers = [{ name = "dennislee928" }]
@@ -31,6 +31,9 @@ Documentation = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blo
 Changelog = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/releases"
 Issues = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/issues"
 "Results & benchmarks" = "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/blob/main/docs/RESULTS.md"
+
+[project.scripts]
+jef-bench = "jef_train.socbench.cli:main"
 
 [build-system]
 requires = ["hatchling"]

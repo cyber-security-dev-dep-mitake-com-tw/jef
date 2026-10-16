@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/benchmark/socbench/schema/gold.schema.json",
+  "title": "SOCBench gold record",
+  "description": "The answer key for one case. label_origin says where the label came from and is never upgraded: an attack-phase window from AIT-ADS stays attack-phase-window, a CTU-13 flow label stays flow-label. double-human-reviewed is reserved for labels that went through the two-reviewer workflow (roadmap 7.3), and a program may not write it.",
+  "type": "object",
+  "required": ["case_id", "task_id", "label_origin", "gold", "adjudication_status"],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": { "type": "string", "pattern": "^socb-[a-z]{2}(-[a-zA-Z]{2})?-[0-9]{6}$" },
+    "task_id": {
+      "type": "string",
+      "enum": [
+        "soc.alert.verdict.v1",
+        "soc.ndr.technique.v1",
+        "soc.edr.execution.v1",
+        "soc.identity.abuse.v1",
+        "soc.phishing.verdict.v1",
+        "soc.response.authority.v1"
+      ]
+    },
+    "label_origin": {
+      "type": "string",
+      "enum": [
+        "attack-phase-window",
+        "flow-label",
+        "ctf-answer-key",
+        "partial-red-team-positives",
+        "adversary-emulation-semi-labelled",
+        "spam-ham",
+        "scam-vs-hard-negative-prompts",
+        "phishing-vs-benign-website",
+        "policy-fixture",
+        "single-human-reviewed",
+        "double-human-reviewed"
+      ]
+    },
+    "gold": {
+      "type": "object",
+      "required": ["verdict", "confidence_of_gold"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "description": "Task-specific label. unknown and insufficient_evidence are legitimate answers, not missing data.",
+          "minLength": 1
+        },
+        "confidence_of_gold": { "type": "string", "enum": ["high", "medium", "low"] },
+        "allowed_alternatives": { "type": "array", "items": { "type": "string" } },
+        "attack_stage": { "type": ["string", "null"] },
+        "mitre_technique": { "type": ["string", "null"], "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$" },
+        "correct_evidence_ids": { "type": "array", "items": { "type": "string", "pattern": "^e[0-9]+$" } },
+        "prohibited_actions": { "type": "array", "items": { "type": "string" } },
+        "required_followup": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "annotators": {
+      "type": "array",
+      "description": "Anonymised reviewer handles. Required to have two or more entries when label_origin is double-human-reviewed.",
+      "items": { "type": "string", "pattern": "^analyst-anon-[0-9]{2}$" }
+    },
+    "adjudication_status": {
+      "type": "string",
+      "enum": ["not-applicable", "agreed", "adjudicated", "disputed"]
+    },
+    "adjudication_note": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "label_origin": { "const": "double-human-reviewed" } } },
+      "then": {
+        "required": ["annotators"],
+        "properties": { "annotators": { "minItems": 2 } }
+      }
+    },
+    {
+      "if": { "properties": { "label_origin": { "const": "single-human-reviewed" } } },
+      "then": {
+        "required": ["annotators"],
+        "properties": { "annotators": { "minItems": 1 } }
+      }
+    }
+  ]
+}

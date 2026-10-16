@@ -1,0 +1,22 @@
+{
+  "source": "cicids2017",
+  "note": "request-form: the download page (cicresearch.ca/CICDataset/CIC-IDS-2017/) is a form, verified 2026-10-16. Secondary source only. Place the archives by hand and pin with --local.",
+  "artifacts": [
+    {
+      "name": "MachineLearningCSV.zip",
+      "url": "https://www.unb.ca/cic/datasets/ids-2017.html",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "landing page, not a direct link"
+    },
+    {
+      "name": "GeneratedLabelledFlows.zip",
+      "url": "https://www.unb.ca/cic/datasets/ids-2017.html",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "landing page, not a direct link"
+    }
+  ]
+}

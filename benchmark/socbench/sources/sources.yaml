@@ -78,7 +78,7 @@ sources:
     realism: limited
     hard_negatives: low
     jef_use: [soc.ndr.technique.v1]
-    access: public-download
+    access: request-form                              # the download page is a form (cicresearch.ca), verified 2026-10-16
     license: see-source
     priority: secondary
     caveat: labelling and flow-construction problems documented (doi 10.1109/SPW53761.2021.00009); never a headline benchmark
@@ -119,7 +119,7 @@ sources:
     realism: dated
     hard_negatives: benign-mail
     jef_use: [soc.phishing.verdict.v1]
-    access: public-download-verify
+    access: public-download-verify                   # upstream URL redirected to a 404 on 2026-10-16; no automated fetch until a verified source exists
     license: see-source
     priority: 6
     caveat: spam/ham is not phishing/legitimate; headers are processed; useful as benign-mail negatives and domain transfer only

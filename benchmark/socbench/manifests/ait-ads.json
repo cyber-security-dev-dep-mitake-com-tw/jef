@@ -1,0 +1,21 @@
+{
+  "source": "ait-ads",
+  "note": "Zenodo record 8263181, CC-BY-4.0, version 1. Checksums are the md5 values the record publishes; sha256 is recorded on first fetch.",
+  "artifacts": [
+    {
+      "name": "ait_ads.zip",
+      "url": "https://zenodo.org/api/records/8263181/files/ait_ads.zip/content",
+      "size": 96202946,
+      "upstream_checksum": "md5:43db6b1f0996e0024befd617706c50e9",
+      "sha256": null
+    },
+    {
+      "name": "labels.csv",
+      "url": "https://zenodo.org/api/records/8263181/files/labels.csv/content",
+      "size": 3703,
+      "upstream_checksum": "md5:60ff33796c77fd2136c4d1a4bc841bd9",
+      "sha256": null,
+      "note": "Attack-phase windows per scenario. A window hit is never a per-alert label (item 09)."
+    }
+  ]
+}
