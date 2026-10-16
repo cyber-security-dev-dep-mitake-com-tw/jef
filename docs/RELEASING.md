@@ -161,6 +161,12 @@ tag was `v0.2.0rc.4` against files at `0.2.0rc4`, a spelling difference and
 nothing else. Only release versions are accepted; `.post1`, `.dev1` and
 epochs are refused because nothing downstream expects them.
 
+A manual run ("Run workflow" on the Actions page) may leave the version box
+blank: it then verifies the version the packages already carry, read from
+`packages/jef/pyproject.toml`, so a rehearsal needs no typing. The GitHub
+release is created against the tag as it was pushed, whatever its spelling,
+so no second tag is minted.
+
 That exercises the whole pipeline — version check, tests, builds, metadata
 validation, TestPyPI upload, npm `next`, the multi-arch image and its startup
 probe — without touching the real registries' version space.

@@ -10,8 +10,12 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to verify against (no publishing)"
-        required: true
+        description: >-
+          Version to verify against (no publishing). Leave blank to use the
+          version the packages already carry. Any spelling works: 0.2.0rc4,
+          0.2.0rc.4, v0.2.0-rc.4.
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -22,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
       minor: ${{ steps.resolve.outputs.minor }}
     steps:
@@ -36,11 +41,25 @@ jobs:
       # below failed the run at the first step although every package would
       # have published correctly. Only the *spelling* was wrong; the script
       # fixes that and still refuses anything that is not a release version.
+      #
+      # A manual run may leave the version blank: six "Run workflow" attempts
+      # in a row typed `0.2.0rc.4` by hand, and the only version a rehearsal
+      # can verify is the one the packages carry anyway, so that is the
+      # default -- read from packages/jef/pyproject.toml, nothing to type.
       - name: Resolve version
         id: resolve
+        env:
+          # Through the environment rather than spliced into the script: an
+          # input is free text, and `${{ inputs.version }}` inside `run:`
+          # would be interpolated before bash parses it.
+          REQUESTED: ${{ inputs.version }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            raw="${{ inputs.version }}"
+            raw="$REQUESTED"
+            if [ -z "$raw" ]; then
+              raw="$(python scripts/set-version.py --show | awk '$1 == "py:jef" { print $2 }')"
+              echo "::notice::no version given; verifying the packages' own: $raw"
+            fi
           else
             raw="$GITHUB_REF_NAME"
           fi
@@ -52,6 +71,14 @@ jobs:
             echo "::notice::tag '$raw' read as version $version"
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          # The GitHub release goes on the tag that was actually pushed. With
+          # a tag spelled `v0.2.0rc.4`, `gh release create v0.2.0rc4` would not
+          # find it and would mint a second tag on the default branch instead.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          fi
           # The moving tag, for the container only. Computed here rather than
           # by docker/metadata-action's {{major}}.{{minor}}, which only comes
           # from its semver parser -- and that parser rejects PEP 440.
@@ -521,7 +548,7 @@ jobs:
           IS_PRERELEASE: ${{ needs.verify.outputs.prerelease }}
         run: |
           set -e
-          version="${{ needs.verify.outputs.version }}"
+          tag="${{ needs.verify.outputs.tag }}"
           index=$([ "$IS_PRERELEASE" = "true" ] && echo TestPyPI || echo PyPI)
           npm_tag=$([ "$IS_PRERELEASE" = "true" ] && echo "npm \`next\`" || echo "npm")
 
@@ -547,11 +574,11 @@ jobs:
               echo
             fi
             gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
-              -f tag_name="v${version}" --jq .body
+              -f tag_name="$tag" --jq .body
           } > notes.md
 
           files=$(find artifacts -type f 2>/dev/null | tr '\n' ' ')
-          gh release create "v${version}" $files \
-            --title "v${version}" \
+          gh release create "$tag" $files \
+            --title "$tag" \
             --notes-file notes.md \
             ${{ needs.verify.outputs.prerelease == 'true' && '--prerelease' || '' }}
