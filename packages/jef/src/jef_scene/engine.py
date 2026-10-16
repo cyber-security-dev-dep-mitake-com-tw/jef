@@ -281,7 +281,9 @@ class SceneEngine:
             # of options: coverage 1.0 requires excluding nothing. Returning an
             # empty list instead would make `set_size` read as 0, so a gate like
             # `owner.set_size <= 2` would fire on an uncalibrated deployment and
-            # automate a decision nobody could stand behind.
+            # automate a decision nobody could stand behind. The calibrator
+            # applies the same rule per bucket (M0-01): a kind/width or alpha it
+            # never fitted also yields the full set, never a bare argmax.
             return list(question.option_keys)
         probs = np.asarray(self._distribution(answer, question), dtype=np.float64)
         indices = calibrator.prediction_set(probs, question.kind, question.n_options, alpha)
