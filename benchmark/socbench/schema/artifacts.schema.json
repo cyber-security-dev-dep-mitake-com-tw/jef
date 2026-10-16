@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/benchmark/socbench/schema/artifacts.schema.json",
+  "title": "SOCBench artifact pins",
+  "description": "One file per source under manifests/: the files the adapter fetches, the checksum upstream publishes (if any), and the SHA-256 this project recorded when it last fetched them. A pinned sha256 is what `jef-bench check` compares the local cache against; null means never fetched here.",
+  "type": "object",
+  "required": ["source", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "source": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
+    "note": { "type": "string" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["name", "url", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "File name inside the source's data directory. No path separators.",
+          "pattern": "^[^/\\\\]+$"
+        },
+        "url": { "type": "string", "pattern": "^https://" },
+        "size": { "type": ["integer", "null"], "minimum": 0 },
+        "upstream_checksum": {
+          "type": ["string", "null"],
+          "description": "As published by the source, algorithm-prefixed (md5:..., sha1:..., git:<commit>). Recorded for cross-checking, never trusted in place of our own sha256.",
+          "pattern": "^(md5|sha1|sha256|git):[0-9a-f]+$"
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "recorded_at": { "type": ["string", "null"], "format": "date" },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

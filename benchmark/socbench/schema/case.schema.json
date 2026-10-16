@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/benchmark/socbench/schema/case.schema.json",
+  "title": "SOCBench case",
+  "description": "One benchmark input: the state a scene would see, the evidence items a gate may cite, and where both came from. A case carries no verdict; that lives in a gold record keyed by case_id, so the evaluation set can be blind-audited.",
+  "type": "object",
+  "required": [
+    "case_id", "family_id", "source_dataset", "source_hash", "telemetry_origin",
+    "language", "task_id", "state", "evidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "case_id": { "type": "string", "pattern": "^socb-[a-z]{2}(-[a-zA-Z]{2})?-[0-9]{6}$" },
+    "family_id": {
+      "type": "string",
+      "description": "Incident family; every split is grouped on this so a paired hard negative never lands across the train/test line from its twin.",
+      "minLength": 1
+    },
+    "source_dataset": {
+      "type": "string",
+      "description": "A source id from sources.yaml, or jef-analyst-reviewed for cases this project authored.",
+      "pattern": "^[a-z0-9][a-z0-9.-]*$"
+    },
+    "source_hash": {
+      "type": "string",
+      "description": "sha256 of the upstream artifact the case was derived from, as pinned in manifests/.",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "telemetry_origin": {
+      "type": "string",
+      "enum": ["real-enterprise", "lab-reproduction", "adversary-emulation", "synthetic", "ctf"]
+    },
+    "language": { "type": "string", "enum": ["en", "zh-TW", "zh-CN", "zh", "n/a"] },
+    "task_id": {
+      "type": "string",
+      "enum": [
+        "soc.alert.verdict.v1",
+        "soc.ndr.technique.v1",
+        "soc.edr.execution.v1",
+        "soc.identity.abuse.v1",
+        "soc.phishing.verdict.v1",
+        "soc.response.authority.v1"
+      ]
+    },
+    "state": {
+      "type": "object",
+      "description": "What the scene sees. Keys are task-specific; values are strings or numbers so the record is diffable.",
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "field", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^e[0-9]+$" },
+          "field": { "type": "string", "minLength": 1 },
+          "value": { "type": ["string", "number", "boolean", "null"] }
+        }
+      }
+    },
+    "hard_negative": { "type": "boolean" },
+    "paired_with": { "type": ["string", "null"] },
+    "split_group": { "type": "string" },
+    "license_reviewed": { "type": "boolean" },
+    "pii_reviewed": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "source": "chiphish",
+  "note": "Public 20-sample subset from github.com/joanyy/ChiPhish at commit 616c7a23b462b3069bf75692f041c6f3eb2b6896 (2026-04-14). The full dataset (Zenodo 19558545, CC-BY-4.0) is restricted: request through the form the record links to, then place and pin locally. GitHub archive sha256 may change while the commit does not (see otrf note).",
+  "artifacts": [
+    {
+      "name": "ChiPhish-616c7a23.zip",
+      "url": "https://codeload.github.com/joanyy/ChiPhish/zip/616c7a23b462b3069bf75692f041c6f3eb2b6896",
+      "size": null,
+      "upstream_checksum": "git:616c7a23b462b3069bf75692f041c6f3eb2b6896",
+      "sha256": null,
+      "note": "Repository snapshot: data/chiphish/chiphish_20samples and ch_benign_homepage_top30."
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "source": "twcert-cc",
+  "note": "data.gov.tw dataset 163766 (資通安全威脅趨勢統計), Taiwan open government data licence, refreshed monthly. A pin here is for the month fetched; a later MISMATCH means a new monthly release, not tampering. Re-pin after confirming the row count moved forward.",
+  "artifacts": [
+    {
+      "name": "threat-trends.csv",
+      "url": "https://www-api.moda.gov.tw/OpenData/Files/6275",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "monthly refresh"
+    },
+    {
+      "name": "threat-trends.json",
+      "url": "https://www-api.moda.gov.tw/OpenData/Files/6277",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "monthly refresh"
+    }
+  ]
+}

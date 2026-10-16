@@ -1,0 +1,14 @@
+{
+  "source": "trec06c",
+  "note": "On 2026-10-16 https://plg.uwaterloo.ca/~gvcormac/treccorpus06/ redirected to http://cormack.uwaterloo.ca/treccorpus06/ which returned 404. No automated fetch until a verified https source exists; obtain trec06c.tgz from the track organisers, place it by hand and pin with --local.",
+  "artifacts": [
+    {
+      "name": "trec06c.tgz",
+      "url": "https://plg.uwaterloo.ca/~gvcormac/treccorpus06/",
+      "size": null,
+      "upstream_checksum": null,
+      "sha256": null,
+      "note": "landing page (currently 404), not a direct link"
+    }
+  ]
+}

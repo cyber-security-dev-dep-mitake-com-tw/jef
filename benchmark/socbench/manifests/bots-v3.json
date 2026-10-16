@@ -1,0 +1,14 @@
+{
+  "source": "bots-v3",
+  "note": "Splunk BOTS v3, CC0 claimed on the repository README (verify on the release used). The investigation questions and answers are not published in github.com/splunk/botsv3; as of 2026-10-16 the README only links the CTF scoreboard software. Q&A access: contact Splunk / conference material. Cases in item 11 are built from questions, not per-log labels.",
+  "artifacts": [
+    {
+      "name": "botsv3_data_set.tgz",
+      "url": "https://botsdataset.s3.amazonaws.com/botsv3/botsv3_data_set.tgz",
+      "size": null,
+      "upstream_checksum": "md5:d7ccca99a01cff070dff3c139cdc10eb",
+      "sha256": null,
+      "note": "~320 MB pre-indexed Splunk buckets."
+    }
+  ]
+}
