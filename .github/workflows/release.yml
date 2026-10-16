@@ -211,7 +211,40 @@ jobs:
       #
       # Neither is editable after the token is created: the token detail page
       # renders both read-only, so a wrong token must be replaced, not fixed.
+      # Two ways to authenticate, chosen by whether NPM_TOKEN is set:
+      #
+      #   * Trusted publishing (no secret). npm >= 11.5.1 exchanges this job's
+      #     OIDC token for a short-lived publish credential when the package's
+      #     settings on npmjs.com list this repository + workflow as a trusted
+      #     publisher. 2FA does not apply, so EOTP cannot happen. This is the
+      #     durable path; npm retires bypass-2FA token publishing in January 2027.
+      #     It needs the package to exist already, so the very first version of
+      #     a package still goes through a token.
+      #   * NPM_TOKEN (first publish only). A granular access token with
+      #     "Read and write (publish and stage)" AND "Bypass two-factor
+      #     authentication" -- see the publish step for why both.
+      #
+      # Node 22 bundles npm 10.x, which has no OIDC support, hence the upgrade.
+      - name: npm with trusted-publishing support
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      - name: Decide how to authenticate
+        id: auth
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "mode=token" >> "$GITHUB_OUTPUT"
+            echo "NPM_TOKEN is set: publishing with the token"
+          else
+            echo "mode=oidc" >> "$GITHUB_OUTPUT"
+            echo "NPM_TOKEN is not set: publishing through npm trusted publishing (OIDC)"
+          fi
+
       - name: The token authenticates
+        if: steps.auth.outputs.mode == 'token'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -233,6 +266,8 @@ jobs:
       - name: Build and publish @jef-ai/sdk
         working-directory: packages/jef-sdk-ts
         env:
+          # Empty under OIDC: setup-node's .npmrc then carries no auth line and
+          # npm falls back to the job's id-token.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm install
@@ -241,6 +276,13 @@ jobs:
             --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }} \
             2>&1 | tee publish.log
           status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ] && [ "${{ steps.auth.outputs.mode }}" = "oidc" ]; then
+            echo "::error::npm refused the OIDC publish. Trusted publishing needs the \
+          package to exist on npmjs.com with this repository (cyber-security-dev-dep-mitake-com-tw/jef), \
+          workflow file (release.yml) and no environment listed under the package's \
+          'Trusted publisher' settings. For a package that has never been published, \
+          set NPM_TOKEN for the first release and switch to OIDC afterwards."
+          fi
           if [ "$status" -ne 0 ] && grep -qE 'EOTP|E403|stage' publish.log; then
             echo "::error::npm refused the publish. NPM_TOKEN is a granular \
           access token (classic tokens were removed in November 2025) and it must \

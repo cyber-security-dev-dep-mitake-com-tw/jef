@@ -11,14 +11,38 @@ A tag ending in `rc1`/`a1`/`b1` goes to **TestPyPI** and npm's `next` tag
 instead, so the pipeline can be rehearsed without burning a version number —
 neither registry lets you reuse one.
 
+## Preflight: why the four rc runs failed
+
+Every failure of `v0.2.0rc1` to `rc4` was outside the code. Check these before
+pushing the next tag; the workflow cannot fix any of them.
+
+| Symptom in the run | Cause | Fix |
+|---|---|---|
+| `installs from the built artifact` shows no steps and the annotation says *recent account payments have failed or your spending limit needs to be increased* (rc4) | GitHub Actions billing on the organization | Settings → Billing & plans: clear the failed payment or raise the Actions spending limit. Until then any job can be refused at start. |
+| `npm error code EOTP` (rc1–rc4) | `NPM_TOKEN` was issued without *Bypass two-factor authentication*, so the registry asks for a code nobody can type | Either issue a new granular token with **Read and write (publish and stage)** and **Bypass 2FA** and replace the secret, or publish the first version by hand (`cd packages/jef-sdk-ts && npm publish --access public --tag next` with your authenticator), then switch to trusted publishing below and delete the secret. |
+| `403 … create a model under the namespace "dennislee928"` (rc2–rc4) | The workflow addressed an empty account; the token belongs to `dennislee928tw` | Fixed on `main`: the repo is `dennislee928tw/jef-v0`, it exists, and the preflight step now checks the namespace before publishing. |
+| `jef → TestPyPI` skipped (rc4) | Downstream of the smoke job above | Nothing to do; rc3 proved the TestPyPI path works. |
+
+### npm trusted publishing (after the first publish)
+
+Once `@jef-ai/sdk` and `n8n-nodes-jef` exist on the registry, open each
+package's *Settings → Trusted publisher* on npmjs.com and add GitHub Actions with
+organization `cyber-security-dev-dep-mitake-com-tw`, repository `jef`, workflow
+`release.yml`, environment left blank. Then delete the `NPM_TOKEN` secret: the
+workflow detects its absence and publishes with the job's OIDC token instead,
+which needs no 2FA and cannot leak. npm ends bypass-2FA token publishing in
+January 2027, so this is the only path that keeps working.
+
 ## One-time setup
 
 | | Where | Status |
 |---|---|---|
 | npm `jef-ai` organization | npmjs.com | done |
-| `HF_TOKEN`, `NPM_TOKEN` | repo secrets | done |
+| `HF_TOKEN` (write, account `dennislee928tw`) | repo secrets | done |
+| `NPM_TOKEN` with publish + bypass-2FA, **or** npm trusted publisher per package | npmjs.com | **not done** — every rc run died of `EOTP` |
+| GitHub Actions billing in good standing | org settings | **check** — rc4's smoke job was refused at start |
 | `pypi`, `testpypi` environments | repo settings | done (created via API) |
-| **Trusted Publishers** | pypi.org and test.pypi.org | **see below** |
+| **Trusted Publishers** | pypi.org and test.pypi.org | registered 2026-09-28; TestPyPI proven by rc3 |
 
 ### PyPI Trusted Publishing
 

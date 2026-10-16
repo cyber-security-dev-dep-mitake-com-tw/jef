@@ -15,7 +15,16 @@ generation, no parsing, no prompt wrangling.
 ```bash
 pip install jef                # engine, scenes, SDK and the `jef` CLI
 pip install "jef[torch]"       # + the real backbone
+npm install @jef-ai/sdk        # TypeScript client
 ```
+
+> **Release status (2026-10-16):** `0.2.0` is not on PyPI or npm yet. The
+> `0.2.0rc3` rehearsal is on TestPyPI
+> (`pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ jef==0.2.0rc3`);
+> the npm and Hugging Face channels of every rehearsal failed on credentials, not
+> code. [`docs/RELEASING.md`](docs/RELEASING.md#preflight-why-the-four-rc-runs-failed)
+> lists exactly what is left before the first real tag. Until then, run from a
+> checkout: `uv sync && uv run jef ask …`, or `docker build -t jef .`.
 
 ```bash
 jef ask "客戶回報：連續三天付款失敗，錯誤碼 502。" \
@@ -152,11 +161,15 @@ against either.
 See [`docs/RESULTS.md`](docs/RESULTS.md). The short version:
 
 - On **CTI-Bench VSP** — a third-party benchmark of exactly the task JEF trains
-  on, with every training CVE excluded — attack vector reaches **0.840** against
-  a 0.250 random baseline, and user interaction **0.805** against 0.500.
-- Conformal coverage holds at **0.895** against a nominal 0.900 on that
+  on, with 2,245 training and calibration CVEs excluded — the nightly run of
+  2026-10-16 scores attack vector **0.832** against a 0.250 random baseline and
+  user interaction **0.804** against 0.500; privileges 0.580 (random 0.500) and
+  severity 0.428 (random 0.200) are the weak buckets. CTI-MCQ, a knowledge
+  test, sits at 0.317 against 0.250.
+- Conformal coverage holds at **0.892** against a nominal 0.900 on that
   third-party data, and collapses to 0.44 on a different task. That is the
-  exchangeability assumption working exactly as stated.
+  exchangeability assumption working exactly as stated. P(correct) ECE is
+  0.076 on the same data.
 - On **TMMLU+** it scores **0.254** against a 0.250 baseline: chance. JEF judges
   evidence you supply; it does not know things. The boundary is stated because
   finding it in production is worse.
@@ -173,6 +186,19 @@ See [`docs/RESULTS.md`](docs/RESULTS.md). The short version:
 
 Under active development. See `docs/` for design notes and `.github/workflows`
 for what CI actually checks.
+
+- **Engine, server, CLI, SDKs, connectors:** building and tested on every push
+  (`ci.yml`); the Python and Go servers are asserted identical to 1e-9.
+- **Release channels:** four `0.2.0` rehearsals so far. TestPyPI and the GHCR
+  image work; npm and Hugging Face are blocked on credentials and the last run
+  on GitHub Actions billing. See
+  [`docs/RELEASING.md`](docs/RELEASING.md#preflight-why-the-four-rc-runs-failed).
+- **Benchmarks:** refreshed nightly against CTI-Bench and TMMLU+ by
+  `benchmark.yml`; the badges above and `docs/benchmarks.json` are the source
+  of truth, the prose in *Results* is a snapshot.
+- **Research:** `research/` holds side investigations that are not part of the
+  shipped packages, such as a Claude-backed stand-in for TypeSafe's Jev used to
+  cross-check the API contract.
 
 ## License
 
