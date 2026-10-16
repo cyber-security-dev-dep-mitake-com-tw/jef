@@ -153,6 +153,13 @@ numerically, so `rc.9 < rc.10`, while `rc9` and `rc10` are single alphanumeric
 identifiers compared as strings — which puts the tenth candidate *before* the
 ninth.
 
+The GitHub release step is idempotent. If a release for the tag already
+exists (a re-run, a manual dispatch of a version whose tag was already pushed,
+or the same version tagged twice with different spellings) it updates the
+notes and replaces the rebuilt assets instead of failing. Release #12 shipped
+every channel and then went red only on `gh release create`; that no longer
+happens.
+
 The tag itself may use either spelling. `verify` canonicalises it with
 `set-version.py --canonical` before the check, so `v0.2.0rc4`, `v0.2.0rc.4`
 and `v0.2.0-rc.4` all resolve to `0.2.0rc4` and are compared against the
