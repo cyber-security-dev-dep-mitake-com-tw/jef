@@ -35,6 +35,11 @@ class QuestionTrace:
     #: On an uncalibrated deployment this is every option -- the only set that
     #: honestly covers at any level without a fitted quantile.
     prediction_set: list[str] = field(default_factory=list)
+    #: ``validated``, ``insufficient`` or ``missing`` for this question's bucket
+    #: at the scene's alpha. Travels with ``prediction_set`` so a full set reads
+    #: as "cannot be evaluated" rather than "wide but trustworthy", and it is
+    #: what the policy checks before letting an action run without a human.
+    calibration_status: str = "missing"
 
 
 @dataclass

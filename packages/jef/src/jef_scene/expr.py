@@ -85,6 +85,7 @@ ALLOWED_ATTRIBUTES: frozenset[str] = frozenset(
         "noul",
         "confidence",
         "p_correct",
+        "calibration_status",
         "probabilities",
         "prediction_set",
         "set_size",

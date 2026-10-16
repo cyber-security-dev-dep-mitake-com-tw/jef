@@ -30,7 +30,9 @@ layers:
       # 證據不足時不猜。兩題都貼近 0.5 代表描述裡沒有足以判斷的資訊，
       # 而猜出來的答案會帶著同樣的信心分數往下傳。
       - when: >-
-          no_privileges.confidence < 0.15 and no_interaction.confidence < 0.15
+          no_privileges.calibration_status == "validated"
+          and no_interaction.calibration_status == "validated"
+          and no_privileges.confidence < 0.15 and no_interaction.confidence < 0.15
         then: needs_detail
         because: 描述過於簡略，兩項可利用性判斷都無法成立
       - else: true

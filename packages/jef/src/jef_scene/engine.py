@@ -46,6 +46,7 @@ class AnswerView:
     """
 
     __slots__ = (
+        "calibration_status",
         "choice",
         "confidence",
         "noul",
@@ -63,11 +64,13 @@ class AnswerView:
         question: NormalizedQuestion,
         p_correct: float | None,
         prediction_set: list[str],
+        calibration_status: str = "missing",
     ) -> None:
         self.type = answer.type
         self.confidence = answer.confidence
         self.p_correct = p_correct
         self.prediction_set = prediction_set
+        self.calibration_status = calibration_status
         self.choice = getattr(answer, "choice", None)
         self.score = getattr(answer, "score", None)
         self.probabilities = dict(getattr(answer, "probabilities", {}) or {})
@@ -154,7 +157,8 @@ class SceneEngine:
                     answer.confidence, question.kind, question.n_options
                 )
                 pset = self._prediction_set(answer, question, scene.alpha)
-                views[qid] = AnswerView(answer, question, p_correct, pset)
+                status = engine.calibrator.status(question.kind, question.n_options, scene.alpha)
+                views[qid] = AnswerView(answer, question, p_correct, pset, status)
                 question_traces.append(
                     QuestionTrace(
                         id=qid,
@@ -165,6 +169,7 @@ class SceneEngine:
                         confidence=answer.confidence,
                         p_correct=p_correct,
                         prediction_set=pset,
+                        calibration_status=status,
                     )
                 )
 

@@ -18,10 +18,11 @@ nothing in a scene, a model output or a request body can turn
    suppressing, isolating, disabling or blocking never does, whatever the
    probability, because a wrong one is not undone by a better model.
 2. **Evidence.** An automating action must rest on questions whose calibration
-   can be checked. If any question the firing gate read has no ``p_correct``,
-   the bucket was never calibrated for this task and the verdict is
-   ``review_required``. A gate that read nothing (an ``else``, or the scene
-   fallthrough) cannot automate at all.
+   is ``validated`` (``Calibrator.status``: a correctness map and a conformal
+   quantile at the scene's alpha, both fitted on enough data). ``missing`` and
+   ``insufficient`` are both "cannot say" and give ``review_required``. A gate
+   that read nothing (an ``else``, or the scene fallthrough) cannot automate at
+   all.
 
 This is the first, intentionally small, policy layer: upgrade plan item 03
 and the v2 review's P0-A. Task-scoped calibration status, signed
@@ -105,7 +106,8 @@ class PolicyVerdict:
     tier: int
     #: Machine-readable reasons, stable strings a dashboard can count on.
     #: ``UNVALIDATED_CALIBRATION:<question>`` names the question whose bucket
-    #: had no calibration; the others are fixed.
+    #: is not ``validated`` (the question's trace says whether it is
+    #: ``missing`` or ``insufficient``); the others are fixed.
     reason_codes: list[str] = field(default_factory=list)
 
     @property
@@ -142,7 +144,7 @@ def authorize(
         reasons.append("NO_EVIDENCE_QUESTION")
     for qid in sorted(referenced):
         view = views.get(qid)
-        if view is None or view.p_correct is None:
+        if view is None or view.calibration_status != "validated":
             reasons.append(f"UNVALIDATED_CALIBRATION:{qid}")
 
     return PolicyVerdict("allow" if not reasons else "review_required", tier, reasons)

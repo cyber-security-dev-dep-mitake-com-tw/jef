@@ -262,3 +262,53 @@ def test_correctness_map_survives_json_round_trip(tmp_path) -> None:
     c.save(path)
     back = Calibrator.load(path)
     assert back.p_correct(0.7, "choice", 3) == pytest.approx(c.p_correct(0.7, "choice", 3))
+
+
+# --------------------------------------------------------------------------- #
+# Per-bucket calibration status: validated | insufficient | missing
+# --------------------------------------------------------------------------- #
+#
+# is_fitted() answers "is anything fitted". A scene gate that asked it would
+# automate a noul:2 question on the strength of a choice:5 bucket. status()
+# answers for one bucket, from that bucket alone.
+
+
+def test_cal_status_001_unfitted_is_missing() -> None:
+    assert Calibrator().status("noul", 2) == "missing"
+
+
+def test_cal_status_002_another_shape_never_lends_its_status() -> None:
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels)
+    assert c.status("choice", 4) == "validated"
+    assert c.status("choice", 3) == "missing"
+    assert c.status("noul", 2) == "missing"
+    assert c.status("score", 4) == "missing"
+
+
+def test_cal_status_003_too_few_samples_is_insufficient() -> None:
+    """A bucket exists, but below MIN_CORRECTNESS_SAMPLES no correctness map is fitted."""
+    logits, labels = _overconfident(n=120, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels)
+    assert bucket_key("choice", 4) in c.buckets
+    assert c.p_correct(0.9, "choice", 4) is None
+    assert c.status("choice", 4) == "insufficient"
+
+
+def test_cal_status_004_missing_alpha_is_insufficient() -> None:
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels, alphas=(0.10,))
+    assert c.status("choice", 4, alpha=0.10) == "validated"
+    assert c.status("choice", 4, alpha=0.05) == "insufficient"
+
+
+def test_cal_status_validated_implies_p_correct_available() -> None:
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels)
+    assert c.status("choice", 4) == "validated"
+    assert c.p_correct(0.9, "choice", 4) is not None
+    assert len(c.prediction_set(np.array([0.97, 0.01, 0.01, 0.01]), "choice", 4)) < 4
