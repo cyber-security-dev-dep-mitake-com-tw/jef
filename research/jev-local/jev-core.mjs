@@ -49,9 +49,17 @@ export function depthOf(v, d = 0) {
   return m;
 }
 
-function assertFiniteNumbers(v, path) {
-  if (typeof v === 'number' && !Number.isFinite(v)) throw new JevError(400, 'invalid_number', `Non-finite number at ${path}`, path);
-  if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) assertFiniteNumbers(x, `${path}.${k}`);
+/** Iterative check of nesting depth and finite numbers (no recursion, so deep input cannot overflow the stack). */
+export function validateDepthAndNumbers(v, path) {
+  const stack = [[v, 0, path]];
+  while (stack.length) {
+    const [value, depth, currentPath] = stack.pop();
+    if (typeof value === 'number' && !Number.isFinite(value)) throw new JevError(400, 'invalid_number', `Non-finite number at ${currentPath}`, currentPath);
+    if (value === null || typeof value !== 'object') continue;
+    const objectDepth = depth + 1;
+    if (objectDepth > LIMITS.maxNesting) throw new JevError(400, 'too_deep', `${currentPath} exceeds ${LIMITS.maxNesting} nesting levels`, currentPath);
+    for (const [k, x] of Object.entries(value)) stack.push([x, objectDepth, `${currentPath}.${k}`]);
+  }
 }
 
 const isInput = (v) => typeof v === 'string' || (v !== null && typeof v === 'object');
@@ -70,10 +78,7 @@ export function validateNativeRequest(body, { longContext = false } = {}) {
   const resolved = MODEL_IDS[model];
   if (!resolved) throw new JevError(422, 'unknown_model', `Unknown model "${model}"`, 'model');
   validateQuestions(questions, 'native');
-  for (const [k, v] of Object.entries({ state, questions })) {
-    if (depthOf(v) > LIMITS.maxNesting) throw new JevError(400, 'too_deep', `${k} exceeds ${LIMITS.maxNesting} nesting levels`, k);
-    assertFiniteNumbers(v, k);
-  }
+  for (const [k, v] of Object.entries({ state, questions })) validateDepthAndNumbers(v, k);
   checkContext(state, questions, longContext);
   return resolved;
 }
@@ -92,6 +97,7 @@ export function validateGatewayRequest(body, { longContext = false } = {}) {
   }
   validateQuestions(questions, 'gateway');
   const state = gatewayStateToNative(stateParts);
+  for (const [k, v] of Object.entries({ state, questions })) validateDepthAndNumbers(v, k);
   checkContext(state, questions, longContext);
   return state;
 }

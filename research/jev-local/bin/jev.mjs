@@ -22,7 +22,7 @@ if (cmd === 'serve') {
   const p = spawn(process.execPath, [join(here, '..', 'server.mjs')], { stdio: 'inherit', env });
   p.on('exit', (c) => process.exit(c ?? 0));
 } else if (cmd === 'models') {
-  const r = await fetch(`${BASE}/models`); console.log(JSON.stringify(await r.json(), null, 2));
+  const r = await fetch(`${BASE}/models`); console.log(JSON.stringify(await r.json(), null, 2)); process.exit(r.ok ? 0 : 1);
 } else if (cmd === 'ask') {
   const state = args.shift(); if (!state) usage();
   const questions = {};

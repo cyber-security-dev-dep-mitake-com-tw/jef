@@ -185,7 +185,11 @@ if (ref === 'real') {
   }
   for (const t of others) {
     const all = Object.values(stats[t] ?? {}); const n = all.reduce((a, s) => a + s.n, 0); const ag = all.reduce((a, s) => a + s.agree, 0); const tv = all.reduce((a, s) => a + s.tvdSum, 0);
-    console.log(`${t}: overall ${ag}/${n} agree (${n ? (100 * ag / n).toFixed(0) : 0}%), mean tvd ${(n ? tv / n : 0).toFixed(4)}`);
+    const expected = CASES.length * Object.keys(QUESTIONS).length;
+    const completedCases = runs.filter((r) => r.target === t && r.result).length;
+    const completed = completedCases * Object.keys(QUESTIONS).length;
+    const incomplete = completed < expected || n < expected;
+    console.log(`${t}: overall ${ag}/${n} agree (${n ? (100 * ag / n).toFixed(0) : 0}%), mean tvd ${(n ? tv / n : 0).toFixed(4)}; comparisons completed ${Math.min(completed, n)}/${expected}${incomplete ? '  INCOMPLETE: summary covers only the completed comparisons' : ''}`);
   }
   console.log();
 }

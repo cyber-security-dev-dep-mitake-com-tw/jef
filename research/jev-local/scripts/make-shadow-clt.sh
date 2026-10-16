@@ -16,7 +16,13 @@ set -euo pipefail
 CLT=/Library/Developer/CommandLineTools
 S=${1:-/tmp/rea-shadow-clt}
 [ -d "$CLT" ] || { echo "Command Line Tools not found at $CLT" >&2; exit 1; }
-rm -rf "$S"; mkdir -p "$S/usr/bin" "$S/usr/include/swift"
+# Only replace a directory this script created (marker file) or an empty/absent one.
+if [ -e "$S" ]; then
+  if [ -f "$S/.rea-shadow-clt" ]; then rm -rf "$S"
+  elif [ -d "$S" ] && [ -z "$(ls -A "$S")" ]; then rmdir "$S"
+  else echo "refusing to replace $S: it exists and was not created by this script" >&2; exit 1; fi
+fi
+mkdir -p "$S/usr/bin" "$S/usr/include/swift" && : > "$S/.rea-shadow-clt"
 for d in lib libexec share local; do [ -e "$CLT/usr/$d" ] && ln -s "$CLT/usr/$d" "$S/usr/$d"; done
 ln -s "$CLT/SDKs" "$S/SDKs"; [ -e "$CLT/Library" ] && ln -s "$CLT/Library" "$S/Library"
 for f in "$CLT"/usr/include/*; do b=$(basename "$f"); [ "$b" = swift ] || ln -s "$f" "$S/usr/include/$b"; done

@@ -1,5 +1,6 @@
 // test-typesafe-sdk.mjs — the official @typesafe-ai/sdk client pointed at local Jev.
 // Default compression is zstd, so this also exercises the server's zstd path.
+import assert from 'node:assert/strict';
 import { TypeSafeClient, choice, noul, score } from '@typesafe-ai/sdk';
 
 const BASE = process.env.JEV_BASE || 'http://127.0.0.1:4141/v1';
@@ -14,6 +15,13 @@ for (const compression of ['zstd', false]) {
   const client = new TypeSafeClient({ apiKey: 'local-dev', baseURL, defaultModel: 'jev-latest', compression, timeout: 180000 });
   const padded = compression ? ticket + ' ' + 'Context: '.repeat(150) : ticket; // >1 KiB so the SDK actually compresses
   const response = await client.systemOne({ state: padded, questions });
+  const { department, frustration, is_urgent } = response.answers;
+  assert.equal(response.model, 'jev-1.13.0');
+  assert.equal(department.type, 'choice'); assert.ok(['billing', 'technical', 'sales'].includes(department.choice)); assert.ok(department.confidence >= 0 && department.confidence <= 1);
+  assert.ok(Math.abs(Object.values(department.probabilities).reduce((s, x) => s + x, 0) - 1) < 1e-3, 'choice sums to 1');
+  assert.equal(frustration.type, 'score'); assert.ok(frustration.score >= 0 && frustration.score <= 2); assert.deepEqual(Object.keys(frustration.legend), ['0', '1', '2']);
+  assert.equal(is_urgent.type, 'noul'); assert.ok(is_urgent.noul >= 0 && is_urgent.noul <= 1);
+  assert.ok(response.usage.input_tokens > 0);
   console.log(`--- official SDK, compression=${compression} ---`);
   console.log('model:', response.model, '| department:', response.answers.department.choice, response.answers.department.confidence, '| frustration:', response.answers.frustration.score, '| is_urgent:', response.answers.is_urgent.noul, '| usage:', JSON.stringify(response.usage));
 }

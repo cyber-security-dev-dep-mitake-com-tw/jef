@@ -70,8 +70,8 @@ async function judge(state, questions) {
       for (const [id, q] of Object.entries(questions)) {
         const a = answers[id];
         if (q.type === 'noul') { if (typeof a !== 'number' || !(a >= 0 && a <= 1)) throw new Error(`bad noul for ${id}`); out[id] = a; }
-        else if (q.type === 'choice') { const keys = Object.keys(q.criteria); const v = keys.map((k) => (a && typeof a[k] === 'number' && a[k] >= 0 ? a[k] : NaN)); if (v.some(Number.isNaN)) throw new Error(`bad choice for ${id}`); out[id] = v; }
-        else { const v = Array.isArray(a) ? a.map((x) => (typeof x === 'number' && x >= 0 ? x : NaN)) : []; if (v.length !== q.criteria.length || v.some(Number.isNaN)) throw new Error(`bad score for ${id}`); out[id] = v; }
+        else if (q.type === 'choice') { const keys = Object.keys(q.criteria); const v = keys.map((k) => (a && typeof a[k] === 'number' && a[k] >= 0 ? a[k] : NaN)); if (v.some(Number.isNaN) || v.reduce((a, b) => a + b, 0) <= 0) throw new Error(`bad choice for ${id}`); out[id] = v; }
+        else { const v = Array.isArray(a) ? a.map((x) => (typeof x === 'number' && x >= 0 ? x : NaN)) : []; if (v.length !== q.criteria.length || v.some(Number.isNaN) || v.reduce((a, b) => a + b, 0) <= 0) throw new Error(`bad score for ${id}`); out[id] = v; }
       }
       return { out, cost: envelope.total_cost_usd ?? 0, ms: envelope.duration_api_ms ?? 0 };
     } catch (e) { lastErr = e; }

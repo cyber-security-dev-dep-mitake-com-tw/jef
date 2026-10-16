@@ -24,8 +24,13 @@ const MODELS_GATEWAY = [{
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
-    const chunks = []; let size = 0;
-    req.on('data', (c) => { size += c.length; if (size > core.LIMITS.maxBodyBytes) { reject(new core.JevError(413, 'payload_too_large', 'Body is over 32 MiB')); req.destroy(); } chunks.push(c); });
+    const chunks = []; let size = 0; let overLimit = false;
+    req.on('data', (c) => {
+      if (overLimit) return;
+      size += c.length;
+      if (size > core.LIMITS.maxBodyBytes) { overLimit = true; chunks.length = 0; reject(new core.JevError(413, 'payload_too_large', 'Body is over 32 MiB')); req.resume(); return; }
+      chunks.push(c);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks))); req.on('error', reject);
   });
 }
@@ -34,7 +39,7 @@ function decodeBody(req, buf) {
   const enc = (req.headers['content-encoding'] || '').toLowerCase();
   if (enc.includes(',')) throw new core.JevError(415, 'unsupported_encoding', 'Only one Content-Encoding layer is supported');
   let bytes = buf;
-  if (enc === 'gzip' || enc === 'x-gzip') { try { bytes = gunzipSync(buf); } catch { throw new core.JevError(400, 'malformed_body', 'Malformed gzip body'); } }
+  if (enc === 'gzip' || enc === 'x-gzip') { try { bytes = gunzipSync(buf, { maxOutputLength: core.LIMITS.maxBodyBytes }); } catch { throw new core.JevError(400, 'malformed_body', 'Malformed gzip body'); } }
   else if (enc === 'zstd') { try { bytes = zstdDecompressSync(buf, { maxOutputLength: core.LIMITS.maxBodyBytes }); } catch { throw new core.JevError(400, 'malformed_body', 'Malformed zstd body'); } }
   else if (enc) throw new core.JevError(415, 'unsupported_encoding', `Unsupported Content-Encoding ${enc}`);
   if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) throw new core.JevError(400, 'bom', 'UTF-8 BOM is not allowed');
