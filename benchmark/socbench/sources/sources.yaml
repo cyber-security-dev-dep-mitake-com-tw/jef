@@ -1,0 +1,166 @@
+# SOCBench source manifest. Provenance only: no data lives in this repository.
+# Fields: ground_truth_level is what the source actually labels, never what we
+# wish it labelled. access is what was true on 2026-10-16; re-verify before use.
+# jef_use lists the SOCBench task ids (docs/JEF-SECURITY-ROADMAP-AND-SOC-BENCHMARK.md §7.1).
+version: 1
+checked: 2026-10-16
+sources:
+  - id: ait-ads
+    name: AIT Alert Data Set
+    url: https://zenodo.org/records/8263181
+    language: en
+    ground_truth_level: attack-phase-window        # labels.csv marks attack phases by time, not per-alert verdicts
+    realism: high                                   # Wazuh 2,293,628 + Suricata 306,635 + AMiner 55,558 alerts, 8 scenarios, benign-behaviour false positives
+    hard_negatives: strong
+    jef_use: [soc.alert.verdict.v1, soc.ndr.technique.v1]
+    access: public-download                         # ~96 MB zip + labels.csv
+    license: see-record                             # check the Zenodo record before redistribution
+    priority: 1
+    caveat: a window hit is not a per-alert malicious label; build case-level verdicts by aggregation or review
+
+  - id: ctu-13
+    name: CTU-13
+    url: https://www.stratosphereips.org/datasets-ctu13
+    language: n/a
+    ground_truth_level: flow-label                  # manual flow labels Botnet / C&C / Normal / Background
+    realism: medium-high
+    hard_negatives: medium
+    jef_use: [soc.ndr.technique.v1]
+    access: public-download
+    license: see-source
+    priority: 2
+    caveat: Background is unknown/unverified traffic and must be labelled unknown, never benign
+
+  - id: bots-v3
+    name: Splunk Boss of the SOC v3
+    url: https://github.com/splunk/botsv3
+    language: en
+    ground_truth_level: ctf-answer-key               # investigation questions and answers, not per-event verdicts
+    realism: high
+    hard_negatives: high-investigation-value
+    jef_use: [soc.alert.verdict.v1, soc.edr.execution.v1]
+    access: public-download                          # pre-indexed Splunk dataset; Q&A may require contacting Splunk
+    license: CC0-claimed                             # verify on the release used
+    priority: 3
+    caveat: build cases from investigation questions; do not force 0/1 labels on raw log lines
+
+  - id: lanl-cyber1
+    name: LANL Comprehensive Multi-Source Cyber-Security Events
+    url: https://csr.lanl.gov/data/cyber1/
+    language: n/a
+    ground_truth_level: partial-red-team-positives   # redteam.txt lists known compromise events only
+    realism: high
+    hard_negatives: unknown-background
+    jef_use: [soc.identity.abuse.v1]
+    access: request-form                              # ~12 GB compressed, 58 days, anonymised
+    license: see-source
+    priority: 4
+    caveat: non-red-team events are unlabelled, not benign; re-identification policy applies
+
+  - id: otrf-security-datasets
+    name: Mordor / OTRF Security Datasets
+    url: https://github.com/OTRF/Security-Datasets
+    language: en
+    ground_truth_level: adversary-emulation-semi-labelled
+    realism: medium
+    hard_negatives: low
+    jef_use: [soc.edr.execution.v1]
+    access: public-download
+    license: per-dataset                               # check each dataset's licence inside the repo
+    priority: 5
+    caveat: split by emulation scenario; not independent natural samples
+
+  - id: cicids2017
+    name: CICIDS2017
+    url: https://www.cs.unb.ca/~alashkar/Data-sets.asp
+    language: n/a
+    ground_truth_level: flow-label
+    realism: limited
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1]
+    access: public-download
+    license: see-source
+    priority: secondary
+    caveat: labelling and flow-construction problems documented (doi 10.1109/SPW53761.2021.00009); never a headline benchmark
+
+  - id: community-soc-benchmark
+    name: vicks00/soc-benchmark
+    url: https://github.com/vicks00/soc-benchmark
+    language: en
+    ground_truth_level: scenario-gold-key
+    realism: reference
+    hard_negatives: reference
+    jef_use: [harness-design-reference]
+    access: public
+    license: see-repo
+    priority: reference
+    caveat: annotation process unaudited; do not cite as independent analyst labels
+
+  - id: cac-cyber-dataset-1.0
+    name: 網路安全資料集 1.0
+    url: https://www.cac.gov.cn/2026-09/16/c_1791306277101208.htm
+    portal: https://www.cybersac.cn/newhome
+    language: zh-CN
+    ground_truth_level: unverified
+    realism: unknown
+    hard_negatives: unknown
+    jef_use: [candidate-zh-CN-alert-corpus]
+    access: registration-or-contact
+    license: unknown
+    priority: evaluate
+    caveat: per-record analyst label quality unverified; redistribution terms unknown; report zh-CN separately from zh-TW
+
+  - id: trec06c
+    name: TREC 2006 Chinese Spam Corpus
+    url: https://plg.uwaterloo.ca/~gvcormac/treccorpus06/
+    reference: https://pages.nist.gov/trec-browser/trec15/spam/proceedings/
+    language: zh
+    ground_truth_level: spam-ham                     # 64,620 mails: 21,766 ham, 42,854 spam
+    realism: dated
+    hard_negatives: benign-mail
+    jef_use: [soc.phishing.verdict.v1]
+    access: public-download-verify
+    license: see-source
+    priority: 6
+    caveat: spam/ham is not phishing/legitimate; headers are processed; useful as benign-mail negatives and domain transfer only
+
+  - id: ts-bench
+    name: TS-Bench
+    url: https://github.com/mtkresearch/TS-Bench
+    language: zh-TW
+    ground_truth_level: scam-vs-hard-negative-prompts   # data/TSB400.csv, 400 prompts
+    realism: language-robustness
+    hard_negatives: paired
+    jef_use: [soc.phishing.verdict.v1, zh-TW-robustness]
+    access: public-download
+    license: see-repo
+    priority: 7
+    caveat: not enterprise telemetry; measures Taiwan-local scam language, not EDR decisions
+
+  - id: chiphish
+    name: ChiPhish
+    url: https://github.com/joanyy/ChiPhish
+    full_dataset: https://zenodo.org/records/19558545
+    language: zh
+    ground_truth_level: phishing-vs-benign-website
+    realism: medium
+    hard_negatives: medium
+    jef_use: [soc.phishing.verdict.v1]
+    access: sample-public-full-restricted             # 20 samples on GitHub; full set needs an access request
+    license: see-record
+    priority: 8
+    caveat: web pages, not e-mail or SIEM alerts; confirm zh-TW vs zh-CN per sample
+
+  - id: twcert-cc
+    name: TWCERT/CC case reports and government open-data statistics
+    url: https://www.twcert.org.tw/tw
+    open_data: https://data.gov.tw/en/datasets/163766
+    language: zh-TW
+    ground_truth_level: case-narratives-and-monthly-statistics
+    realism: local-context
+    hard_negatives: n/a
+    jef_use: [zh-TW-taxonomy, scenario-authoring]
+    access: public
+    license: Taiwan-open-government-data
+    priority: context
+    caveat: narratives and monthly statistics are not per-case labels
