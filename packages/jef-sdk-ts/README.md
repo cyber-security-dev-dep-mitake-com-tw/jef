@@ -6,7 +6,7 @@ state and get back probability distributions with calibrated confidence. No text
 generation, no parsing, no prompt wrangling.
 
 ```bash
-npm install @jef-ai/sdk
+npm install @jef-ai/sdk@next   # release candidates publish to the `next` tag
 ```
 
 ## Questions

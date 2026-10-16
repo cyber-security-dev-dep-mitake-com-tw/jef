@@ -27,6 +27,7 @@ from jef_scene import SceneEngine, SceneRegistry
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import ValidationError
 
+from ._version import __version__
 from .deps import build_scenes, get_engine, get_settings
 from .settings import Settings
 
@@ -76,7 +77,7 @@ def create_app(
 
     app = FastAPI(
         title="JEF",
-        version="0.1.0",
+        version=__version__,
         description="Open System One decision engine. Typed questions, calibrated confidence.",
     )
     app.state.engine = engine
