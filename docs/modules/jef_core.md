@@ -72,3 +72,16 @@ curve from memorised noise.
 ## License
 
 Apache-2.0
+
+
+## Calibration status
+
+`Calibrator.status(kind, n_options, alpha)` reports one bucket's state:
+`validated` (correctness map and a conformal quantile at `alpha`, both fitted
+on enough data), `insufficient` (the bucket exists but one of those is
+missing, for example fewer than `MIN_CORRECTNESS_SAMPLES` points) or `missing`
+(no bucket). It is decided from that bucket alone: a fitted bucket of another
+shape never makes this one look calibrated, which `is_fitted()` could not
+promise. Only `validated` unlocks automation in `jef_scene.policy`. Two tasks
+that share a shape still share a bucket; separating them is the task-scoped
+key in upgrade-plan item 04.

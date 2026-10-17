@@ -35,6 +35,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from itertools import pairwise
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -212,6 +213,20 @@ def fit_correctness_map(
 
 DEFAULT_ALPHAS: tuple[float, ...] = (0.01, 0.05, 0.10, 0.20)
 
+#: What a gate or a policy may conclude about one bucket's calibration.
+#:
+#: ``validated``    a correctness map and a conformal quantile for the requested
+#:                  alpha were both fitted on enough data; ``p_correct`` and
+#:                  ``prediction_set`` mean what they say.
+#: ``insufficient`` the bucket exists but something is missing: too few samples
+#:                  for a correctness map (``MIN_CORRECTNESS_SAMPLES``), or no
+#:                  quantile for this alpha. ``p_correct`` is ``None``.
+#: ``missing``      no bucket for this (kind, n_options) at all.
+#:
+#: Only ``validated`` may unlock automation. The other two are both "cannot
+#: say", and a UI must render them as such, not as a wide-but-trustworthy set.
+CalibrationStatus = Literal["validated", "insufficient", "missing"]
+
 
 @dataclass
 class Calibrator:
@@ -227,6 +242,23 @@ class Calibrator:
     def temperature(self, kind: str, n_options: int) -> float:
         b = self.buckets.get(bucket_key(kind, n_options))
         return b.temperature if b else 1.0
+
+    def status(self, kind: str, n_options: int, alpha: float = 0.10) -> CalibrationStatus:
+        """Per-bucket calibration status; see :data:`CalibrationStatus`.
+
+        Decided from this bucket alone. A fitted bucket of another shape never
+        makes this one look calibrated, which is what ``is_fitted()`` could not
+        promise: it answers "is anything fitted", and a scene gate that asked
+        it would automate a noul:2 question on the strength of a choice:5
+        bucket. (Two tasks that share a shape still share a bucket; separating
+        them is the task-scoped key in upgrade-plan item 04, not this method.)
+        """
+        b = self.buckets.get(bucket_key(kind, n_options))
+        if b is None:
+            return "missing"
+        if not b.correctness_map or b.conformal.get(_akey(alpha)) is None:
+            return "insufficient"
+        return "validated"
 
     def apply(self, logits: NDArray[np.floating], kind: str, n_options: int) -> NDArray[np.float64]:
         """Logits -> calibrated probabilities."""

@@ -279,3 +279,24 @@ def test_declaring_a_lower_tier_than_the_name_suggests_is_warned() -> None:
 def test_shipped_scenes_lint_clean() -> None:
     found = validate_paths([_repo_root() / "scenes"])
     assert not errors(found), [p.message for p in errors(found)]
+
+
+def test_automating_without_reading_calibration_is_warned() -> None:
+    scene = GOOD.replace(
+        "'owner.p_correct is not None and owner.p_correct >= 0.95'", "'owner.choice == \"soc\"'"
+    )
+    found = warnings(validate_scene_text(scene, "warn.yaml"))
+    assert any("without reading p_correct or calibration_status" in p.message for p in found)
+
+
+def test_reading_calibration_status_satisfies_the_automation_check() -> None:
+    scene = GOOD.replace(
+        "'owner.p_correct is not None and owner.p_correct >= 0.95'",
+        '\'owner.calibration_status == "validated" and owner.choice == "soc"\'',
+    )
+    assert validate_scene_text(scene, "ok.yaml") == []
+
+
+def test_shipped_scenes_have_no_warnings_either() -> None:
+    found = validate_paths([_repo_root() / "scenes"])
+    assert found == [], [p.message for p in found]

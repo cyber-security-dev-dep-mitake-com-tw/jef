@@ -106,9 +106,17 @@ nothing downstream may flip it back.
 Two rules. Actions are tiered T0 to T4, explicitly via `tier:` on the action or
 inferred from the name (`close` is T2, `isolate`/`disable`/`block` T3, anything
 else T1); only T0 and T1 may run without a human. And an automating action
-must rest on questions whose calibration can be checked: if any question the
-firing gate read has no `p_correct`, or the gate read nothing (an `else` gate
-or the fallthrough), the verdict is `review_required`.
+must rest on questions whose calibration is `validated`: every question the
+firing gate read must have `calibration_status == "validated"` (a correctness
+map and a conformal quantile at the scene's alpha, both fitted on enough
+data). `missing` and `insufficient` both give `review_required`, as does a
+gate that read nothing (an `else` gate or the fallthrough).
+
+Each question's trace carries `calibration_status`, and a gate may read it
+(`owner.calibration_status == "validated"`), which is how the shipped scenes
+make the requirement explicit rather than relying on the policy alone.
+`jef validate` warns when an automating gate reads neither `p_correct` nor
+`calibration_status`.
 
 Reason codes are stable strings: `AUTO_CLOSE_PROHIBITED`,
 `DISRUPTIVE_ACTION_REQUIRES_APPROVAL`, `NO_EVIDENCE_QUESTION`,
