@@ -16,6 +16,9 @@ generation, no parsing.
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _dist_version
+
 from .artifacts import is_hf_uri, resolve_artifact
 from .backbone import Backbone, InstrumentedBackbone, StateEncoding
 from .backends import load_backbone
@@ -48,7 +51,10 @@ from .types import (
     normalize,
 )
 
-__version__ = "0.1.0"
+try:
+    __version__ = _dist_version("jef")
+except PackageNotFoundError:  # a source tree that was never installed
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "Answer",

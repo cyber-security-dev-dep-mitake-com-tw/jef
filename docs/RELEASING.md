@@ -131,6 +131,16 @@ python scripts/set-version.py 0.2.0rc1
 git commit -am "chore: 0.2.0rc1" && git tag v0.2.0rc1 && git push --follow-tags
 ```
 
+### One version source
+
+`set-version.py` is the only place a version is typed. It writes the three
+`pyproject.toml` files, both `package.json` files and
+`packages/jef-sdk-ts/src/version.ts` (the SDK's exported `VERSION`), and
+`--check` fails when any of them disagree. The Python packages' `__version__`
+reads the installed distribution, so nothing else needs editing. The SDK's
+constant sat at `0.1.0` for two minor versions because nothing checked it;
+`tests/test_set_version.py` now does.
+
 ### The npm version is spelled differently, on purpose
 
 `0.2.0rc1` is PEP 440. npm rejects it under strict semver, and its *loose*

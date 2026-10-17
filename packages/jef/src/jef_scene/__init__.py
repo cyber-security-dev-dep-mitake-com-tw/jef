@@ -7,15 +7,9 @@ against that single encoding, so a deep playbook costs one state read.
 
 from __future__ import annotations
 
-from .authz import (
-    POLICY_VERSION,
-    AuditEntry,
-    AuthorizationGrant,
-    ExecutionReceipt,
-    GrantError,
-    PolicyDecision,
-    ProposedDecision,
-)
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _dist_version
+
 from .engine import AnswerView, SceneEngine
 from .executor import Executor, Transport, TransportResult
 from .expr import ExpressionError, validate_condition
@@ -24,7 +18,10 @@ from .policy import MAX_AUTO_TIER, PolicyVerdict, authorize, tier_of
 from .schema import NEXT, Action, Gate, Layer, Scene
 from .trace import GateTrace, LayerTrace, QuestionTrace, SceneTrace
 
-__version__ = "0.1.0"
+try:
+    __version__ = _dist_version("jef")
+except PackageNotFoundError:  # a source tree that was never installed
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "MAX_AUTO_TIER",

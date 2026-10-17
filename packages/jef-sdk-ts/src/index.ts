@@ -32,4 +32,4 @@ export type { JefClientOptions } from './client.js';
 export { boolean, choice, noul, score } from './questions.js';
 export type * from './types.js';
 
-export const VERSION = '0.1.0';
+export { VERSION } from './version.js';

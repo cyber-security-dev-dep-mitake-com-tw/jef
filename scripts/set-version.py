@@ -49,6 +49,26 @@ NPM_PACKAGES = [
     Path("connectors/n8n/package.json"),
 ]
 
+#: Source files that carry the version as a constant, with the package.json
+#: they must agree with. `@jef-ai/sdk` exported `VERSION = '0.1.0'` for two
+#: minor versions after package.json said otherwise; nothing checked it. Now
+#: this script writes it and `--check` fails when it drifts. Python packages
+#: need no entry: their `__version__` reads the installed distribution.
+TS_VERSION_FILES: dict[Path, Path] = {
+    Path("packages/jef-sdk-ts/src/version.ts"): Path("packages/jef-sdk-ts/package.json"),
+}
+
+_TS_VERSION_RE = re.compile(r"(?m)^export const VERSION = '([^']*)';$")
+
+
+def _ts_version_source(version: str) -> str:
+    return (
+        "// Written by scripts/set-version.py from package.json. Do not edit by hand:\n"
+        "// `set-version.py --check` fails CI when this and package.json disagree.\n"
+        f"export const VERSION = '{version}';\n"
+    )
+
+
 #: PEP 440 subset: what a release tag may look like.
 VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+)(?:(a|b|rc)(\d+))?$")
 
@@ -136,7 +156,7 @@ def _in_lockstep(current: dict[str, str]) -> bool:
     equality, because a prerelease is spelled differently on each side.
     """
     python = {v for label, v in current.items() if label.startswith("py:")}
-    npm = {v for label, v in current.items() if label.startswith("npm:")}
+    npm = {v for label, v in current.items() if label.startswith(("npm:", "ts:"))}
     if len(python) != 1:
         return False
     try:
@@ -164,6 +184,12 @@ def read_versions() -> dict[str, str]:
             continue
         data = json.loads(full.read_text(encoding="utf-8"))
         found[f"npm:{data.get('name', path.parent.name)}"] = data.get("version", "?")
+    for path in TS_VERSION_FILES:
+        full = ROOT / path
+        if not full.exists():
+            continue
+        match = _TS_VERSION_RE.search(full.read_text(encoding="utf-8"))
+        found[f"ts:{path.as_posix()}"] = match.group(1) if match else "?"
     return found
 
 
@@ -231,6 +257,21 @@ def apply(version: str, *, check: bool) -> list[str]:
         # Keep npm's own formatting: two-space indent and a trailing newline.
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
+    for rel in TS_VERSION_FILES:
+        path = ROOT / rel
+        wanted = npm_version(version)
+        if not path.exists():
+            problems.append(f"missing {rel}")
+            continue
+        match = _TS_VERSION_RE.search(path.read_text(encoding="utf-8"))
+        current = match.group(1) if match else None
+        if check:
+            if current != wanted:
+                problems.append(f"{rel} exports VERSION {current!r}, not {wanted!r}")
+            continue
+        if current != wanted:
+            path.write_text(_ts_version_source(wanted), encoding="utf-8")
+
     return problems
 
 
@@ -279,7 +320,7 @@ def main(argv: list[str] | None = None) -> int:
     suffix = f" (npm: {npm})" if npm != version else ""
     print(
         f"{'verified' if args.check else 'set'} {version} across {len(PY_PACKAGES)} python "
-        f"+ {len(NPM_PACKAGES)} npm package(s){suffix}"
+        f"+ {len(NPM_PACKAGES)} npm package(s) + {len(TS_VERSION_FILES)} source constant(s){suffix}"
     )
     return 0
 

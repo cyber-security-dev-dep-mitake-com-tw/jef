@@ -207,7 +207,7 @@ def test_check_passes_on_the_current_version() -> None:
 def test_the_repo_is_in_lockstep() -> None:
     """Every package, python and npm, carries the same version."""
     versions = set_version.read_versions()
-    assert len(versions) == 5, f"expected 5 packages, found {sorted(versions)}"
+    assert len(versions) == 6, f"expected 5 packages + 1 source constant, found {sorted(versions)}"
     assert set_version._in_lockstep(versions), versions
 
 
@@ -361,6 +361,10 @@ def test_a_prerelease_writes_different_strings_to_each_ecosystem(
 
     monkeypatch.setattr(set_version, "PY_PACKAGES", [])
     monkeypatch.setattr(set_version, "NPM_PACKAGES", [pkg])
+    # And the source constants: without this the test rewrote the real
+    # packages/jef-sdk-ts/src/version.ts to 0.2.0-rc.1 the day that file was
+    # added -- caught by test_sdk_version_constant_matches_package_json.
+    monkeypatch.setattr(set_version, "TS_VERSION_FILES", {})
 
     assert set_version.apply("0.2.0rc1", check=False) == []
     assert json.loads(pkg.read_text())["version"] == "0.2.0-rc.1"
@@ -368,3 +372,59 @@ def test_a_prerelease_writes_different_strings_to_each_ecosystem(
 
 def test_a_release_writes_the_same_string_to_both() -> None:
     assert set_version.npm_version("1.2.3") == "1.2.3"
+
+
+# --------------------------------------------------------------------------- #
+# REL-001: a version constant in source must not drift from its package
+# --------------------------------------------------------------------------- #
+
+
+def test_sdk_version_constant_matches_package_json() -> None:
+    """`@jef-ai/sdk` exported VERSION = '0.1.0' while package.json said 0.2.0-rc.4."""
+    pkg = json.loads((ROOT / "packages/jef-sdk-ts/package.json").read_text(encoding="utf-8"))
+    src = (ROOT / "packages/jef-sdk-ts/src/version.ts").read_text(encoding="utf-8")
+    match = set_version._TS_VERSION_RE.search(src)
+    assert match, "version.ts must export VERSION"
+    assert match.group(1) == pkg["version"]
+
+
+def test_check_fails_when_the_ts_constant_drifts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pkg = tmp_path / "package.json"
+    pkg.write_text(json.dumps({"name": "x", "version": "0.2.0-rc.1"}, indent=2) + "\n")
+    ts = tmp_path / "version.ts"
+    ts.write_text("export const VERSION = '0.1.0';\n")
+    monkeypatch.setattr(set_version, "PY_PACKAGES", [])
+    monkeypatch.setattr(set_version, "NPM_PACKAGES", [pkg])
+    monkeypatch.setattr(set_version, "TS_VERSION_FILES", {ts: pkg})
+    monkeypatch.setattr(set_version, "ROOT", Path("/"))
+
+    problems = set_version.apply("0.2.0rc1", check=True)
+    assert any("exports VERSION '0.1.0'" in p for p in problems), problems
+
+    # Writing fixes it, and the file is regenerated whole with its header.
+    assert set_version.apply("0.2.0rc1", check=False) == []
+    assert "export const VERSION = '0.2.0-rc.1';" in ts.read_text()
+    assert ts.read_text().startswith("// Written by scripts/set-version.py")
+    assert set_version.apply("0.2.0rc1", check=True) == []
+
+
+def test_python_dunder_versions_read_the_installed_distribution() -> None:
+    """No more hand-maintained `__version__ = "0.1.0"` four minor versions behind."""
+    import importlib.metadata
+
+    import jef_cli
+    import jef_core
+    import jef_scene
+    import jef_sdk
+    import jef_server
+
+    jef_dist = importlib.metadata.version("jef")
+    assert jef_core.__version__ == jef_dist
+    assert jef_scene.__version__ == jef_dist
+    assert jef_cli.__version__ == jef_dist
+    assert jef_sdk.__version__ == jef_dist
+    assert jef_server.__version__ == importlib.metadata.version("jef-server")
+    python = {v for label, v in set_version.read_versions().items() if label.startswith("py:")}
+    assert python == {jef_dist}
