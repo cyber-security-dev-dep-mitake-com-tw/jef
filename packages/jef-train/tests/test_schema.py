@@ -37,8 +37,15 @@ def noul(label: int = 1, source: str = "n") -> Sample:
 
 
 def test_bucket_matches_the_engine_s_calibration_key() -> None:
-    assert choice().bucket == "choice:3"
-    assert noul().bucket == "noul:2"
+    """Task plus shape, exactly as jef_core.calibration.bucket_key spells it."""
+    from jef_core.calibration import bucket_key
+
+    c, n = choice(), noul()
+    assert c.task_id == f"{c.source}.v1"
+    assert c.bucket == bucket_key("choice", 3, c.task_id)
+    assert n.bucket == bucket_key("noul", 2, n.task_id)
+    assert c.bucket.endswith("|choice:3")
+    assert n.bucket.endswith("|noul:2")
 
 
 def test_rejects_fewer_than_two_options() -> None:

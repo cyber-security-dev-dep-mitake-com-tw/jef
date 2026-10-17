@@ -112,7 +112,7 @@ func (e *Engine) answerWithQueries(
 		return Result{}, err
 	}
 
-	probs, err := e.Calibrator.Apply(logits, q.Kind, q.NOptions())
+	probs, err := e.Calibrator.ApplyFor(q.TaskID, logits, q.Kind, q.NOptions())
 	if err != nil {
 		return Result{}, err
 	}
@@ -128,7 +128,7 @@ func (e *Engine) answerWithQueries(
 		}
 	}
 
-	pCorrect, hasPCorrect := e.Calibrator.PCorrect(confidence, q.Kind, q.NOptions())
+	pCorrect, hasPCorrect := e.Calibrator.PCorrectFor(q.TaskID, confidence, q.Kind, q.NOptions())
 
 	return Result{
 		Question:      q,
@@ -137,7 +137,7 @@ func (e *Engine) answerWithQueries(
 		Score:         score,
 		PCorrect:      pCorrect,
 		HasPCorrect:   hasPCorrect,
-		PredictionSet: e.Calibrator.PredictionSet(probs, q.Kind, q.NOptions(), alpha),
+		PredictionSet: e.Calibrator.PredictionSetFor(q.TaskID, probs, q.Kind, q.NOptions(), alpha),
 	}, nil
 }
 

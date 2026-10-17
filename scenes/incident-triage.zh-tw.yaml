@@ -6,6 +6,11 @@ description: >-
 
 # 保守的信心門檻。這些數字應該讀自 report.json 裡 P(correct) 的可靠度曲線，
 # 而不是憑感覺挑的——未校準的機率上設門檻等於擲硬幣。
+#
+# 每一題都宣告 task_id。校準是按任務查的，不是按答案形狀：一個 noul:2 的
+# 「是否誤報」不能借用另一個 noul:2 任務的溫度和分位數。task_id 對應訓練語料
+# 的 source（soar_zh.*），沒有對應語料的題（evidence_sufficiency）在校準完成
+# 前會是 missing，相關閘門因此交由人工——這是刻意的。
 alpha: 0.10
 
 # 每層都走完而沒有任何閘門命中時的歸宿。預設是升級給人，
@@ -17,12 +22,14 @@ layers:
     description: 先處理最便宜也最常見的情況：這則告警根本不需要人看。
     questions:
       is_false_positive:
+        task_id: soar_zh.false_positive.v1
         type: noul
         instructions: 這則告警是否為已知的良性樣態（誤報）？
         criteria:
           true: 為既有排程、核准作業或既知良性行為
           false: 為真實事件，需進一步處理
       has_evidence:
+        task_id: soar_zh.evidence_sufficiency.v1
         type: noul
         instructions: 告警內容是否包含足以做出判斷的具體證據？
         criteria:
@@ -51,6 +58,7 @@ layers:
     description: 決定歸屬團隊與嚴重度。
     questions:
       owner:
+        task_id: soar_zh.routing.v1
         type: choice
         instructions: 這則告警應由哪一個團隊處理？
         criteria:
@@ -60,6 +68,7 @@ layers:
           identity: 身分與存取管理：帳號、權限、單一登入、特權帳號
           fraud: 金融詐欺與異常交易：盜用帳戶、異常下單、洗錢態樣
       severity:
+        task_id: soar_zh.severity.v1
         type: score
         instructions: 評估這則告警的嚴重程度。
         criteria: [資訊, 低, 中, 高, 危急]
@@ -83,6 +92,7 @@ layers:
     description: 歸屬不夠明確時，至少判斷要不要現在處理。
     questions:
       urgent:
+        task_id: soar_zh.urgency.v1
         type: noul
         instructions: 這則告警是否需要立即處理？
         criteria:

@@ -27,6 +27,17 @@ __all__ = [
 Kind = Literal["choice", "score", "noul"]
 
 
+def task_id_for(source: str) -> str:
+    """``cve.user_interaction`` -> ``cve.user_interaction.v1``.
+
+    A builder's source name already names the decision it generates; the
+    version suffix makes it a stable task id the scenes can declare. Renaming
+    a builder is therefore a new task, which is correct: its calibration does
+    not carry over.
+    """
+    return f"{source}.v1"
+
+
 @dataclass(frozen=True)
 class Sample:
     """One labelled decision.
@@ -60,6 +71,8 @@ class Sample:
     group: str = ""
     lang: str = "zh-TW"
     meta: dict[str, Any] = field(default_factory=dict)
+    #: Explicit task id. Empty means "derive from source" (``task_id_for``).
+    task: str = ""
 
     def __post_init__(self) -> None:
         if len(self.option_keys) < 2:
@@ -76,9 +89,20 @@ class Sample:
         return len(self.option_keys)
 
     @property
+    def task_id(self) -> str:
+        """The decision this sample trains, as the calibrator will be asked for it."""
+        return self.task or task_id_for(self.source)
+
+    @property
     def bucket(self) -> str:
-        """Calibration bucket this sample belongs to."""
-        return f"{self.kind}:{self.n_options}"
+        """Calibration bucket this sample belongs to: task plus shape.
+
+        Task-scoped since schema 2: ``cve.user_interaction.v1|noul:2`` and
+        ``soar_zh.false_positive.v1|noul:2`` are different buckets with
+        different temperatures, quantiles and correctness maps. They share a
+        shape and nothing else that matters to calibration.
+        """
+        return f"{self.task_id}|{self.kind}:{self.n_options}"
 
     @property
     def uid(self) -> str:

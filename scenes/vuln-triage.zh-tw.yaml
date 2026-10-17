@@ -15,12 +15,14 @@ layers:
     description: 先判斷這個漏洞要被利用有多容易。兩題都是 noul:2，校準品質最好（P(correct) ECE 0.041）。
     questions:
       no_privileges:
+        task_id: cve.privileges.v1
         type: noul
         instructions: 利用此漏洞是否不需要事先取得任何權限？
         criteria:
           true: 未經身分驗證的攻擊者即可利用
           false: 需要既有帳號或權限
       no_interaction:
+        task_id: cve.user_interaction.v1
         type: noul
         instructions: 利用此漏洞是否不需要使用者的操作配合？
         criteria:
@@ -42,6 +44,7 @@ layers:
     description: 攻擊向量與嚴重度。兩者都是模型直接訓練過的任務。
     questions:
       attack_vector:
+        task_id: cve.attack_vector.v1
         type: choice
         instructions: 攻擊者要利用此漏洞，需要什麼樣的存取位置？
         criteria:
@@ -50,6 +53,7 @@ layers:
           local: 需在本機上以既有存取權執行
           physical: 需實體接觸目標裝置
       severity:
+        task_id: cve.severity.v1
         type: score
         instructions: 依據漏洞描述評估其嚴重程度。
         criteria: [無, 低, 中, 高, 危急]

@@ -58,6 +58,18 @@ _AV_LABELS = [
 _AV_FROM_VECTOR = {"N": 0, "A": 1, "L": 2, "P": 3}
 
 
+#: Which of JEF's own training tasks a third-party benchmark task corresponds
+#: to. Only exact decision matches belong here; the calibrator refuses to
+#: borrow across tasks, so an entry is a claim that the two are the same
+#: question asked of the same kind of evidence.
+CALIBRATION_TASKS: dict[str, str] = {
+    "cti-vsp/severity": "cve.severity.v1",
+    "cti-vsp/attack_vector": "cve.attack_vector.v1",
+    "cti-vsp/privileges": "cve.privileges.v1",
+    "cti-vsp/user_interaction": "cve.user_interaction.v1",
+}
+
+
 @dataclass
 class BenchCase:
     """One benchmark item, already shaped as a JEF question."""
@@ -505,12 +517,19 @@ def run_benchmark(scorer: Scorer, cases: list[BenchCase], alpha: float = 0.10) -
             confs.append(conf)
             briers.append(brier_score(probs, case.label))
 
-            mapped = calibrator.p_correct(conf, kind, width)
+            # Calibration is looked up by task. A third-party task that *is*
+            # one of ours (CTI-Bench VSP attack vector is the CVE attack-vector
+            # decision) says so here; one that is not (TMMLU+ general knowledge)
+            # gets no calibration, which is the honest number.
+            task_id = CALIBRATION_TASKS.get(
+                case.task.split("/")[0] + "/" + case.task.split("/")[-1]
+            )
+            mapped = calibrator.p_correct(conf, kind, width, task_id)
             if mapped is not None:
                 p_corrects.append(mapped)
 
             if calibrator.is_fitted():
-                pset = calibrator.prediction_set(probs, kind, width, alpha)
+                pset = calibrator.prediction_set(probs, kind, width, alpha, task_id)
                 set_sizes.append(len(pset))
                 if case.label in pset:
                     covered += 1

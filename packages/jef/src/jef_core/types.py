@@ -60,12 +60,21 @@ class _Base(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
+#: ``cve.attack_vector.v1``, ``soar_zh.routing.v1``: lowercase, dotted, versioned.
+TASK_ID_PATTERN = r"^[a-z][a-z0-9_]*(\.[a-z0-9_-]+)*\.v[0-9]+$"
+
+
 class ChoiceQuestion(_Base):
     """Pick exactly one of ``criteria``. Values describe each option to the model."""
 
     type: Literal["choice"]
     instructions: str = Field(min_length=1)
     criteria: dict[str, str | None] = Field(min_length=2)
+    #: Stable identity of the decision this question asks for, such as
+    #: ``cve.attack_vector.v1``. Calibration is looked up by task, never by
+    #: answer shape alone: a question without one can only match a shape-scoped
+    #: bucket, and a question with one is never answered by another task's.
+    task_id: str | None = Field(default=None, pattern=TASK_ID_PATTERN)
 
 
 class ScoreQuestion(_Base):
@@ -74,6 +83,11 @@ class ScoreQuestion(_Base):
     type: Literal["score"]
     instructions: str = Field(min_length=1)
     criteria: list[str] = Field(min_length=2)
+    #: Stable identity of the decision this question asks for, such as
+    #: ``cve.attack_vector.v1``. Calibration is looked up by task, never by
+    #: answer shape alone: a question without one can only match a shape-scoped
+    #: bucket, and a question with one is never answered by another task's.
+    task_id: str | None = Field(default=None, pattern=TASK_ID_PATTERN)
 
     @field_validator("criteria")
     @classmethod
@@ -96,6 +110,11 @@ class NoulQuestion(_Base):
     type: NoulDialect
     instructions: str = Field(min_length=1)
     criteria: NoulCriteria | None = None
+    #: Stable identity of the decision this question asks for, such as
+    #: ``cve.attack_vector.v1``. Calibration is looked up by task, never by
+    #: answer shape alone: a question without one can only match a shape-scoped
+    #: bucket, and a question with one is never answered by another task's.
+    task_id: str | None = Field(default=None, pattern=TASK_ID_PATTERN)
 
 
 Question = Annotated[
@@ -126,6 +145,7 @@ class NormalizedQuestion(_Base):
     option_keys: list[str]
     option_labels: list[str | None]
     dialect: NoulDialect | None = None
+    task_id: str | None = None
 
     @property
     def n_options(self) -> int:
@@ -163,6 +183,7 @@ def normalize(qid: str, q: Question | RawQuestion) -> NormalizedQuestion:
             instructions=q.instructions,
             option_keys=keys,
             option_labels=[q.criteria[k] for k in keys],
+            task_id=q.task_id,
         )
 
     if isinstance(q, ScoreQuestion):
@@ -172,6 +193,7 @@ def normalize(qid: str, q: Question | RawQuestion) -> NormalizedQuestion:
             instructions=q.instructions,
             option_keys=list(q.criteria),
             option_labels=list(q.criteria),
+            task_id=q.task_id,
         )
 
     crit = q.criteria or NoulCriteria()
@@ -182,6 +204,7 @@ def normalize(qid: str, q: Question | RawQuestion) -> NormalizedQuestion:
         option_keys=["false", "true"],
         option_labels=[crit.false_, crit.true_],
         dialect=q.type,
+        task_id=q.task_id,
     )
 
 

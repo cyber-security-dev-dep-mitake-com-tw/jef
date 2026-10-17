@@ -131,7 +131,7 @@ class Engine:
         """
         queries = self.backbone.encode_queries(build_query_texts(q))
         logits = self.head.logits(shared.encoding, q, queries)
-        probs = self.calibrator.apply(logits, q.kind, q.n_options)
+        probs = self.calibrator.apply(logits, q.kind, q.n_options, q.task_id)
         return _build_answer(q, probs)
 
     def answer(
@@ -167,7 +167,7 @@ class Engine:
         out: dict[str, Answer] = {}
         for q, (start, end) in zip(normalized, spans, strict=True):
             logits = self.head.logits(shared.encoding, q, queries[start:end])
-            probs = self.calibrator.apply(logits, q.kind, q.n_options)
+            probs = self.calibrator.apply(logits, q.kind, q.n_options, q.task_id)
             out[q.id] = _build_answer(q, probs)
         return out
 

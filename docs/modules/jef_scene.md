@@ -112,7 +112,8 @@ map and a conformal quantile at the scene's alpha, both fitted on enough
 data). `missing` and `insufficient` both give `review_required`, as does a
 gate that read nothing (an `else` gate or the fallthrough).
 
-Each question's trace carries `calibration_status`, and a gate may read it
+Each question declares a `task_id` and its trace carries `calibration_status`
+looked up by that task (and `task_id` itself); a gate may read the status
 (`owner.calibration_status == "validated"`), which is how the shipped scenes
 make the requirement explicit rather than relying on the policy alone.
 `jef validate` warns when an automating gate reads neither `p_correct` nor

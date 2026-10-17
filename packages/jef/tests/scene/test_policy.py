@@ -380,3 +380,88 @@ def test_a_gate_can_read_calibration_status(calibrated_engine: Engine) -> None:
     )
     assert cal.action == "request_context"
     assert cal.policy_verdict == "allow"
+
+
+# --------------------------------------------------------------------------- #
+# Task identity reaches the policy
+# --------------------------------------------------------------------------- #
+
+TASKED = """
+scene: t
+fallthrough: review
+layers:
+  - id: L1
+    questions:
+      is_fp:
+        type: noul
+        task_id: soar_zh.false_positive.v1
+        instructions: 是否為誤報？
+    gates:
+      - when: 'is_fp.calibration_status == "validated" and is_fp.probability > 0.90'
+        then: request_context
+      - else: true
+        then: review
+actions:
+  request_context: {}
+  review: {human_review: true}
+"""
+
+
+def test_ml_001_legacy_calibration_never_automates(calibrated_engine: Engine) -> None:
+    """A schema-1 file is legacy: shown, never acted on, whatever its numbers say."""
+    v1 = {
+        k: v
+        for k, v in calibrated_engine.calibrator.to_dict().items()
+        if k not in ("calibration_schema", "artifact")
+    }
+    for b in v1["buckets"].values():
+        b.pop("task_id", None)
+        b.pop("metrics", None)
+    legacy = Calibrator.from_dict(v1)
+    assert legacy.legacy and legacy.is_fitted()
+
+    trace = SceneEngine(ScriptedEngine(sure_false_positive(), legacy)).run(
+        scene_for("request_context"), "x"
+    )
+    q = trace.layers[0].questions[0]
+    assert q.calibration_status == "legacy"
+    assert q.p_correct is not None, "the number is still shown for analysis"
+    assert trace.policy_verdict == "review_required"
+    assert trace.reason_codes == ["UNVALIDATED_CALIBRATION:is_fp"]
+    assert trace.calibrated is True, "is_fitted stays true; status is what changed"
+
+
+def test_a_tasked_question_needs_its_own_task_bucket(calibrated_engine: Engine) -> None:
+    scene = load_scene_text(TASKED)
+    # Shape-scoped buckets only: the tasked question finds nothing.
+    shape_only = SceneEngine(
+        ScriptedEngine(sure_false_positive(), calibrated_engine.calibrator)
+    ).run(scene, "x")
+    assert shape_only.layers[0].questions[0].task_id == "soar_zh.false_positive.v1"
+    assert shape_only.layers[0].questions[0].calibration_status == "missing"
+    assert shape_only.action == "review"
+
+    import numpy as np
+
+    rng = np.random.default_rng(3)
+    tasked = Calibrator()
+    logits, labels = [], []
+    for _ in range(400):
+        y = int(rng.integers(2))
+        lg = rng.normal(0, 0.5, size=2)
+        lg[y] += 2.5
+        logits.append(lg)
+        labels.append(y)
+    tasked.fit_bucket("noul", 2, logits, labels, task_id="soar_zh.false_positive.v1")
+    with_task = SceneEngine(ScriptedEngine(sure_false_positive(), tasked)).run(scene, "x")
+    assert with_task.layers[0].questions[0].calibration_status == "validated"
+    assert with_task.action == "request_context"
+    assert with_task.policy_verdict == "allow"
+
+
+def test_shipped_scenes_name_a_task_for_every_question() -> None:
+    for name in ("incident-triage.zh-tw.yaml", "vuln-triage.zh-tw.yaml"):
+        scene = load_scene(_repo_root() / "scenes" / name)
+        for layer in scene.layers:
+            for qid, q in layer.questions.items():
+                assert getattr(q, "task_id", None), f"{name}: {qid} has no task_id"

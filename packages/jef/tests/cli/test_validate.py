@@ -31,6 +31,7 @@ layers:
     questions:
       owner:
         type: choice
+        task_id: soar_zh.routing.v1
         instructions: 誰處理？
         criteria: { soc: 監控, infra: 網路 }
     gates:
@@ -300,3 +301,17 @@ def test_reading_calibration_status_satisfies_the_automation_check() -> None:
 def test_shipped_scenes_have_no_warnings_either() -> None:
     found = validate_paths([_repo_root() / "scenes"])
     assert found == [], [p.message for p in found]
+
+
+def test_automating_on_a_question_without_task_id_is_warned() -> None:
+    scene = GOOD.replace("        task_id: soar_zh.routing.v1\n", "")
+    found = warnings(validate_scene_text(scene, "warn.yaml"))
+    assert any("declares no task_id" in p.message for p in found)
+
+
+def test_escalating_on_a_question_without_task_id_is_fine() -> None:
+    """Only automation needs a task-scoped bucket; routing to a human does not."""
+    scene = GOOD.replace("        task_id: soar_zh.routing.v1\n", "").replace(
+        "then: assign", "then: review"
+    )
+    assert not [p for p in validate_scene_text(scene, "ok.yaml") if "task_id" in p.message]

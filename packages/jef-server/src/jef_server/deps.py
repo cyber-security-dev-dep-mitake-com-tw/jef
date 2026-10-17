@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
+from pathlib import Path
 
 from jef_core import BilinearHead, Calibrator, Engine, ZeroShotHead
 from jef_core.backends import load_backbone
+from jef_core.calibration import file_sha256
 from jef_core.head import DecisionHead
 from jef_scene import SceneEngine, SceneRegistry
 
@@ -40,6 +42,25 @@ def build_engine(settings: Settings) -> Engine:
     calibrator = (
         Calibrator.load(settings.calibration_path) if settings.calibration_path else Calibrator()
     )
+    if settings.head_path and Path(settings.head_path).is_file():
+        # So a calibration fitted for another head is seen as `incompatible`
+        # rather than silently applied.
+        calibrator.bind_model(file_sha256(settings.head_path))
+    if calibrator.legacy:
+        log.warning(
+            "calibration %s is schema 1 (legacy): shape-scoped, no task identity. Every "
+            "question reports calibration_status=legacy and no scene gate automates. "
+            "Migrate explicitly with `jef calibration migrate` or refit.",
+            settings.calibration_path,
+        )
+    elif calibrator.incompatible:
+        log.error(
+            "calibration %s was fitted for head %s but %s is loaded: treated as incompatible, "
+            "p_correct unavailable, prediction sets are the full set",
+            settings.calibration_path,
+            calibrator.artifact.model_sha256,
+            calibrator.runtime_model_sha256,
+        )
 
     if not calibrator.is_fitted():
         log.warning(

@@ -13,6 +13,7 @@ from typing import Any
 
 from jef_core import BilinearHead, Calibrator, Engine, EvaluateResponse, ZeroShotHead
 from jef_core.backends import load_backbone
+from jef_core.calibration import file_sha256
 from jef_core.head import DecisionHead
 from jef_scene import Scene, SceneEngine, SceneRegistry, SceneTrace, load_scene
 
@@ -61,6 +62,13 @@ class Jef:
             calibrator = Calibrator.load(calibration)
         else:
             calibrator = calibration
+        if isinstance(head, (str, Path)) and Path(head).is_file():
+            calibrator.bind_model(file_sha256(head))
+        if calibrator.legacy:
+            log.warning(
+                "calibration is schema 1 (legacy): no task identity, so every question "
+                "reports calibration_status=legacy and no scene gate automates"
+            )
 
         if not calibrator.is_fitted():
             log.warning(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 from jef_core.calibration import (
@@ -312,3 +314,161 @@ def test_cal_status_validated_implies_p_correct_available() -> None:
     assert c.status("choice", 4) == "validated"
     assert c.p_correct(0.9, "choice", 4) is not None
     assert len(c.prediction_set(np.array([0.97, 0.01, 0.01, 0.01]), "choice", 4)) < 4
+
+
+# --------------------------------------------------------------------------- #
+# Task-scoped calibration (schema 2): identity is task + shape, never shape alone
+# --------------------------------------------------------------------------- #
+
+
+def test_bucket_key_round_trips_with_and_without_task() -> None:
+    from jef_core.calibration import split_bucket_key
+
+    assert bucket_key("noul", 2) == "noul:2"
+    assert bucket_key("noul", 2, "cve.user_interaction.v1") == "cve.user_interaction.v1|noul:2"
+    assert split_bucket_key("cve.user_interaction.v1|noul:2") == (
+        "cve.user_interaction.v1",
+        "noul",
+        2,
+    )
+    assert split_bucket_key("noul:2") == (None, "noul", 2)
+
+
+def test_pol_002_same_shape_other_task_never_borrows() -> None:
+    """Task A is calibrated; task B is also noul:2. B gets nothing from A."""
+    logits, labels = _overconfident(n=400, k=2)
+    c = Calibrator()
+    c.fit_bucket("noul", 2, logits, labels, task_id="cve.user_interaction.v1")
+    assert c.status("noul", 2, task_id="cve.user_interaction.v1") == "validated"
+    assert c.status("noul", 2, task_id="soar_zh.false_positive.v1") == "missing"
+    assert c.p_correct(0.9, "noul", 2, "soar_zh.false_positive.v1") is None
+    assert c.temperature("noul", 2, "soar_zh.false_positive.v1") == 1.0
+    assert c.prediction_set(
+        np.array([0.99, 0.01]), "noul", 2, 0.10, "soar_zh.false_positive.v1"
+    ) == [0, 1]
+    # And a question that names no task does not get the task's bucket either.
+    assert c.status("noul", 2) == "missing"
+    assert c.tasks() == ["cve.user_interaction.v1"]
+
+
+def test_ml_001_schema_one_artifact_loads_as_legacy() -> None:
+    """The shipped models/jef-v0/calibration.json shape: no schema field, shape keys."""
+    logits, labels = _overconfident(n=400, k=4)
+    fitted = Calibrator()
+    fitted.fit_bucket("choice", 4, logits, labels)
+    v1 = {k: v for k, v in fitted.to_dict().items() if k not in ("calibration_schema", "artifact")}
+    for b in v1["buckets"].values():  # type: ignore[union-attr]
+        b.pop("task_id")
+        b.pop("metrics")
+
+    legacy = Calibrator.from_dict(v1)
+    assert legacy.legacy is True
+    assert legacy.schema == 1
+    assert legacy.is_fitted()
+    # Numbers are still there for analysis...
+    assert legacy.p_correct(0.9, "choice", 4) is not None
+    # ...but the status never unlocks anything, with or without a task.
+    assert legacy.status("choice", 4) == "legacy"
+    assert legacy.status("choice", 4, task_id="anything.v1") == "legacy"
+    assert legacy.status("noul", 2) == "legacy"
+
+
+def test_the_shipped_artifact_is_legacy_and_says_so() -> None:
+    from pathlib import Path
+
+    root = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+    shipped = Calibrator.load(root / "models" / "jef-v0" / "calibration.json")
+    assert shipped.legacy
+    assert shipped.status("choice", 4) == "legacy"
+
+
+def test_incompatible_model_digest_disables_everything() -> None:
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator()
+    c.fit_bucket("choice", 4, logits, labels, task_id="t.v1")
+    c.artifact.model_sha256 = "sha256:aaaa"
+    c.bind_model("sha256:aaaa")
+    assert not c.incompatible
+    assert c.status("choice", 4, task_id="t.v1") == "validated"
+    c.bind_model("sha256:bbbb")
+    assert c.incompatible
+    assert c.status("choice", 4, task_id="t.v1") == "incompatible"
+    assert c.p_correct(0.9, "choice", 4, "t.v1") is None
+    assert c.temperature("choice", 4, "t.v1") == 1.0
+    assert c.prediction_set(np.array([0.97, 0.01, 0.01, 0.01]), "choice", 4, 0.10, "t.v1") == [
+        0,
+        1,
+        2,
+        3,
+    ]
+    # No digest recorded on either side: nothing to compare, nothing to refuse.
+    c.artifact.model_sha256 = None
+    assert not c.incompatible
+
+
+def test_schema_two_round_trip_keeps_tasks_and_provenance(tmp_path) -> None:
+    from jef_core.calibration import ArtifactInfo
+
+    logits, labels = _overconfident(n=400, k=4)
+    c = Calibrator(backbone="b", head="h")
+    c.fit_bucket("choice", 4, logits, labels, task_id="cve.attack_vector.v1", metrics={"ece": 0.05})
+    c.artifact = ArtifactInfo(
+        model_sha256="sha256:abc",
+        language="en,zh-TW",
+        dataset_digest="sha256:def",
+        sample_count=400,
+    )
+    path = tmp_path / "c.json"
+    c.save(path)
+    raw = json.loads(path.read_text())
+    assert raw["calibration_schema"] == 2
+    assert raw["artifact"]["model_sha256"] == "sha256:abc"
+    back = Calibrator.load(path)
+    assert not back.legacy
+    assert back.tasks() == ["cve.attack_vector.v1"]
+    assert back.buckets["cve.attack_vector.v1|choice:4"].task_id == "cve.attack_vector.v1"
+    assert back.buckets["cve.attack_vector.v1|choice:4"].metrics == {"ece": 0.05}
+    assert back.artifact.language == "en,zh-TW"
+    assert back.status("choice", 4, task_id="cve.attack_vector.v1") == "validated"
+
+
+def test_from_dict_refuses_the_impossible() -> None:
+    with pytest.raises(ValueError, match="newer"):
+        Calibrator.from_dict({"calibration_schema": 99, "buckets": {}})
+    with pytest.raises(ValueError, match="task-scoped bucket"):
+        Calibrator.from_dict({"buckets": {"t.v1|noul:2": {"temperature": 1.0}}})
+
+
+def test_migrate_is_explicit_whole_and_non_destructive() -> None:
+    logits, labels = _overconfident(n=400, k=4)
+    fitted = Calibrator(backbone="b", head="h")
+    fitted.fit_bucket("choice", 4, logits, labels)
+    legacy = Calibrator.from_dict(
+        {k: v for k, v in fitted.to_dict().items() if k not in ("calibration_schema", "artifact")}
+    )
+    assert legacy.legacy
+
+    migrated = legacy.migrate("cve.severity.v1", model_sha256="sha256:abc")
+    assert not migrated.legacy
+    assert set(migrated.buckets) == {"cve.severity.v1|choice:4"}
+    assert migrated.status("choice", 4, task_id="cve.severity.v1") == "validated"
+    assert migrated.status("choice", 4) == "missing", "a migrated bucket answers only its task"
+    assert migrated.artifact.model_sha256 == "sha256:abc"
+    assert "Migrated" in migrated.notes
+    # The original is untouched and still legacy.
+    assert legacy.legacy and set(legacy.buckets) == {"choice:4"}
+    with pytest.raises(ValueError, match="already carries task ids"):
+        migrated.migrate("other.v1")
+    with pytest.raises(ValueError, match="task_id"):
+        legacy.migrate("")
+
+
+def test_question_task_ids_are_validated_and_normalised() -> None:
+    from jef_core.types import InvalidQuestionError, normalize
+
+    q = normalize("q", {"type": "noul", "instructions": "x", "task_id": "cve.user_interaction.v1"})
+    assert q.task_id == "cve.user_interaction.v1"
+    assert normalize("q", {"type": "noul", "instructions": "x"}).task_id is None
+    for bad in ("CVE.v1", "cve", "cve.user interaction.v1", "cve.user_interaction", "1cve.v1"):
+        with pytest.raises(InvalidQuestionError):
+            normalize("q", {"type": "noul", "instructions": "x", "task_id": bad})

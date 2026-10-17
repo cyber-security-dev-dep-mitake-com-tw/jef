@@ -257,6 +257,59 @@ def cmd_schema(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def cmd_calibration(args: argparse.Namespace) -> int:
+    """Inspect or migrate a calibration artifact.
+
+    ``show`` prints the schema, provenance and every bucket with its status.
+    ``migrate`` writes a schema-2 copy of a schema-1 file with every bucket
+    scoped to one task. It is the only way a legacy artifact becomes task
+    scoped, and it is a human saying "all of this was fitted for that task":
+    nothing in the loader does it for you.
+    """
+    from jef_core.calibration import Calibrator, split_bucket_key
+
+    calibrator = Calibrator.load(args.path)
+
+    if args.calibration_command == "show":
+        print(f"schema      {calibrator.schema}{'  (legacy)' if calibrator.legacy else ''}")
+        print(f"backbone    {calibrator.backbone}")
+        print(f"head        {calibrator.head}")
+        info = calibrator.artifact
+        print(f"model       {info.model_sha256 or '(not recorded)'}")
+        print(f"dataset     {info.dataset_digest or '(not recorded)'}")
+        print(f"language    {info.language or '(not recorded)'}")
+        print(f"window      {info.calibration_window or '(not recorded)'}")
+        print(f"samples     {info.sample_count}")
+        print(f"tasks       {', '.join(calibrator.tasks()) or '(shape-scoped only)'}")
+        print()
+        print(f"{'bucket':44s} {'n':>6s} {'T':>7s} {'status@' + f'{args.alpha:g}'}")
+        for key, bucket in sorted(calibrator.buckets.items()):
+            task, kind, n = split_bucket_key(key)
+            status = calibrator.status(kind, n, args.alpha, task)
+            print(f"{key:44s} {bucket.n_samples:6d} {bucket.temperature:7.3f} {status}")
+        return EXIT_OK
+
+    if not calibrator.legacy:
+        print(
+            f"{args.path} is already schema {calibrator.schema}; nothing to migrate",
+            file=sys.stderr,
+        )
+        return EXIT_INVALID
+    try:
+        migrated = calibrator.migrate(args.task_id, model_sha256=args.model_sha256)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return EXIT_INVALID
+    if args.language:
+        migrated.artifact.language = args.language
+    migrated.save(args.out)
+    print(
+        f"wrote {args.out}: schema {migrated.schema}, {len(migrated.buckets)} bucket(s) "
+        f"scoped to {args.task_id}"
+    )
+    return EXIT_OK
+
+
 def cmd_models(args: argparse.Namespace) -> int:
     client = build_client(args)
     info = server_info(client)
@@ -381,6 +434,26 @@ def build_parser() -> argparse.ArgumentParser:
     schema.add_argument("--out", help="write here instead of stdout")
     schema.add_argument("--check", action="store_true", help="verify --out is current")
     schema.set_defaults(func=cmd_schema)
+
+    calibration = sub.add_parser(
+        "calibration", help="inspect or migrate a calibration artifact; needs no model"
+    )
+    cal_sub = calibration.add_subparsers(dest="calibration_command", required=True)
+    cal_show = cal_sub.add_parser("show", help="schema, provenance, buckets and their status")
+    cal_show.add_argument("path", help="calibration.json, local or hf://")
+    cal_show.add_argument("--alpha", type=float, default=0.10)
+    cal_show.set_defaults(func=cmd_calibration)
+    cal_migrate = cal_sub.add_parser(
+        "migrate", help="write a schema-2 copy with every bucket scoped to one task"
+    )
+    cal_migrate.add_argument("path", help="schema-1 calibration.json")
+    cal_migrate.add_argument("out", help="where to write the schema-2 file")
+    cal_migrate.add_argument(
+        "--task-id", required=True, help="the one task every bucket was fitted for"
+    )
+    cal_migrate.add_argument("--model-sha256", help="sha256:<hex> of the head these fit")
+    cal_migrate.add_argument("--language", help="e.g. zh-TW, en, mixed")
+    cal_migrate.set_defaults(func=cmd_calibration)
 
     models = sub.add_parser(
         "models", parents=[common], help="show the model and whether to trust it"
