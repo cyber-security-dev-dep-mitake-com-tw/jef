@@ -10,7 +10,7 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "case_id": { "type": "string", "pattern": "^socb-[a-z]{2}(-[a-zA-Z]{2})?-[0-9]{6}$" },
+    "case_id": { "type": "string", "pattern": "^socb-[a-z0-9]+(-[a-zA-Z0-9]+)*-[0-9]{6}$" },
     "family_id": {
       "type": "string",
       "description": "Incident family; every split is grouped on this so a paired hard negative never lands across the train/test line from its twin.",

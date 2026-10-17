@@ -5,6 +5,7 @@
     jef-bench fetch --all-public            # every fetchable source
     jef-bench check                         # offline: cache vs pins
     jef-bench pin --source lanl-cyber1 --local   # digests for hand-placed files
+    jef-bench build --source ait-ads        # cases.jsonl + gold.jsonl from a fetched source
 
 Exit codes: 0 all good, 1 a MISMATCH or a failed download, 2 a restricted
 source was asked for by name or the arguments made no sense.
@@ -111,6 +112,37 @@ def cmd_pin(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     return rc
 
 
+def cmd_build(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    from .build import build_source
+
+    options: dict[str, object] = {}
+    if args.source == "ait-ads" and args.bucket_seconds:
+        options["bucket_seconds"] = args.bucket_seconds
+    if args.source == "ctu-13":
+        if args.background_rate is not None:
+            options["background_rate"] = args.background_rate
+        if args.max_cases_per_class is not None:
+            options["max_cases_per_class"] = args.max_cases_per_class
+    try:
+        summary = build_source(
+            repo,
+            args.source,
+            base=args.data_dir,
+            input_path=args.input,
+            labels_path=args.labels,
+            out_dir=args.out,
+            options=options,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    print(
+        f"{args.source}: {summary['written']['cases']} cases, tier {summary['trust_tier']}, "
+        f"verdicts {summary['by_verdict']} -> {summary['out_dir']}"
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="jef-bench", description=__doc__.split("\n\n")[0])
     p.add_argument(
@@ -140,6 +172,15 @@ def build_parser() -> argparse.ArgumentParser:
     n = sub.add_parser("pin", help="record digests for files placed by hand")
     n.add_argument("--source", action="append", required=True)
     n.add_argument("--local", action="store_true", help="hash files already in the data dir")
+
+    b = sub.add_parser("build", help="derive validated cases and weak gold from a fetched source")
+    b.add_argument("--source", required=True, choices=["ait-ads", "ctu-13"])
+    b.add_argument("--input", type=Path, help="archive (default: the pinned file in the data dir)")
+    b.add_argument("--labels", type=Path, help="AIT-ADS labels.csv (default: beside the archive)")
+    b.add_argument("--out", type=Path, help="output dir (default: <data-dir>/derived/<source>)")
+    b.add_argument("--bucket-seconds", type=int, help="AIT-ADS: case window (600)")
+    b.add_argument("--background-rate", type=float, help="CTU-13: Background sampling (0.001)")
+    b.add_argument("--max-cases-per-class", type=int, help="CTU-13: cap per verdict (2000)")
     return p
 
 
@@ -158,6 +199,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_check(repo, args)
     if args.command == "pin":
         return cmd_pin(repo, args)
+    if args.command == "build":
+        return cmd_build(repo, args)
     return 2  # pragma: no cover -- argparse rejects unknown commands first
 
 
