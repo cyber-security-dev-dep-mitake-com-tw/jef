@@ -9,9 +9,10 @@ classifier on the same cases is not a result.
 B0 ``rules``     transparent per-task rules on the case's own fields
 B1 ``logreg``    hashed bag-of-words logistic regression, fitted on the
                  lock's train split only
-B2/B3 ``http``   any /v1/systemone-compatible service (a fixed-prompt LLM
-                 service, or research/jev-local); opt-in, sends the case off
-                 the machine
+B2/B3 remote     named, pinned remote systems (see ``remote.py``): any
+                 /v1/systemone service (Laya, official TypeSafe Jev, an LLM
+                 wrapper, research/jev-local) or the AI Gateway
+                 decision-model dialect; opt-in, the case leaves the machine
 B4 ``jef``       JEF native: a choice question over the task labels, asked
                  of the case state through jef_core.Engine
 """
@@ -20,15 +21,22 @@ from __future__ import annotations
 
 import json
 import re
-import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 import numpy as np
 
 from .annotate import TASK_LABELS
 
-__all__ = ["HttpScorer", "JefScorer", "LogisticScorer", "RuleScorer", "Scorer", "case_text"]
+__all__ = [
+    "JefScorer",
+    "LogisticScorer",
+    "RuleScorer",
+    "Scorer",
+    "case_text",
+    "label_text",
+    "verdict_question",
+]
 
 
 class Scorer(Protocol):
@@ -168,7 +176,12 @@ class LogisticScorer:
 # B4: JEF native
 # --------------------------------------------------------------------------- #
 
-HTTP_INSTRUCTIONS = "Which verdict does this evidence support?"
+#: One question, asked identically of every scorer that takes a question:
+#: the same instructions, the same options in TASK_LABELS order, the same
+#: option text. A comparison where systems were asked different things is not
+#: a comparison.
+VERDICT_INSTRUCTIONS = "Which verdict does this evidence support?"
+HTTP_INSTRUCTIONS = VERDICT_INSTRUCTIONS  # kept for callers of the old name
 
 
 def prompt_digest(instructions: str) -> str:
@@ -198,6 +211,19 @@ LABEL_TEXT: Mapping[str, str] = {
 }
 
 
+def label_text(label: str) -> str:
+    return LABEL_TEXT.get(label, label.replace("_", " "))
+
+
+def verdict_question(task: str) -> dict[str, Any]:
+    """The choice question every scorer is asked for a case of ``task``."""
+    return {
+        "type": "choice",
+        "instructions": VERDICT_INSTRUCTIONS,
+        "criteria": {lab: label_text(lab) for lab in TASK_LABELS[task]},
+    }
+
+
 class JefScorer:
     """JEF native (B4): one choice question over the task labels, per case."""
 
@@ -222,93 +248,16 @@ class JefScorer:
 
     def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
         labels = TASK_LABELS[case["task_id"]]
-        question = {
-            "type": "choice",
-            "task_id": case["task_id"],
-            "instructions": "Which verdict does this evidence support?",
-            "criteria": {lab: LABEL_TEXT.get(lab, lab.replace("_", " ")) for lab in labels},
-        }
+        question = {**verdict_question(case["task_id"]), "task_id": case["task_id"]}
         result = self.engine.evaluate(case["state"], {"verdict": question})
         return {lab: float(result.answers["verdict"].probabilities[lab]) for lab in labels}
 
 
-# --------------------------------------------------------------------------- #
-# B2/B3: any /v1/systemone service
-# --------------------------------------------------------------------------- #
+def __getattr__(name: str) -> Any:  # pragma: no cover - import shim
+    # HttpScorer moved to remote.py with the other remote scorers; importing it
+    # from here still works without a circular import at module load.
+    if name == "HttpScorer":
+        from .remote import HttpScorer
 
-
-class HttpScorer:
-    """POSTs each case to a /v1/systemone-compatible URL (B2 LLM service, B3 jev-local).
-
-    Opt-in: the case leaves the machine. ``post`` is injectable for tests.
-    """
-
-    def __init__(
-        self,
-        base_url: str,
-        *,
-        name: str = "http",
-        model: str = "jev-latest",
-        post: Callable[[str, dict[str, Any]], dict[str, Any]] | None = None,
-        timeout: float = 120.0,
-    ) -> None:
-        self.base_url = base_url.rstrip("/")
-        self.name = name
-        self.model = model
-        self.timeout = timeout
-        self._post = post or self._default_post
-
-    @property
-    def host(self) -> str:
-        from urllib.parse import urlparse
-
-        return urlparse(self.base_url).hostname or ""
-
-    @property
-    def egress(self) -> str:
-        """``loopback`` or ``external``: whether a case leaves this machine."""
-        return "loopback" if self.host in {"127.0.0.1", "localhost", "::1"} else "external"
-
-    def describe(self) -> dict[str, Any]:
-        return {
-            "type": "http",
-            "base_url": self.base_url,
-            "host": self.host,
-            "egress": self.egress,
-            "model": self.model,
-            "timeout_s": self.timeout,
-            "prompt_digest": prompt_digest(HTTP_INSTRUCTIONS),
-        }
-
-    def _default_post(self, url: str, body: dict[str, Any]) -> dict[str, Any]:
-        import urllib.request
-
-        if not url.startswith(("http://127.0.0.1", "http://localhost", "https://")):
-            raise ValueError("HttpScorer posts only to https or loopback http")
-        req = urllib.request.Request(  # noqa: S310 -- scheme checked above
-            url,
-            data=json.dumps(body).encode(),
-            headers={"content-type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # noqa: S310
-            return json.loads(resp.read())
-
-    def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
-        labels = TASK_LABELS[case["task_id"]]
-        body = {
-            "model": self.model,
-            "state": case["state"],
-            "questions": {
-                "verdict": {
-                    "type": "choice",
-                    "instructions": HTTP_INSTRUCTIONS,
-                    "criteria": {lab: LABEL_TEXT.get(lab, lab) for lab in labels},
-                }
-            },
-        }
-        started = time.perf_counter()
-        reply = self._post(f"{self.base_url}/v1/systemone", body)
-        self.last_latency = time.perf_counter() - started
-        probs = reply["answers"]["verdict"]["probabilities"]
-        return _dist(labels, {lab: float(probs.get(lab, 0.0)) for lab in labels})
+        return HttpScorer
+    raise AttributeError(name)

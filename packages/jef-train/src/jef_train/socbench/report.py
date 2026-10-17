@@ -151,6 +151,27 @@ def _block(task: str, rows: list[dict[str, Any]], *, with_ci: bool) -> dict[str,
     return out
 
 
+def evidence_class(tiers: Mapping[str, int]) -> tuple[str, str]:
+    """What the numbers in a report may be called, decided by the weakest gold scored.
+
+    Plan v3: a report on source labels must say so on its face. Only a split
+    whose every case is Tier A (two independent reviewers) is analyst gold.
+    """
+    present = {t for t, n in tiers.items() if n}
+    if present and present <= {"A"}:
+        return "TIER-A GOLD", "every scored case was labelled by two independent reviewers"
+    if present and present <= {"A", "B"}:
+        return (
+            "SINGLE-REVIEW RESEARCH",
+            "some cases carry one reviewer's label (Tier B); not an analyst-gold result",
+        )
+    return (
+        "SOURCE-LABEL RESEARCH",
+        f"scored against source or weak labels (tiers {sorted(present)}); a research result on "
+        "this dataset, not SOC validation",
+    )
+
+
 def evaluation_manifest(
     scorers: Sequence[Scorer], lock: Mapping[str, Any], split: str
 ) -> dict[str, Any]:
@@ -271,6 +292,8 @@ def evaluate(
             },
             # Every case the scorer could not answer -- timeout, refusal, bad JSON.
             # Metrics above cover the answered cases only; read them with this.
+            "cases": len(items),
+            "answered": len(items) - len(failures),
             "failures": {
                 "count": len(failures),
                 "rate": (len(failures) / len(items)) if items else 0.0,
@@ -280,6 +303,11 @@ def evaluate(
         }
 
     report["manifest"] = evaluation_manifest(scorers, lock, split)
+    tiers = Counter(trust_tier(gold_by[c["case_id"]]["label_origin"]) for c in items)
+    report["evidence_class"], report["evidence_note"] = evidence_class(tiers)
+    report["manifest"]["evidence_class"] = report["evidence_class"]
+    report["manifest"]["gold_tiers"] = dict(tiers)
+    report["manifest"]["families"] = len({c["family_id"] for c in items})
     report["comparison"] = [
         {
             "scorer": name,
