@@ -1,0 +1,93 @@
+name: Benchmark publish
+
+# Turns one successful nightly benchmark run into a pull request (plan v3,
+# NEXT-V3-01). Run it by hand with the run id; it never pushes to main.
+#
+# 1. Checks the run is a successful Benchmark run on main.
+# 2. Downloads its artifact and verifies every file against the manifest the
+#    run wrote (scripts/benchmark-manifest.py verify).
+# 3. Copies the results onto a fresh branch from the current main and opens a
+#    pull request for review. If main moved since, the branch is still cut from
+#    the newest main, so there is nothing to force-push.
+#
+# Opening the pull request needs the repository setting "Allow GitHub Actions to
+# create and approve pull requests". Without it the branch is still pushed and
+# the job prints the compare URL to open the pull request by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Run id of a successful Benchmark run"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmark-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: open a results pull request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: The run is a successful Benchmark run on main
+        id: run
+        run: |
+          set -euo pipefail
+          info=$(gh run view "$RUN_ID" --json workflowName,conclusion,headBranch,headSha)
+          echo "$info"
+          [ "$(jq -r .workflowName <<<"$info")" = "Benchmark" ] || { echo "::error::run $RUN_ID is not a Benchmark run"; exit 1; }
+          [ "$(jq -r .conclusion <<<"$info")" = "success" ] || { echo "::error::run $RUN_ID did not succeed"; exit 1; }
+          [ "$(jq -r .headBranch <<<"$info")" = "main" ] || { echo "::error::run $RUN_ID did not run on main"; exit 1; }
+          echo "sha=$(jq -r .headSha <<<"$info")" >> "$GITHUB_OUTPUT"
+
+      - name: Download and verify the artifact
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/bench
+          gh run download "$RUN_ID" --pattern "benchmark-*" --dir /tmp/bench
+          dir=$(dirname "$(find /tmp/bench -name benchmark-manifest.json | head -1)")
+          # upload-artifact strips the common docs/ prefix; restage under docs/
+          # so the paths match the ones the manifest recorded.
+          root=/tmp/stage
+          mkdir -p "$root/docs"
+          cp -R "$dir/." "$root/docs/"
+          python scripts/benchmark-manifest.py verify "$root/docs/benchmark-manifest.json" \
+            --root "$root" --source-sha "${{ steps.run.outputs.sha }}"
+          echo "ARTIFACT_ROOT=$root" >> "$GITHUB_ENV"
+
+      - name: Branch, commit, pull request
+        run: |
+          set -euo pipefail
+          branch="bench-results/$RUN_ID"
+          git switch -c "$branch"
+          cp -R "$ARTIFACT_ROOT/docs/." docs/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/benchmarks.json docs/badges docs/benchmark-manifest.json
+          [ -f docs/context-sweep.json ] && git add docs/context-sweep.json
+          if git diff --staged --quiet; then
+            echo "the numbers did not change; nothing to publish"
+            exit 0
+          fi
+          git commit -m "chore(bench): third-party results from run $RUN_ID (${{ steps.run.outputs.sha }})"
+          git push origin "$branch"
+          body="Results of [Benchmark run $RUN_ID](${{ github.server_url }}/${{ github.repository }}/actions/runs/$RUN_ID) on \`${{ steps.run.outputs.sha }}\`, verified against \`docs/benchmark-manifest.json\`. Review for contamination, leaked data and hidden failures before merging."
+          if ! gh pr create --base main --head "$branch" --title "chore(bench): third-party results from run $RUN_ID" --body "$body"; then
+            echo "::warning::could not open the pull request (repository setting?). Open it by hand:"
+            echo "${{ github.server_url }}/${{ github.repository }}/compare/main...$branch?expand=1"
+          fi
