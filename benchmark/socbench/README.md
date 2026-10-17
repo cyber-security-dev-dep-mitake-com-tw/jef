@@ -104,6 +104,24 @@ uv run jef-bench lock --verify lock.json --cases cases.jsonl --gold gold.jsonl
   and language, and the hard-negative share of negatives (target 35 to 45
   percent).
 
+## zh-TW: two tracks, reported apart
+
+- **Native zh-TW** (local context): `seeds/zh-TW/` holds twelve families of
+  Taiwan scenarios (bank, e-invoice, LINE, parcel, traffic fine, supplier
+  payment, password expiry, HR, VPN, backup, PowerShell, firewall change),
+  each a positive and a hard-negative twin that differs only in the decisive
+  detail. They are **LLM-authored seeds (tier E)**, not gold; see the
+  directory's README.
+- **Parallel bilingual** (language robustness): the same evidence in two
+  languages, `pair_kind: translation`. `bilingual.pair_translation` builds a
+  twin that keeps every field, the verdict and the family;
+  `bilingual.check_pairs` refuses pairs across families or tasks, a
+  translation in the same language or with a different verdict, and a
+  hard-negative pair that is not one positive and one negative.
+
+`zh-TW`, `zh-CN` and `en` are separate values of `language`, and the report
+breaks every metric down by it.
+
 ## Rules the code enforces
 
 1. **Restricted sources are never downloaded.** `request-form` and `registration-or-contact` sources (LANL, CICIDS2017, the CAC dataset) raise before any network call and print how a human applies. The pipeline does not fill forms or scrape around gates: the gate is the owner's condition of use.
