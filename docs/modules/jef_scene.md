@@ -127,3 +127,37 @@ so a scene learns this at lint time rather than from a trace after deployment.
 The trace also carries `proposed_action`, `executed_action` (always `null`
 here: the engine executes nothing) and `execution_status`
 (`not_dispatched`), so a reader never mistakes a proposal for an outcome.
+
+
+## Authorization contract
+
+`jef_scene.authz` and `jef_scene.executor` keep a model's proposal and a
+person's permission apart with types:
+
+- `ProposedDecision.from_trace(trace, case_id=..., asset_id=...)`: what the
+  scene selected, with the policy verdict, reason codes, scene version, model
+  digest, policy version and trace id. It carries no credential.
+  `automatable` is true only for an `allow`ed T0/T1 action.
+- `AuthorizationGrant.issue(secret=..., case_id, action, asset_id, approvers,
+  approver_role, issuer, ttl_seconds)`: permission for one case, one action,
+  one asset, until it expires, HMAC-signed over every scoping field by the
+  approval service's secret. `AuthorizationGrant.parse(payload, secret=...)`
+  is the only entry point for anything that arrived over the wire; it raises
+  `GrantError` on a missing or bad signature. `is_valid_for(case_id, action,
+  asset_id, now=..., tier=...)` returns a reason code when it does not fit
+  (`GRANT_ASSET_MISMATCH`, `GRANT_EXPIRED`, `DUAL_APPROVAL_REQUIRED` for T4,
+  ...).
+- `Executor(connector, transport, grant_secret=...)`: `dispatch(proposal,
+  idempotency_key=..., grant=..., dry_run=...)` returns the stored receipt for
+  a repeated key, lets an `automatable` proposal run without a grant, requires
+  a parsed, verified, fitting grant for everything else, calls the
+  `Transport` once, and returns an `ExecutionReceipt` whose `status` is
+  `success` only when the transport said so. A `TimeoutError` is `unknown`.
+  Without a `grant_secret` every grant is refused. `allowed_actions` restricts
+  which action names the connector performs at all.
+- `AuditEntry`: one per step (`proposed`, `decided`, `granted`, `refused`,
+  `dispatched`, `receipt`), with a digest of the payload rather than the
+  payload.
+
+`POLICY_VERSION` is recorded on every proposal, decision and receipt so a
+replayed trace is judged by the rules that produced it.

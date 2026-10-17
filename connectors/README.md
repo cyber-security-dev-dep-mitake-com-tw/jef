@@ -51,3 +51,25 @@ pytest connectors/tests
 The split is deliberate. Installing `cortexutils` and `shuffle_sdk` to test
 request shaping would test those platforms, not the connector; the Robot suite
 covers the other half by driving the real connectors against a real server.
+
+
+## A scene result is a proposal, not an authorization
+
+Every connector returns the decision trace, and the trace now says two
+things separately: `action` (what the scene selected) and `policy_verdict`
+(`allow` or `review_required`, with `reason_codes`). A workflow may act on
+`allow` for T0/T1 actions (tagging, routing, enrichment, tickets). For
+anything that changes state (`close`, `suppress`, `isolate_host`,
+`disable_user`, `block_ip`) the trace will say `review_required`, and the
+only thing that turns it into an action is a signed `AuthorizationGrant` for
+that case, that action and that asset, verified by `jef_scene.Executor`
+before it calls the platform. `approved: true` in a payload is not a grant.
+
+The connectors themselves never execute. The Cortex responder tags the case
+`JEF:proposed=<action>` and `JEF:policy=<verdict>`; the Shuffle app and the
+n8n node return the trace for the workflow to branch on. When you do wire a
+platform operation to a result, wrap it in a `Transport` and go through
+`Executor.dispatch` with an idempotency key: it executes once per key,
+refuses without a valid grant, and returns an `ExecutionReceipt` whose
+`status` is `success` only when the platform confirmed it. A timeout is
+`unknown`, never `success`. See `docs/modules/jef_scene.md`.
