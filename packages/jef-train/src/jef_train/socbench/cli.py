@@ -12,6 +12,8 @@
         --decisions d.jsonl --out gold.jsonl
     jef-bench lock --cases c.jsonl --gold gold.jsonl --out lock.json [--pin family=test]
     jef-bench lock --verify lock.json --cases c.jsonl --gold gold.jsonl
+    jef-bench evaluate --lock lock.json --cases c.jsonl --gold gold.jsonl \
+        --scorer rules --scorer logreg [--scorer jef] [--scorer http=http://127.0.0.1:4141] --out report.json
 
 Exit codes: 0 all good, 1 a MISMATCH or a failed download, 2 a restricted
 source was asked for by name or the arguments made no sense.
@@ -222,6 +224,53 @@ def cmd_lock(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    import json
+
+    from .baselines import HttpScorer, JefScorer, LogisticScorer, RuleScorer, Scorer
+    from .records import read_jsonl
+    from .report import evaluate
+
+    cases, golds = read_jsonl(args.cases), read_jsonl(args.gold)
+    lock = json.loads(args.lock.read_text("utf-8"))
+    gold_by = {g["case_id"]: g for g in golds}
+    train_ids = set(lock["splits"].get("train", []))
+    train = [c for c in cases if c["case_id"] in train_ids]
+    scorers: list[Scorer] = []
+    for spec in args.scorer:
+        if spec == "rules":
+            scorers.append(RuleScorer())
+        elif spec == "logreg":
+            scorers.append(LogisticScorer().fit(train, gold_by))
+        elif spec == "jef":
+            from jef_core import BilinearHead, Calibrator, Engine
+
+            engine = Engine(
+                args.backbone,
+                BilinearHead.load(args.head) if args.head else None,
+                Calibrator.load(args.calibration) if args.calibration else None,
+            )
+            scorers.append(JefScorer(engine))
+        elif spec.startswith("http="):
+            url = spec.removeprefix("http=")
+            scorers.append(HttpScorer(url, name=f"http:{url}"))
+        else:
+            print(f"unknown scorer {spec!r}; use rules, logreg, jef or http=URL", file=sys.stderr)
+            return 2
+    try:
+        report = evaluate(cases, golds, lock, scorers, split=args.split)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    for row in report["comparison"]:
+        print(
+            f"{row['scorer']:10s} {row['task']:26s} macro-F1 {row['macro_f1']}  "
+            f"PR-AUC {row['pr_auc']}  ECE {row['ece']}  mistaken closures {row['mistaken_closures']}"
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="jef-bench", description=__doc__.split("\n\n")[0])
     p.add_argument(
@@ -291,6 +340,19 @@ def build_parser() -> argparse.ArgumentParser:
     lk.add_argument(
         "--pin", action="append", metavar="FAMILY=SPLIT", help="force a family into a split"
     )
+
+    ev = sub.add_parser("evaluate", help="score a locked split with baselines and JEF")
+    ev.add_argument("--lock", type=Path, required=True)
+    ev.add_argument("--cases", type=Path, required=True)
+    ev.add_argument("--gold", type=Path, required=True)
+    ev.add_argument(
+        "--scorer", action="append", required=True, help="rules | logreg | jef | http=URL"
+    )
+    ev.add_argument("--split", default="test")
+    ev.add_argument("--backbone", default="hashing", help="jef scorer: backbone id")
+    ev.add_argument("--head", help="jef scorer: head.npz")
+    ev.add_argument("--calibration", help="jef scorer: calibration.json")
+    ev.add_argument("--out", type=Path, required=True)
     return p
 
 
@@ -313,6 +375,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_build(repo, args)
     if args.command == "annotate":
         return cmd_annotate(repo, args)
+    if args.command == "evaluate":
+        return cmd_evaluate(repo, args)
     if args.command == "lock":
         if not args.verify and not args.out:
             print("lock needs --out (or --verify)", file=sys.stderr)
