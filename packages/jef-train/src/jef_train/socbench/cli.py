@@ -281,6 +281,42 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sample(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    import json
+
+    from .records import read_jsonl, write_jsonl
+    from .sample import SampleError, sample_cases
+
+    cases = read_jsonl(args.cases)
+    weak = read_jsonl(args.weak_gold) if args.weak_gold else []
+    exclude: set[str] = set()
+    for path in args.exclude or []:
+        exclude |= {str(c["case_id"]) for c in read_jsonl(path)}
+    try:
+        chosen, manifest = sample_cases(
+            cases,
+            weak,
+            task=args.task,
+            per_family=args.per_family,
+            seed=args.seed,
+            families=args.family or None,
+            exclude=exclude,
+        )
+    except SampleError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    write_jsonl(args.out, chosen)
+    manifest_path = args.manifest or args.out.with_suffix(".manifest.json")
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    print(
+        f"sampled {manifest['sampled']} cases from {manifest['families']} families "
+        f"{manifest['sampled_by_weak_label']} -> {args.out} (manifest {manifest_path})"
+    )
+    for w in manifest["warnings"]:
+        print(f"warning: {w}", file=sys.stderr)
+    return 0
+
+
 def cmd_export_corpus(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     import json
 
@@ -384,6 +420,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--pin", action="append", metavar="FAMILY=SPLIT", help="force a family into a split"
     )
 
+    sm = sub.add_parser(
+        "sample", help="family-aware stratified sample of cases for blind annotation"
+    )
+    sm.add_argument("--cases", type=Path, required=True, help="cases.jsonl from build")
+    sm.add_argument(
+        "--weak-gold", type=Path, help="gold.jsonl from build: used to stratify, never written out"
+    )
+    sm.add_argument("--task", help="restrict to one task_id, e.g. soc.ndr.technique.v1")
+    sm.add_argument(
+        "--per-family", type=int, default=60, help="hard cap on cases drawn from each family"
+    )
+    sm.add_argument("--seed", default="socbench-sample")
+    sm.add_argument("--family", action="append", help="only these family_ids (repeatable)")
+    sm.add_argument(
+        "--exclude", action="append", type=Path, help="cases.jsonl already sampled (repeatable)"
+    )
+    sm.add_argument("--out", type=Path, required=True, help="sampled-cases.jsonl to write")
+    sm.add_argument("--manifest", type=Path, help="default: <out>.manifest.json")
+
     ex = sub.add_parser(
         "export-corpus", help="locked gold -> jef_train.fit corpus, split as the lock says"
     )
@@ -439,6 +494,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_build(repo, args)
     if args.command == "annotate":
         return cmd_annotate(repo, args)
+    if args.command == "sample":
+        return cmd_sample(repo, args)
     if args.command == "export-corpus":
         return cmd_export_corpus(repo, args)
     if args.command == "evaluate":

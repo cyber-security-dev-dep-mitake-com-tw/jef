@@ -92,6 +92,17 @@ Publish numbers per tier.
 
 ## From weak labels to gold
 
+Start with [`annotation/LABELBOOK.md`](annotation/LABELBOOK.md): label definitions per task, `unknown` versus `insufficient_evidence`, the record reviewers fill in, and the adjudication rules. Choose the cases to label with `sample`, which samples within families (so the lock can keep them whole), stratifies on the weak label to keep rare classes, writes the cases **without** that label so reviewers stay blind, and records inverse-inclusion weights to re-weight metrics back to the source base rate:
+
+```bash
+uv run jef-bench sample --cases out/ctu-13/cases.jsonl --weak-gold out/ctu-13/gold.jsonl \
+  --task soc.ndr.technique.v1 --per-family 5 --seed pilot-1 --out sampled-pilot.jsonl
+# later batches skip what was already sampled
+uv run jef-bench sample ... --exclude sampled-pilot.jsonl --per-family 30 --out sampled-v1.jsonl
+```
+
+The manifest warns when a source has too few independent families for a family-grouped split to give meaningful intervals (AIT-ADS has 8 scenarios, CTU-13 has 13).
+
 Weak labels (tier C or D) are where a case starts, never where it ends. The
 two-reviewer workflow (review section 10.3) turns them into tier A or B gold:
 
