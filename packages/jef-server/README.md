@@ -45,6 +45,8 @@ Or `pip install "jef[server]"` to get it with the CLI.
 | `JEF_PROPOSAL_SECRET` `JEF_PROPOSAL_TTL_SECONDS` | Seals `proposal_token`s (default: random per process) and how long they stay redeemable (3600). |
 | `JEF_REQUIRED_TASK_IDS` | Comma-separated tasks this deployment must be calibrated for before `/v1/readiness` reports `automation_ready`: `task_id` (every bucket fitted for the task must be `validated`) or `task_id:kind:n` (one exact bucket). Empty is itself a blocking reason. |
 | `JEF_TRUSTED_INGRESS` | The operator asserts that an ingress (mTLS, OIDC gateway) authenticates every caller, so empty `JEF_API_KEYS` does not block readiness. Reported as `auth: trusted-ingress`, never silently. |
+| `JEF_PRODUCTION` | Refuse to start unless the configuration is production-safe: real backbone, trained head, verified manifest, auth (or `JEF_TRUSTED_INGRESS`), a non-zero rate limit, private metrics, `JEF_REQUIRED_TASK_IDS` set, and, when decisions are enabled, both secrets plus a persistent `JEF_DECISION_STORE`. Every violation is listed. Off by default. |
+| `JEF_DECISION_STORE` | Where receipts, spent grant nonces and the audit chain live. Unset: process memory (one replica, `JEF_WORKERS=1`; readiness reports `policy_store:not_persistent`). `sqlite:///path.db`: persistent on one host. A PostgreSQL DSN is refused until a driver ships. |
 
 ### Readiness
 
