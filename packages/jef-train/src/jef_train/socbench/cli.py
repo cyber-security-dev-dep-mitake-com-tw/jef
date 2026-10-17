@@ -6,6 +6,12 @@
     jef-bench check                         # offline: cache vs pins
     jef-bench pin --source lanl-cyber1 --local   # digests for hand-placed files
     jef-bench build --source ait-ads        # cases.jsonl + gold.jsonl from a fetched source
+    jef-bench annotate export --cases c.jsonl --annotator analyst-anon-01 --out tasks.jsonl
+    jef-bench annotate agree --cases c.jsonl --labels a.jsonl --labels b.jsonl --out report.json
+    jef-bench annotate adjudicate --cases c.jsonl --labels a.jsonl --labels b.jsonl \
+        --decisions d.jsonl --out gold.jsonl
+    jef-bench lock --cases c.jsonl --gold gold.jsonl --out lock.json [--pin family=test]
+    jef-bench lock --verify lock.json --cases c.jsonl --gold gold.jsonl
 
 Exit codes: 0 all good, 1 a MISMATCH or a failed download, 2 a restricted
 source was asked for by name or the arguments made no sense.
@@ -143,6 +149,79 @@ def cmd_build(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cases_by_id(path: Path) -> dict[str, dict[str, object]]:
+    from .records import read_jsonl
+
+    return {str(c["case_id"]): c for c in read_jsonl(path)}
+
+
+def cmd_annotate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    import json
+
+    from .annotate import AnnotationError, adjudicate, agreement, export_tasks, parse_annotations
+    from .records import read_jsonl, validate_records, write_jsonl
+
+    cases = _cases_by_id(args.cases)
+    try:
+        if args.annotate_command == "export":
+            n = write_jsonl(args.out, export_tasks(cases.values(), args.annotator))
+            print(f"wrote {n} blind task(s) for {args.annotator} -> {args.out}")
+            return 0
+        annotations = [
+            a for path in args.labels for a in parse_annotations(read_jsonl(path), cases)
+        ]
+        if args.annotate_command == "agree":
+            report = agreement(annotations, cases)
+            args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
+            if args.queue:
+                write_jsonl(args.queue, report["queue"])
+            for task, r in report["by_task"].items():
+                print(
+                    f"{task}: {r['pairs']} pairs, agreement {r['percent_agreement']}, kappa {r['kappa']}"
+                )
+            print(f"queue: {len(report['queue'])} case(s) -> {args.queue or args.out}")
+            return 0
+        decisions = read_jsonl(args.decisions) if args.decisions else []
+        golds = adjudicate(annotations, cases, decisions)
+    except AnnotationError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    validate_records(repo, "gold", golds)
+    n = write_jsonl(args.out, golds)
+    disputed = sum(g["adjudication_status"] == "disputed" for g in golds)
+    print(f"wrote {n} gold record(s) -> {args.out} ({disputed} still disputed)")
+    return 0
+
+
+def cmd_lock(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    import json
+
+    from .records import read_jsonl, validate_records
+    from .splits import LockError, make_lock, verify_lock
+
+    cases, golds = read_jsonl(args.cases), read_jsonl(args.gold)
+    if args.verify:
+        problems = verify_lock(json.loads(args.verify.read_text("utf-8")), cases, golds)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        print("verified" if not problems else "MISMATCH")
+        return 1 if problems else 0
+    validate_records(repo, "case", cases)
+    validate_records(repo, "gold", golds)
+    pinned = dict(item.split("=", 1) for item in args.pin or [])
+    try:
+        lock = make_lock(cases, golds, seed=args.seed, pinned=pinned)
+    except LockError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    args.out.write_text(json.dumps(lock, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    print(
+        f"locked {len(cases)} case(s): "
+        + ", ".join(f"{k}={len(v)}" for k, v in lock["splits"].items())
+    )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="jef-bench", description=__doc__.split("\n\n")[0])
     p.add_argument(
@@ -181,6 +260,37 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--bucket-seconds", type=int, help="AIT-ADS: case window (600)")
     b.add_argument("--background-rate", type=float, help="CTU-13: Background sampling (0.001)")
     b.add_argument("--max-cases-per-class", type=int, help="CTU-13: cap per verdict (2000)")
+
+    a = sub.add_parser("annotate", help="blind two-reviewer annotation and adjudication")
+    asub = a.add_subparsers(dest="annotate_command", required=True)
+    ae = asub.add_parser("export", help="blind tasks for one reviewer")
+    ae.add_argument("--cases", type=Path, required=True)
+    ae.add_argument("--annotator", required=True, help="anonymised handle, e.g. analyst-anon-01")
+    ae.add_argument("--out", type=Path, required=True)
+    for name, help_ in (
+        ("agree", "agreement, kappa and the disagreement queue"),
+        ("adjudicate", "gold from reviews and decisions"),
+    ):
+        ap = asub.add_parser(name, help=help_)
+        ap.add_argument("--cases", type=Path, required=True)
+        ap.add_argument(
+            "--labels", type=Path, action="append", required=True, help="one file per reviewer"
+        )
+        ap.add_argument("--out", type=Path, required=True)
+        if name == "agree":
+            ap.add_argument("--queue", type=Path, help="write the disagreement queue here")
+        else:
+            ap.add_argument("--decisions", type=Path, help="adjudicator decisions for the queue")
+
+    lk = sub.add_parser("lock", help="family-grouped splits and the gold lock")
+    lk.add_argument("--cases", type=Path, required=True)
+    lk.add_argument("--gold", type=Path, required=True)
+    lk.add_argument("--out", type=Path, help="lock.json to write")
+    lk.add_argument("--verify", type=Path, help="check these files against an existing lock")
+    lk.add_argument("--seed", default="socbench")
+    lk.add_argument(
+        "--pin", action="append", metavar="FAMILY=SPLIT", help="force a family into a split"
+    )
     return p
 
 
@@ -201,6 +311,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_pin(repo, args)
     if args.command == "build":
         return cmd_build(repo, args)
+    if args.command == "annotate":
+        return cmd_annotate(repo, args)
+    if args.command == "lock":
+        if not args.verify and not args.out:
+            print("lock needs --out (or --verify)", file=sys.stderr)
+            return 2
+        return cmd_lock(repo, args)
     return 2  # pragma: no cover -- argparse rejects unknown commands first
 
 

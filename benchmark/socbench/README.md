@@ -66,6 +66,44 @@ Trust tiers (review section 9.4): A two analysts adjudicated, B one analyst,
 C a source's own ground truth, D a weak label, E synthetic or LLM-authored.
 Publish numbers per tier.
 
+## From weak labels to gold
+
+Weak labels (tier C or D) are where a case starts, never where it ends. The
+two-reviewer workflow (review section 10.3) turns them into tier A or B gold:
+
+```bash
+uv run jef-bench annotate export --cases cases.jsonl --annotator analyst-anon-01 --out a-tasks.jsonl
+uv run jef-bench annotate export --cases cases.jsonl --annotator analyst-anon-02 --out b-tasks.jsonl
+# each reviewer fills in verdict, confidence, evidence_ids, prohibited_actions, note
+uv run jef-bench annotate agree --cases cases.jsonl --labels a.jsonl --labels b.jsonl \
+    --out agreement.json --queue queue.jsonl
+# a third reviewer decides each queued case, with a written reason
+uv run jef-bench annotate adjudicate --cases cases.jsonl --labels a.jsonl --labels b.jsonl \
+    --decisions decisions.jsonl --out gold.jsonl
+uv run jef-bench lock --cases cases.jsonl --gold gold.jsonl --out lock.json --pin ait-fox=test
+uv run jef-bench lock --verify lock.json --cases cases.jsonl --gold gold.jsonl
+```
+
+- **Blind.** An exported task has the state, the evidence and the allowed
+  labels; never the source's weak gold, the other reviewer's label or a
+  model's answer. Each reviewer gets their own order.
+- **Agreement** is percent agreement and Cohen's kappa per task and per class,
+  with the class counts beside it, because kappa is unstable under imbalance.
+- **Origin follows what happened.** Two reviewers who agree, or a third who
+  adjudicates with a written reason, give `double-human-reviewed` (tier A);
+  one reviewer gives `single-human-reviewed` (B); an undecided disagreement is
+  `disputed` with verdict `unknown`. An adjudicator who reviewed the case is
+  refused. The schema refuses `double-human-reviewed` with fewer than two
+  annotators (DATA-005).
+- **The lock** assigns splits per `family_id` (seeded hash, `--pin` to place a
+  family by hand: with eight AIT scenarios a hash alone may not reach every
+  split), and refuses to lock when a case lacks gold, a family spans splits,
+  a `paired_with` partner sits in another split (DATA-003), or two splits
+  share an identical state. It records the SHA-256 of the case and gold files,
+  so `--verify` detects any edit, and reports counts per verdict, tier, task
+  and language, and the hard-negative share of negatives (target 35 to 45
+  percent).
+
 ## Rules the code enforces
 
 1. **Restricted sources are never downloaded.** `request-form` and `registration-or-contact` sources (LANL, CICIDS2017, the CAC dataset) raise before any network call and print how a human applies. The pipeline does not fill forms or scrape around gates: the gate is the owner's condition of use.
