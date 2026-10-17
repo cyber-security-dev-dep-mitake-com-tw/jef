@@ -227,8 +227,9 @@ def cmd_lock(repo: SocbenchRepo, args: argparse.Namespace) -> int:
 def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     import json
 
-    from .baselines import HttpScorer, JefScorer, LogisticScorer, RuleScorer, Scorer
+    from .baselines import JefScorer, LogisticScorer, RuleScorer, Scorer
     from .records import read_jsonl
+    from .remote import HttpScorer, ScorerConfigError, load_scorer_config
     from .report import evaluate
 
     cases, golds = read_jsonl(args.cases), read_jsonl(args.gold)
@@ -237,7 +238,10 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     train_ids = set(lock["splits"].get("train", []))
     train = [c for c in cases if c["case_id"] in train_ids]
     scorers: list[Scorer] = []
-    for spec in args.scorer:
+    if not args.scorer and not args.scorer_config:
+        print("name at least one --scorer or --scorer-config", file=sys.stderr)
+        return 2
+    for spec in args.scorer or []:
         if spec == "rules":
             scorers.append(RuleScorer())
         elif spec == "logreg":
@@ -253,18 +257,30 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
             scorers.append(JefScorer(engine))
         elif spec.startswith("http="):
             url = spec.removeprefix("http=")
-            http = HttpScorer(url, name=f"http:{url}")
-            if http.egress == "external" and http.host not in set(args.allow_egress or []):
-                print(
-                    f"refusing {url}: cases would leave this machine for {http.host!r}. "
-                    "If that egress is approved (data licence, masking, processor), pass "
-                    f"--allow-egress {http.host}",
-                    file=sys.stderr,
-                )
-                return 2
-            scorers.append(http)
+            scorers.append(HttpScorer(url, name=f"http:{url}"))
         else:
             print(f"unknown scorer {spec!r}; use rules, logreg, jef or http=URL", file=sys.stderr)
+            return 2
+    for config in args.scorer_config or []:
+        try:
+            scorers.extend(load_scorer_config(config))
+        except (ScorerConfigError, OSError, ValueError) as exc:
+            print(exc, file=sys.stderr)
+            return 2
+    names = [s.name for s in scorers]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        print(f"scorer names must be unique; repeated: {dupes}", file=sys.stderr)
+        return 2
+    allowed = set(args.allow_egress or [])
+    for s in scorers:
+        if getattr(s, "egress", "none") == "external" and getattr(s, "host", "") not in allowed:
+            print(
+                f"refusing scorer {s.name!r}: cases would leave this machine for "
+                f"{getattr(s, 'host', '')!r}. If that egress is approved (data licence, "
+                f"masking, processor), pass --allow-egress {getattr(s, 'host', '')}",
+                file=sys.stderr,
+            )
             return 2
     try:
         report = evaluate(cases, golds, lock, scorers, split=args.split)
@@ -273,6 +289,7 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
         return 1
     report["manifest"]["egress_allowed"] = sorted(set(args.allow_egress or []))
     args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    print(f"[{report['evidence_class']}] {report['evidence_note']}")
     for row in report["comparison"]:
         print(
             f"{row['scorer']:10s} {row['task']:26s} macro-F1 {row['macro_f1']}  "
@@ -459,7 +476,14 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--cases", type=Path, required=True)
     ev.add_argument("--gold", type=Path, required=True)
     ev.add_argument(
-        "--scorer", action="append", required=True, help="rules | logreg | jef | http=URL"
+        "--scorer", action="append", help="rules | logreg | jef | http=URL (repeatable)"
+    )
+    ev.add_argument(
+        "--scorer-config",
+        action="append",
+        type=Path,
+        help="JSON file of named, pinned remote scorers (systemone or gateway); see "
+        "benchmark/socbench/scorers.example.json",
     )
     ev.add_argument("--split", default="test")
     ev.add_argument(

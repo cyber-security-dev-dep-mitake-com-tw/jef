@@ -1,0 +1,48 @@
+{
+  "scorers": [
+    {
+      "name": "laya-pinned",
+      "type": "systemone",
+      "url": "http://127.0.0.1:9001",
+      "model": "laya",
+      "provider": "NandhaKishorM/laya, self-hosted",
+      "version": "<release tag>",
+      "checkpoint_sha256": "sha256:<digest of the weights file>",
+      "fine_tuned": false,
+      "hardware": "<CPU/GPU, threads>",
+      "data_flow": "local, loopback only",
+      "price_per_1k_cases_usd": 0
+    },
+    {
+      "name": "jev-official-1.14.0",
+      "type": "systemone",
+      "url": "https://api.typesafe.ai",
+      "model": "jev-1.14.0",
+      "auth_env": "TYPESAFE_API_KEY",
+      "provider": "TypeSafe AI",
+      "version": "jev-1.14.0",
+      "data_flow": "external: needs --allow-egress api.typesafe.ai and an approved data processing agreement",
+      "price_per_1k_cases_usd": null,
+      "timeout_s": 60,
+      "retries": 1
+    },
+    {
+      "name": "jev-via-ai-gateway",
+      "type": "gateway",
+      "url": "https://ai-gateway.vercel.sh/v4/ai",
+      "model": "typesafe-ai/jev",
+      "auth_env": "AI_GATEWAY_API_KEY",
+      "provider": "Vercel AI Gateway -> TypeSafe AI",
+      "data_flow": "external: needs --allow-egress ai-gateway.vercel.sh",
+      "timeout_s": 60
+    },
+    {
+      "name": "jev-local-research",
+      "type": "systemone",
+      "url": "http://127.0.0.1:4141",
+      "model": "jev-latest",
+      "provider": "research/jev-local (Claude-backed stand-in, NOT the official Jev)",
+      "data_flow": "local server; the claude backend sends cases to Anthropic"
+    }
+  ]
+}

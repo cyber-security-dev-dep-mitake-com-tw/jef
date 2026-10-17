@@ -164,6 +164,20 @@ often a scorer would auto-close a case whose gold is `unknown` and how many
 positives it would auto-close (mistaken closures). Everything is broken down
 by language, trust tier and source, with p50/p95 latency.
 
+
+### Comparing other systems fairly
+
+`--scorer-config FILE` adds named, pinned remote systems beside `rules`, `logreg` and `jef` (start from [`scorers.example.json`](scorers.example.json)). Two types exist: `systemone` for any `POST /v1/systemone` service (TypeSafe's API, a JEF server, Laya, an LLM wrapper, `research/jev-local`) and `gateway` for the Vercel AI Gateway decision-model dialect. The rules every comparison follows, enforced by the code:
+
+- **Same question.** Every scorer, JEF included, is asked `verdict_question(task)`: the same instructions and the same options in the same order. The prompt digest is in the report manifest.
+- **Unique names, pinned versions.** Names must be unique across all scorers or the run stops. Provider, version, checkpoint digest, hardware, price and data flow from the config are copied into the manifest.
+- **Credentials from the environment only.** `auth_env` names a variable; an unset variable stops the run before any case is sent, and the value never appears in the config, the manifest or the report. Keys that look like inline secrets are rejected.
+- **Failures are failures.** A reply without a full distribution over the task's labels (no probabilities, a refusal, missing labels, not summing to 1) is counted under `failures.by_error` with its reason, never filled in. `cases` and `answered` are reported per scorer.
+- **No silent egress.** A scorer whose host is not loopback is refused unless `--allow-egress HOST` names it. A loopback adapter that forwards elsewhere still needs a data-flow review.
+- **Say what the labels were.** Every report carries `evidence_class`: `TIER-A GOLD` only when every scored case had two independent reviewers, `SINGLE-REVIEW RESEARCH` with Tier B, otherwise `SOURCE-LABEL RESEARCH`. The CLI prints it first.
+
+`research/jev-local` is a compatibility stand-in; name it as such and never report it as the official Jev.
+
 ## Rules the code enforces
 
 1. **Restricted sources are never downloaded.** `request-form` and `registration-or-contact` sources (LANL, CICIDS2017, the CAC dataset) raise before any network call and print how a human applies. The pipeline does not fill forms or scrape around gates: the gate is the owner's condition of use.
