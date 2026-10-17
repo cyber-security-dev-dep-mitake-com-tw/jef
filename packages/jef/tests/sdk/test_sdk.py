@@ -151,3 +151,11 @@ def test_remote_discovery(remote: JefClient) -> None:
     assert remote.models()[0]["id"]
     assert remote.limits()["max_questions_per_request"] > 0
     assert remote.health()["status"] == "ok"
+
+
+def test_embedded_default_says_it_is_the_test_stub(caplog) -> None:
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="jef.sdk"):
+        Jef()
+    assert "backbone='hashing' is the test stub" in caplog.text

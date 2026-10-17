@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from jef_core import BilinearHead, Calibrator, Engine, EvaluateResponse, ZeroShotHead
-from jef_core.backends import load_backbone
+from jef_core.backends import DEFAULT_MODEL_ID, load_backbone
 from jef_core.calibration import file_sha256
 from jef_core.head import DecisionHead
 from jef_scene import Scene, SceneEngine, SceneRegistry, SceneTrace, load_scene
@@ -47,6 +47,15 @@ class Jef:
         kwargs: dict[str, Any] = {}
         if threads and backbone != "hashing":
             kwargs["threads"] = threads
+        if backbone == "hashing":
+            # Still the default -- it is what lets contract tests run without
+            # the network -- but a caller who forgot to name a model should
+            # hear it at construction, not only in each response's warnings.
+            log.warning(
+                "backbone='hashing' is the test stub: answers are well-formed but carry "
+                "no meaning. Pass a model id, e.g. Jef(%r), for real use.",
+                DEFAULT_MODEL_ID,
+            )
 
         resolved_head: DecisionHead
         if head is None:

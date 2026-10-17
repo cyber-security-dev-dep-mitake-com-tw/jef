@@ -17,6 +17,11 @@ type Bilinear struct {
 	Scale float64
 	Bias  float64
 	Name  string
+	// Backbone and BackboneRevision name the encoder weights the head was
+	// fitted on. Empty on heads saved before they were recorded. Dim alone
+	// cannot tell two 768-wide encoders apart, so CheckBackbone compares these.
+	Backbone         string
+	BackboneRevision string
 }
 
 // LoadBilinear reads a head.npz written by jef_core.head.BilinearHead.save.
@@ -25,9 +30,8 @@ func LoadBilinear(path string) (*Bilinear, error) {
 	if err != nil {
 		return nil, err
 	}
-	// `name` is stored as a unicode array and is not needed here; the numeric
-	// members this head requires are validated immediately below.
-	_ = skipped
+	// `name`, `backbone` and `backbone_revision` are unicode arrays, which
+	// ReadNPZ skips; the backbone identity is read separately below.
 	u, ok := arrays["u"]
 	if !ok {
 		return nil, fmt.Errorf("jef: %s has no 'u' array", path)
@@ -51,7 +55,37 @@ func LoadBilinear(path string) (*Bilinear, error) {
 			h.Bias = val
 		}
 	}
+	if len(skipped) > 0 {
+		text, err := ReadNPZText(path)
+		if err != nil {
+			return nil, err
+		}
+		h.Backbone, h.BackboneRevision = text["backbone"], text["backbone_revision"]
+	}
 	return h, nil
+}
+
+// CheckBackbone mirrors jef_core.engine._check_artifacts for the head: an
+// error when the head names other weights than the ones loaded, and a warning
+// (non-empty string) when the pairing cannot be verified.
+func (h *Bilinear) CheckBackbone(name, revision string) (string, error) {
+	if h.Backbone == "" {
+		return fmt.Sprintf("head does not record its backbone, so only its dimension can be checked against %s", name), nil
+	}
+	if h.Backbone != name {
+		return "", fmt.Errorf(
+			"jef: head was trained on backbone %q but %q is loaded; its answers would be computed against vectors it never saw",
+			h.Backbone, name)
+	}
+	if h.BackboneRevision != "" && revision != "" && h.BackboneRevision != revision {
+		return "", fmt.Errorf(
+			"jef: head was trained on %s@%s but %s@%s is loaded; export %s@%s or refit",
+			name, h.BackboneRevision, name, revision, name, h.BackboneRevision)
+	}
+	if h.BackboneRevision != "" && revision == "" {
+		return fmt.Sprintf("head was trained on %s@%s; the loaded backbone does not report a revision, so that cannot be verified", name, h.BackboneRevision), nil
+	}
+	return "", nil
 }
 
 // Dim is the backbone hidden size this head expects.

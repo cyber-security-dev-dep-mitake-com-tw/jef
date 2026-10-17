@@ -16,6 +16,7 @@ import (
 // `python -m jef_train.export_onnx`.
 type Meta struct {
 	ModelID               string   `json:"model_id"`
+	Revision              string   `json:"revision"`
 	Opset                 int      `json:"opset"`
 	HiddenSize            int      `json:"hidden_size"`
 	MaxPositionEmbeddings int      `json:"max_position_embeddings"`
@@ -149,6 +150,10 @@ func (o *ONNX) Name() string { return o.meta.ModelID }
 
 // Dim is the encoder hidden size.
 func (o *ONNX) Dim() int { return o.meta.HiddenSize }
+
+// Revision is the Hub commit the graph was exported from, or "" for exports
+// that predate recording it.
+func (o *ONNX) Revision() string { return o.meta.Revision }
 
 // Close releases the session.
 func (o *ONNX) Close() error {

@@ -31,6 +31,13 @@ class BackendUnavailableError(JefError):
     status = 503
 
 
+class ArtifactMismatchError(JefError):
+    """Trained artifacts were produced against a different backbone than the one loaded."""
+
+    code = "artifact_mismatch"
+    status = 500
+
+
 class SceneError(JefError):
     """A scene definition or evaluation failed."""
 

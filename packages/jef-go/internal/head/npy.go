@@ -52,55 +52,15 @@ var (
 	descrRe = regexp.MustCompile(`'descr':\s*'([^']+)'`)
 	orderRe = regexp.MustCompile(`'fortran_order':\s*(True|False)`)
 	shapeRe = regexp.MustCompile(`'shape':\s*\(([^)]*)\)`)
+	// numpy writes '<U13' for np.array("jhu-clsp/...") on little-endian hosts.
+	unicodeRe = regexp.MustCompile(`^[<|=]U(\d+)$`)
 )
 
 // ReadNPY decodes one .npy stream.
 func ReadNPY(r io.Reader) (Array, error) {
-	var magic [6]byte
-	if _, err := io.ReadFull(r, magic[:]); err != nil {
-		return Array{}, fmt.Errorf("jef: reading npy magic: %w", err)
-	}
-	if string(magic[:]) != "\x93NUMPY" {
-		return Array{}, fmt.Errorf("jef: not a .npy file (magic %q)", magic)
-	}
-
-	var version [2]byte
-	if _, err := io.ReadFull(r, version[:]); err != nil {
-		return Array{}, fmt.Errorf("jef: reading npy version: %w", err)
-	}
-
-	var headerLen int
-	switch version[0] {
-	case 1:
-		var n uint16
-		if err := binary.Read(r, binary.LittleEndian, &n); err != nil {
-			return Array{}, fmt.Errorf("jef: reading npy header length: %w", err)
-		}
-		headerLen = int(n)
-	case 2, 3:
-		var n uint32
-		if err := binary.Read(r, binary.LittleEndian, &n); err != nil {
-			return Array{}, fmt.Errorf("jef: reading npy header length: %w", err)
-		}
-		headerLen = int(n)
-	default:
-		return Array{}, fmt.Errorf("jef: unsupported .npy version %d.%d", version[0], version[1])
-	}
-
-	header := make([]byte, headerLen)
-	if _, err := io.ReadFull(r, header); err != nil {
-		return Array{}, fmt.Errorf("jef: reading npy header: %w", err)
-	}
-	meta := string(header)
-
-	descr := descrRe.FindStringSubmatch(meta)
-	if descr == nil {
-		return Array{}, fmt.Errorf("jef: npy header has no dtype: %q", meta)
-	}
-	if m := orderRe.FindStringSubmatch(meta); m != nil && m[1] == "True" {
-		// JEF never writes Fortran order; if one appears, the file did not come
-		// from this pipeline and silently transposing it would be worse.
-		return Array{}, fmt.Errorf("jef: Fortran-ordered arrays are not supported")
+	descr, meta, err := readHeader(r)
+	if err != nil {
+		return Array{}, err
 	}
 
 	shape, count, err := parseShape(meta)
@@ -108,11 +68,95 @@ func ReadNPY(r io.Reader) (Array, error) {
 		return Array{}, err
 	}
 
-	data, err := readTyped(r, descr[1], count)
+	data, err := readTyped(r, descr, count)
 	if err != nil {
 		return Array{}, err
 	}
 	return Array{Shape: shape, Data: data}, nil
+}
+
+// readHeader consumes the magic, version and header dict, returning the dtype
+// descriptor and the raw header text.
+func readHeader(r io.Reader) (descr, meta string, err error) {
+	var magic [6]byte
+	if _, err := io.ReadFull(r, magic[:]); err != nil {
+		return "", "", fmt.Errorf("jef: reading npy magic: %w", err)
+	}
+	if string(magic[:]) != "\x93NUMPY" {
+		return "", "", fmt.Errorf("jef: not a .npy file (magic %q)", magic)
+	}
+
+	var version [2]byte
+	if _, err := io.ReadFull(r, version[:]); err != nil {
+		return "", "", fmt.Errorf("jef: reading npy version: %w", err)
+	}
+
+	var headerLen int
+	switch version[0] {
+	case 1:
+		var n uint16
+		if err := binary.Read(r, binary.LittleEndian, &n); err != nil {
+			return "", "", fmt.Errorf("jef: reading npy header length: %w", err)
+		}
+		headerLen = int(n)
+	case 2, 3:
+		var n uint32
+		if err := binary.Read(r, binary.LittleEndian, &n); err != nil {
+			return "", "", fmt.Errorf("jef: reading npy header length: %w", err)
+		}
+		headerLen = int(n)
+	default:
+		return "", "", fmt.Errorf("jef: unsupported .npy version %d.%d", version[0], version[1])
+	}
+
+	header := make([]byte, headerLen)
+	if _, err := io.ReadFull(r, header); err != nil {
+		return "", "", fmt.Errorf("jef: reading npy header: %w", err)
+	}
+	meta = string(header)
+
+	m := descrRe.FindStringSubmatch(meta)
+	if m == nil {
+		return "", "", fmt.Errorf("jef: npy header has no dtype: %q", meta)
+	}
+	if o := orderRe.FindStringSubmatch(meta); o != nil && o[1] == "True" {
+		// JEF never writes Fortran order; if one appears, the file did not come
+		// from this pipeline and silently transposing it would be worse.
+		return "", "", fmt.Errorf("jef: Fortran-ordered arrays are not supported")
+	}
+	return m[1], meta, nil
+}
+
+// readNPYText decodes a single unicode string, the way numpy stores
+// np.array("text"): dtype <U<n>, UTF-32LE, NUL-padded to n code points.
+func readNPYText(r io.Reader) (string, error) {
+	descr, meta, err := readHeader(r)
+	if err != nil {
+		return "", err
+	}
+	m := unicodeRe.FindStringSubmatch(descr)
+	if m == nil {
+		return "", fmt.Errorf("%w: %q is not a unicode string", errUnsupportedDtype, descr)
+	}
+	if _, count, err := parseShape(meta); err != nil {
+		return "", err
+	} else if count != 1 {
+		return "", fmt.Errorf("%w: expected one string, got %d", errUnsupportedDtype, count)
+	}
+	width, _ := strconv.Atoi(m[1])
+	buf := make([]byte, 4*width)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return "", fmt.Errorf("jef: reading unicode payload: %w", err)
+	}
+	runes := make([]rune, 0, width)
+	for i := 0; i < width; i++ {
+		c := rune(binary.LittleEndian.Uint32(buf[i*4:]))
+		if c == 0 {
+			break
+		}
+		runes = append(runes, c)
+	}
+	return string(runes), nil
 }
 
 func parseShape(meta string) ([]int, int, error) {
@@ -199,4 +243,33 @@ func ReadNPZ(path string) (arrays map[string]Array, skipped []string, err error)
 		arrays[name] = arr
 	}
 	return arrays, skipped, nil
+}
+
+// ReadNPZText decodes the scalar unicode members of a .npz archive -- the
+// strings ReadNPZ skips -- keyed by member name. Members of any other dtype
+// are ignored; ReadNPZ is the reader for those.
+func ReadNPZText(path string) (map[string]string, error) {
+	zr, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, fmt.Errorf("jef: opening %s: %w", path, err)
+	}
+	defer zr.Close()
+
+	out := make(map[string]string)
+	for _, f := range zr.File {
+		rc, openErr := f.Open()
+		if openErr != nil {
+			return nil, fmt.Errorf("jef: opening %s in %s: %w", f.Name, path, openErr)
+		}
+		text, decodeErr := readNPYText(rc)
+		rc.Close()
+		if decodeErr != nil {
+			if errors.Is(decodeErr, errUnsupportedDtype) {
+				continue
+			}
+			return nil, fmt.Errorf("jef: decoding %s in %s: %w", f.Name, path, decodeErr)
+		}
+		out[strings.TrimSuffix(f.Name, ".npy")] = text
+	}
+	return out, nil
 }
