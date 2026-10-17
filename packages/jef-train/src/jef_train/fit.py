@@ -16,7 +16,7 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from jef_core.backends import load_backbone
+from jef_core.backends import backbone_revision, load_backbone, resolve_backbone_spec
 from jef_core.calibration import ArtifactInfo, Calibrator, file_sha256, split_bucket_key
 
 from .cache import FeatureCache, build_feature_cache
@@ -33,7 +33,7 @@ _SPLITS = ("train", "calibration", "test")
 
 def _corpus_cache(
     corpus: Path, cache_dir: Path, backbone_spec: str, threads: int | None
-) -> FeatureCache:
+) -> tuple[FeatureCache, str | None]:
     """Encode the whole corpus once, and keep it.
 
     Deliberately not per split. The splits changed once already -- from
@@ -42,29 +42,39 @@ def _corpus_cache(
     the backbone over 12,000 samples to fix a split is the kind of cost that
     discourages fixing it. Slicing a whole-corpus cache by uid costs milliseconds.
 
-    Keyed by backbone: features from a different encoder are not interchangeable,
-    and silently reusing them would train a head against vectors it will never
-    see at inference.
+    Keyed by backbone and revision: features from a different encoder -- or
+    from the same repo after an upstream push -- are not interchangeable, and
+    silently reusing them would train a head against vectors it will never see
+    at inference. Returns the features and the revision they came from.
     """
-    safe = backbone_spec.replace("/", "__")
+    model_id, revision = (
+        (backbone_spec, None)
+        if backbone_spec == "hashing"
+        else resolve_backbone_spec(backbone_spec)
+    )
+    safe = model_id.replace("/", "__") + (f"@{revision}" if revision else "")
     path = cache_dir / f"all.{safe}.npz"
-    if path.exists():
+    # Unpinned features are never reused: nothing says `main` still points
+    # where it did when they were written.
+    if path.exists() and (revision or model_id == "hashing"):
         cached = FeatureCache.load(path)
         log.info("loaded cached features: %s (%d samples)", path, len(cached))
-        return cached
+        return cached, revision
 
     samples = list(read_samples(corpus / "all.jsonl"))
     kwargs: dict[str, object] = {}
     if threads and backbone_spec != "hashing":
         kwargs["threads"] = threads
     backbone = load_backbone(backbone_spec, **kwargs)
+    # An unpinned spec resolves to whatever `main` is now; record that commit.
+    revision = backbone_revision(backbone) or revision
 
     log.info("encoding %d samples with %s ...", len(samples), backbone_spec)
     started = time.perf_counter()
     cache = build_feature_cache(samples, backbone)
     log.info("encoded corpus in %.1fs", time.perf_counter() - started)
     cache.save(path)
-    return cache
+    return cache, revision
 
 
 def _split_caches(
@@ -145,7 +155,8 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
-    whole = _corpus_cache(corpus, cache_dir, args.backbone, args.threads)
+    whole, revision = _corpus_cache(corpus, cache_dir, args.backbone, args.threads)
+    backbone_id = whole.backbone
     caches = _split_caches(corpus, whole, exclude=args.exclude_source)
     if args.exclude_source:
         log.info("excluded sources matching: %s", ", ".join(args.exclude_source))
@@ -168,13 +179,15 @@ def main(argv: list[str] | None = None) -> int:
             threads=args.threads,
         ),
     )
+    # The head is only meaningful on these exact weights, so it says which.
+    head.backbone, head.backbone_revision = backbone_id, revision
     head.save(out / "head.npz")
 
     # Calibrate on the split the head never trained on. Fitting temperature on
     # training data produces a calibrator that looks excellent and generalises
     # not at all -- the exact failure this project claims to fix.
     calib_logits = logits_for(head, caches["calibration"])
-    calibrator = Calibrator(backbone=args.backbone, head=head.name)
+    calibrator = Calibrator(backbone=backbone_id, backbone_revision=revision or "", head=head.name)
     for bucket, idx in caches["calibration"].buckets().items():
         task, kind, width = split_bucket_key(bucket)
         calibrator.fit_bucket(
@@ -208,7 +221,8 @@ def main(argv: list[str] | None = None) -> int:
     baseline = majority_baseline(caches["test"])
 
     report = {
-        "backbone": args.backbone,
+        "backbone": backbone_id,
+        "backbone_revision": revision,
         "head": head.name,
         "rank": args.rank,
         "class_weighting": not args.no_class_weighting,

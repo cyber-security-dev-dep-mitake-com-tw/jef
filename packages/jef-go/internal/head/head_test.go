@@ -187,3 +187,54 @@ func TestNPZRejectsAMissingFile(t *testing.T) {
 		t.Error("loading a missing head should fail")
 	}
 }
+
+// head-identity.npz is written by jef_core.head.BilinearHead.save with a
+// backbone recorded, so this reads exactly what the Python trainer produces.
+func identityHeadPath() string { return filepath.Join("..", "..", "testdata", "head-identity.npz") }
+
+const pinnedRevision = "c5955035435e2bf121cde7f3c8863ef52ff35d82"
+
+func TestNPZReadsTheBackboneIdentity(t *testing.T) {
+	h, err := head.LoadBilinear(identityHeadPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.Backbone != "jhu-clsp/mmBERT-base" || h.BackboneRevision != pinnedRevision {
+		t.Errorf("identity: got %q@%q", h.Backbone, h.BackboneRevision)
+	}
+	if h.Dim() != 8 || h.Rank() != 4 || h.Scale != 3 || h.Bias != 0.25 {
+		t.Errorf("numeric members: dim %d rank %d scale %v bias %v", h.Dim(), h.Rank(), h.Scale, h.Bias)
+	}
+}
+
+func TestCheckBackboneRefusesOtherWeights(t *testing.T) {
+	h, err := head.LoadBilinear(identityHeadPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, err := h.CheckBackbone("jhu-clsp/mmBERT-base", pinnedRevision); err != nil || w != "" {
+		t.Errorf("matching backbone: warning %q, err %v", w, err)
+	}
+	if _, err := h.CheckBackbone("intfloat/multilingual-e5-base", pinnedRevision); err == nil {
+		t.Error("a head on another model must be refused, even at the same dimension")
+	}
+	if _, err := h.CheckBackbone("jhu-clsp/mmBERT-base", "212719a285585190121d7255ab5da22e97818e85"); err == nil {
+		t.Error("a head on another revision of its model must be refused")
+	}
+	if w, err := h.CheckBackbone("jhu-clsp/mmBERT-base", ""); err != nil || w == "" {
+		t.Errorf("an export without a revision should warn, not fail: warning %q, err %v", w, err)
+	}
+}
+
+func TestCheckBackboneWarnsOnALegacyHead(t *testing.T) {
+	h, err := head.LoadBilinear(headPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h.Backbone != "" {
+		t.Fatalf("testdata/head.npz predates recorded identity, got %q", h.Backbone)
+	}
+	if w, err := h.CheckBackbone("hashing", ""); err != nil || w == "" {
+		t.Errorf("legacy head: warning %q, err %v", w, err)
+	}
+}

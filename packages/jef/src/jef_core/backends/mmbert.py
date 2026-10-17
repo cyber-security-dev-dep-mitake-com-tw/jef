@@ -12,6 +12,8 @@ training feasible, because these outputs can be computed once and cached.
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -19,19 +21,26 @@ from numpy.typing import NDArray
 
 from ..backbone import StateEncoding
 from ..errors import BackendUnavailableError
+from .pins import DEFAULT_MODEL_ID, resolve_backbone_spec
 
 __all__ = ["DEFAULT_MODEL_ID", "MmBertBackbone"]
 
-DEFAULT_MODEL_ID = "jhu-clsp/mmBERT-base"
+log = logging.getLogger("jef.backbone")
 
 
 class MmBertBackbone:
-    """Frozen HuggingFace encoder exposing token-level hidden states."""
+    """Frozen HuggingFace encoder exposing token-level hidden states.
+
+    ``revision`` is the Hub commit actually loaded, or ``None`` when it cannot
+    be known (a local directory). A trained head records the revision it was
+    fitted against, and the engine refuses to pair it with any other.
+    """
 
     def __init__(
         self,
         model_id: str = DEFAULT_MODEL_ID,
         *,
+        revision: str | None = None,
         device: str | None = None,
         max_state_tokens: int = 8192,
         max_query_tokens: int = 256,
@@ -51,13 +60,25 @@ class MmBertBackbone:
             # thread count is the main throughput lever.
             torch.set_num_threads(threads)
 
+        model_id, revision = resolve_backbone_spec(model_id, revision)
+        if revision is None and not Path(model_id).is_dir():
+            log.warning(
+                "backbone %s is not pinned to a revision: it follows the Hub's main "
+                "branch, so an upstream push changes its vectors. Use %s@<commit>.",
+                model_id,
+                model_id,
+            )
+
         self.name = model_id
         self.max_state_tokens = max_state_tokens
         self.max_query_tokens = max_query_tokens
         self.device = device or ("mps" if torch.backends.mps.is_available() else "cpu")
 
-        self._tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModel.from_pretrained(model_id)
+        self._tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        model = AutoModel.from_pretrained(model_id, revision=revision)
+        # The commit the Hub resolved, so a branch name or `main` is recorded
+        # as what it pointed at when these weights were read.
+        self.revision: str | None = getattr(model.config, "_commit_hash", None) or revision
         model.eval()
         for p in model.parameters():  # frozen: D1
             p.requires_grad_(False)

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // bin/jev.mjs — local Jev on this Mac.
-//   jev serve [--port 4141] [--backend claude|heuristic] [--model claude-haiku-5-5] [--samples N]
+//   jev serve [--port 4141] [--backend heuristic|claude] [--allow-third-party] [--model claude-haiku-5-5] [--samples N]
+//     The default backend is heuristic (offline, TEST-ONLY). claude sends request state to Anthropic and
+//     needs --allow-third-party (or JEV_ALLOW_THIRD_PARTY=1); the server refuses to start without it.
 //   jev ask "<state>" --noul id="question" --choice id="question" opt1="desc" opt2="desc" --score id="question" "L0" "L1" "L2"
 //   jev models
 // `ask` talks to a running server (JEV_BASE, default http://127.0.0.1:4141/v1) and prints the native TypeSafe response.
@@ -14,9 +16,13 @@ const cmd = args.shift();
 const BASE = process.env.JEV_BASE || 'http://127.0.0.1:4141/v1';
 
 function flag(name, def) { const i = args.indexOf(name); if (i < 0) return def; const v = args[i + 1]; args.splice(i, 2); return v; }
+function bool(name) { const i = args.indexOf(name); if (i < 0) return false; args.splice(i, 1); return true; }
 
 if (cmd === 'serve') {
-  const env = { ...process.env, PORT: flag('--port', process.env.PORT || '4141'), JEV_BACKEND: flag('--backend', process.env.JEV_BACKEND || 'claude') };
+  // Same default as server.mjs. They used to disagree (CLI claude, server heuristic), so
+  // `npm start` sent data to a third party while `node server.mjs` did not.
+  const env = { ...process.env, PORT: flag('--port', process.env.PORT || '4141'), JEV_BACKEND: flag('--backend', process.env.JEV_BACKEND || 'heuristic') };
+  if (bool('--allow-third-party')) env.JEV_ALLOW_THIRD_PARTY = '1';
   const model = flag('--model'); if (model) env.JEV_CLAUDE_MODEL = model;
   const samples = flag('--samples'); if (samples) env.JEV_SAMPLES = samples;
   const p = spawn(process.execPath, [join(here, '..', 'server.mjs')], { stdio: 'inherit', env });
@@ -40,6 +46,6 @@ if (cmd === 'serve') {
 } else usage();
 
 function usage() {
-  console.error(`usage:\n  jev serve [--port 4141] [--backend claude|heuristic] [--model claude-haiku-5-5] [--samples N]\n  jev ask "<state>" --noul id="question" | --choice id="question" opt="desc" ... | --score id="question" "L0" "L1" ...\n  jev models`);
+  console.error(`usage:\n  jev serve [--port 4141] [--backend heuristic|claude] [--allow-third-party] [--model claude-haiku-5-5] [--samples N]\n  jev ask "<state>" --noul id="question" | --choice id="question" opt="desc" ... | --score id="question" "L0" "L1" ...\n  jev models`);
   process.exit(2);
 }

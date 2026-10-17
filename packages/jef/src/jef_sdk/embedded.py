@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from jef_core import BilinearHead, Calibrator, Engine, EvaluateResponse, ZeroShotHead
-from jef_core.backends import load_backbone
+from jef_core.backends import DEFAULT_MODEL_ID, load_backbone
 from jef_core.calibration import file_sha256
 from jef_core.head import DecisionHead
+from jef_core.model_manifest import check_model_dir
 from jef_scene import Scene, SceneEngine, SceneRegistry, SceneTrace, load_scene
 
 log = logging.getLogger("jef.sdk")
@@ -47,6 +48,15 @@ class Jef:
         kwargs: dict[str, Any] = {}
         if threads and backbone != "hashing":
             kwargs["threads"] = threads
+        if backbone == "hashing":
+            # Still the default -- it is what lets contract tests run without
+            # the network -- but a caller who forgot to name a model should
+            # hear it at construction, not only in each response's warnings.
+            log.warning(
+                "backbone='hashing' is the test stub: answers are well-formed but carry "
+                "no meaning. Pass a model id, e.g. Jef(%r), for real use.",
+                DEFAULT_MODEL_ID,
+            )
 
         resolved_head: DecisionHead
         if head is None:
@@ -63,6 +73,13 @@ class Jef:
         else:
             calibrator = calibration
         if isinstance(head, (str, Path)) and Path(head).is_file():
+            verification = check_model_dir(Path(head).parent)
+            if verification.status == "mismatch":
+                log.error(
+                    "model manifest mismatch; running WITHOUT calibration: %s",
+                    "; ".join(verification.problems),
+                )
+                calibrator = Calibrator()
             calibrator.bind_model(file_sha256(head))
         if calibrator.legacy:
             log.warning(

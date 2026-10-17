@@ -7,7 +7,10 @@
   "scripts": {
     "start": "node bin/jev.mjs serve",
     "start:heuristic": "node bin/jev.mjs serve --backend heuristic",
+    "start:claude": "node bin/jev.mjs serve --backend claude --allow-third-party",
     "test": "node test-decide.mjs",
+    "test:unit": "node --test test/*.test.mjs",
+    "eval:injection": "node eval-injection.mjs",
     "test:sdk": "node test-typesafe-sdk.mjs",
     "bench": "node bench-fidelity.mjs"
   },

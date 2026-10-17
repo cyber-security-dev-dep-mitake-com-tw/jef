@@ -28,6 +28,7 @@ Or `pip install "jef[server]"` to get it with the CLI.
 |---|---|
 | `JEF_BACKBONE` | Model id, or `hashing` for the deterministic test stub |
 | `JEF_HEAD_PATH` `JEF_CALIBRATION_PATH` | Trained artifacts |
+| `JEF_MODEL_MANIFEST` | `manifest.json` to verify the head and calibration against; defaults to the one beside the head. On a mismatch the server runs without calibration and `/healthz` says `model_manifest: mismatch`. |
 | `JEF_SCENES_DIR` | Scenes to load and compile at startup |
 | `JEF_THREADS` | Intra-op threads. Set below the CPU limit — oversubscribing worsens p99. |
 | `JEF_UI_DIR` | Enables `/ui` |
@@ -43,7 +44,7 @@ Or `pip install "jef[server]"` to get it with the CLI.
 
 ### Readiness
 
-`GET /healthz` always answers `status: ok` when the process is up, and adds what a deployer needs to decide whether it is *fit to serve*: `test_backbone`, `calibrated`, `calibration_scope`, `auth`, and `production_safe`, which is true only with a real backbone, a fitted calibrator and app-level authentication. Gate a production rollout on `production_safe`, not on `status`.
+`GET /healthz` always answers `status: ok` when the process is up, and adds what a deployer needs to decide whether it is *fit to serve*: `test_backbone`, `calibrated`, `calibration_scope`, `auth`, `model_manifest`, and `production_safe`, which is true only with a real backbone, a fitted calibrator, app-level authentication and a verified model manifest. Gate a production rollout on `production_safe`, not on `status`.
 
 ## The metric worth alerting on
 

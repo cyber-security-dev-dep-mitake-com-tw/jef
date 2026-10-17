@@ -43,3 +43,25 @@ def test_publishing_needs_neither_torch_nor_the_rest_of_jef() -> None:
         "weights job -- move the import into the function that needs it, or "
         "change the job to install the package."
     )
+
+
+def test_the_card_carries_provenance_from_the_manifest() -> None:
+    import json
+
+    from jef_train.publish_weights import build_model_card
+
+    root = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+    model = root / "models" / "jef-v0"
+    report = json.loads((model / "report.json").read_text(encoding="utf-8"))
+    manifest = json.loads((model / "manifest.json").read_text(encoding="utf-8"))
+    card = build_model_card(report, "x/y", "0.0.0", manifest)
+    assert manifest["artifacts"]["head.npz"]["sha256"] in card
+    assert "**legacy**" in card, "a schema-1 calibration must be called legacy on the card"
+    assert "Out of scope" in card and "Intended use" in card
+    assert "unverified" in build_model_card(report, "x/y", "0.0.0", None)
+
+
+def test_publishing_requires_the_manifest() -> None:
+    from jef_train.publish_weights import ARTIFACTS
+
+    assert "manifest.json" in ARTIFACTS

@@ -40,12 +40,18 @@ _TOKENIZER_FILES = (
 
 def export(model_id: str, out: Path, *, opset: int = 17) -> dict[str, object]:
     import torch
+    from jef_core.backends import resolve_backbone_spec
     from transformers import AutoModel, AutoTokenizer
 
     out.mkdir(parents=True, exist_ok=True)
 
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModel.from_pretrained(model_id)
+    # Graph and tokenizer files must come from the same commit, and the head
+    # the Go server pairs them with checks that commit -- so it is resolved
+    # once and used for every download.
+    model_id, revision = resolve_backbone_spec(model_id)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+    model = AutoModel.from_pretrained(model_id, revision=revision)
+    revision = getattr(model.config, "_commit_hash", None) or revision
     model.eval()
     for p in model.parameters():
         p.requires_grad_(False)
@@ -83,7 +89,7 @@ def export(model_id: str, out: Path, *, opset: int = 17) -> dict[str, object]:
     copied: list[str] = []
     for name in _TOKENIZER_FILES:
         try:
-            path = hf_hub_download(repo_id=model_id, filename=name)
+            path = hf_hub_download(repo_id=model_id, filename=name, revision=revision)
         except Exception as exc:
             log.info("skipping %s: %s", name, type(exc).__name__)
             continue
@@ -92,6 +98,7 @@ def export(model_id: str, out: Path, *, opset: int = 17) -> dict[str, object]:
 
     meta = {
         "model_id": model_id,
+        "revision": revision,
         "opset": opset,
         "hidden_size": int(model.config.hidden_size),
         "max_position_embeddings": int(getattr(model.config, "max_position_embeddings", 0)),
@@ -117,7 +124,9 @@ def export(model_id: str, out: Path, *, opset: int = 17) -> dict[str, object]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Export the JEF backbone to ONNX")
-    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--model", default=DEFAULT_MODEL, help="model id, optionally @revision (default: pinned)"
+    )
     parser.add_argument("--out", default="models/backbone")
     parser.add_argument("--opset", type=int, default=17)
     args = parser.parse_args(argv)

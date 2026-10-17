@@ -20,6 +20,9 @@ class Settings:
     backbone: str = "hashing"
     head_path: str | None = None
     calibration_path: str | None = None
+    #: manifest.json to verify the head and calibration against. Defaults to
+    #: ``manifest.json`` next to the head when that file exists.
+    model_manifest: str | None = None
     model_name: str | None = None
     scenes_dir: str | None = None
     #: Directory holding the debug UI. Empty disables the route entirely.
@@ -98,6 +101,7 @@ def load_settings() -> Settings:
         backbone=os.environ.get("JEF_BACKBONE", "hashing"),
         head_path=os.environ.get("JEF_HEAD_PATH") or None,
         calibration_path=os.environ.get("JEF_CALIBRATION_PATH") or None,
+        model_manifest=os.environ.get("JEF_MODEL_MANIFEST") or None,
         model_name=os.environ.get("JEF_MODEL_NAME") or None,
         scenes_dir=os.environ.get("JEF_SCENES_DIR") or None,
         ui_dir=os.environ.get("JEF_UI_DIR") or None,

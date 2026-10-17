@@ -1,4 +1,4 @@
-// backends/heuristic.mjs — deterministic, offline stand-in for Jev's inference.
+// backends/heuristic.mjs — deterministic, offline stand-in for Jev's inference. TEST-ONLY.
 // Lexical overlap between (state + instructions) and each criterion, plus a few
 // cue-word heuristics, turned into a softmax distribution. Useful for contract
 // tests and demos without any model; NOT an accuracy clone of Jev.

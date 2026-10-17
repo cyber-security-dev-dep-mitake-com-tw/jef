@@ -92,6 +92,11 @@ class InstrumentedBackbone:
     def dim(self) -> int:
         return self._inner.dim
 
+    @property
+    def revision(self) -> str | None:
+        value = getattr(self._inner, "revision", None)
+        return str(value) if value else None
+
     def reset_counters(self) -> None:
         self.encode_count = 0
         self.query_encode_count = 0

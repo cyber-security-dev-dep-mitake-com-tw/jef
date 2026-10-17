@@ -10,6 +10,7 @@ run 20 gates for the price of one state encode (D3).
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -18,8 +19,8 @@ import numpy as np
 from .backbone import Backbone, InstrumentedBackbone, StateEncoding
 from .backends import load_backbone
 from .calibration import Calibrator
-from .errors import InvalidStateError
-from .head import DecisionHead, ZeroShotHead, build_query_texts
+from .errors import ArtifactMismatchError, InvalidStateError
+from .head import BilinearHead, DecisionHead, ZeroShotHead, build_query_texts
 from .mathx import confidence as confidence_of
 from .mathx import score_expectation
 from .types import (
@@ -36,6 +37,8 @@ from .types import (
 )
 
 __all__ = ["DEFAULT_BACKBONE", "Engine", "SharedState", "render_state"]
+
+log = logging.getLogger("jef.engine")
 
 #: Engine() with no arguments must never silently download 300M parameters, so
 #: the default is the deterministic test backbone. Production callers pass a
@@ -91,6 +94,7 @@ class Engine:
         self.backbone = InstrumentedBackbone(raw)
         self.head: DecisionHead = head or ZeroShotHead()
         self.calibrator = calibrator or Calibrator()
+        _check_artifacts(self.backbone, self.head, self.calibrator)
         self.alpha = alpha
         self.model_name = model_name or f"jef/{self.backbone.name}+{self.head.name}"
 
@@ -208,6 +212,57 @@ class Engine:
                 "confidence reflects distribution concentration only"
             )
         return w or None
+
+
+def _check_artifacts(
+    backbone: InstrumentedBackbone, head: DecisionHead, calibrator: Calibrator
+) -> None:
+    """Refuse a head trained on other weights; mark calibration for them incompatible.
+
+    The head is checked hard because its output is meaningless on another
+    encoder -- and a dimension check cannot see that when both are 768 wide.
+    Calibration follows the existing rule for a foreign head digest: it is
+    ``incompatible``, and its numbers are dropped rather than applied.
+    """
+    name, revision = backbone.name, backbone.revision
+    calibrator.bind_backbone(name, revision)
+    if calibrator.backbone_mismatch:
+        log.error(
+            "calibration is for another backbone (%s): treated as incompatible, "
+            "p_correct unavailable, prediction sets are the full set",
+            calibrator.backbone_mismatch,
+        )
+
+    if not isinstance(head, BilinearHead):
+        return
+    if head.backbone is None:
+        recorded = "" if calibrator.backbone_mismatch else calibrator.backbone
+        (log.info if recorded else log.warning)(
+            "head %r does not record its backbone, so only its dimension can be checked "
+            "against %s%s. Refit, or re-save it with the backbone it was trained on.",
+            head.name,
+            name,
+            f" (its calibration names {recorded})" if recorded else "",
+        )
+        return
+    if head.backbone != name:
+        raise ArtifactMismatchError(
+            f"head {head.name!r} was trained on backbone {head.backbone!r}, but {name!r} "
+            "is loaded; its answers would be computed against vectors it never saw"
+        )
+    if head.backbone_revision and revision and head.backbone_revision != revision:
+        raise ArtifactMismatchError(
+            f"head {head.name!r} was trained on {name}@{head.backbone_revision}, but "
+            f"{name}@{revision} is loaded; load {name}@{head.backbone_revision} or refit"
+        )
+    if head.backbone_revision and not revision:
+        log.warning(
+            "head %r was trained on %s@%s; the loaded backbone does not report a "
+            "revision, so that cannot be verified",
+            head.name,
+            name,
+            head.backbone_revision,
+        )
 
 
 def _round(x: float) -> float:

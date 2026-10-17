@@ -222,3 +222,49 @@ def test_api_003_test_backbone_is_never_production_safe() -> None:
     assert health["model_loaded"] is True
     assert health["calibration_scope"] == []
     assert health["production_safe"] is False
+
+
+# --------------------------------------------------------------------------- #
+# Model manifest at load
+# --------------------------------------------------------------------------- #
+
+
+def test_a_manifest_mismatch_drops_calibration_and_is_never_production_safe(tmp_path) -> None:
+    import json
+    import shutil
+    from pathlib import Path
+
+    from jef_core.model_manifest import build_manifest
+    from jef_server.deps import build_engine, manifest_check
+
+    shipped = (
+        next(p for p in Path(__file__).resolve().parents if (p / ".git").exists())
+        / "models"
+        / "jef-v0"
+    )
+    d = tmp_path / "m"
+    d.mkdir()
+    for name in ("head.npz", "calibration.json", "report.json"):
+        shutil.copy(shipped / name, d / name)
+    (d / "manifest.json").write_text(json.dumps(build_manifest(d, model_id="m", version="0")))
+
+    settings = Settings(head_path=str(d / "head.npz"), calibration_path=str(d / "calibration.json"))
+    assert manifest_check(settings).status == "verified"
+    assert build_engine(settings).calibrator.is_fitted()
+
+    (d / "calibration.json").write_text(
+        (d / "calibration.json").read_text().replace("0.", "0.0", 1)
+    )
+    assert manifest_check(settings).status == "mismatch"
+    engine = build_engine(settings)
+    assert not engine.calibrator.is_fitted(), "mismatched calibration must be dropped"
+
+    client = TestClient(create_app(engine=engine, settings=settings))
+    health = client.get("/healthz").json()
+    assert health["model_manifest"] == "mismatch"
+    assert health["production_safe"] is False
+
+
+def test_no_head_means_no_manifest_to_check() -> None:
+    client, _ = make_client()
+    assert client.get("/healthz").json()["model_manifest"] == "absent"

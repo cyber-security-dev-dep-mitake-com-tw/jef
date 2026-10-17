@@ -131,6 +131,39 @@ python scripts/set-version.py 0.2.0rc1
 git commit -am "chore: 0.2.0rc1" && git tag v0.2.0rc1 && git push --follow-tags
 ```
 
+### Weights, provenance and SBOMs
+
+`models/jef-v0/manifest.json` records the SHA-256 and size of `head.npz`,
+`calibration.json` and `report.json`, the backbone, the calibration schema
+and the head digest the calibration declares. Regenerate it whenever the
+weights change:
+
+```bash
+python scripts/model-manifest.py write models/jef-v0 --version 0.2.0rc5
+```
+
+CI and the release's `verify` job run `check --require` and fail when any
+byte disagrees (REL-003), so changed weights cannot ship under an old
+manifest. The `weights` job checks again on its own runner before uploading.
+The server and the embedded SDK verify the manifest beside the head at load
+(`JEF_MODEL_MANIFEST` to point elsewhere): on a mismatch they serve without
+calibration, `/healthz` reports `model_manifest: mismatch`, and
+`production_safe` is false.
+
+Every release also produces:
+
+| what | where | verify with |
+|---|---|---|
+| build provenance for each wheel and sdist | Sigstore attestation | `gh attestation verify dist/jef-*.whl --repo cyber-security-dev-dep-mitake-com-tw/jef` |
+| image provenance (SLSA, max mode) and an SPDX SBOM | attached to the image in GHCR, plus a GitHub attestation | `gh attestation verify oci://ghcr.io/cyber-security-dev-dep-mitake-com-tw/jef:<version> --repo …` |
+| weights provenance for the four model files | Sigstore attestation | `gh attestation verify head.npz --repo …` |
+| source SBOM (SPDX) | GitHub release asset `jef-<version>.spdx.json` | — |
+
+`verify` also audits runtime Python dependencies (`uv export --no-dev` then
+`pip-audit`), and the npm job runs `npm audit --omit=dev --audit-level=high`
+for both packages. Both look only at what a user installs; dev-tool
+advisories on the runner are not vulnerabilities in JEF.
+
 ### One version source
 
 `set-version.py` is the only place a version is typed. It writes the three

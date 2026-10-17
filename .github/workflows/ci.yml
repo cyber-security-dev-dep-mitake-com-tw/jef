@@ -41,6 +41,11 @@ jobs:
       - name: Scenes lint clean
         run: uv run jef validate scenes/
 
+      # A commit that changes the weights without regenerating the manifest
+      # fails here, not at release time.
+      - name: Weights match their manifest
+        run: python scripts/model-manifest.py check models/jef-v0 --require
+
       # The schema is what an editor uses to tell a scene author they are wrong
       # before they run anything, so it must agree with the model that rejects
       # the scene.
@@ -234,6 +239,20 @@ jobs:
           kubectl describe pod -l app.kubernetes.io/instance=jef | tail -30
           test "$(kubectl get deploy jef -o jsonpath='{.spec.replicas}')" = "1"
           test "$(kubectl get cm jef -o jsonpath='{.data.JEF_THREADS}')" = "6"
+
+  jev-local:
+    name: jev-local isolation
+    runs-on: ubuntu-latest
+    # Offline only: no npm install, no claude CLI, nothing leaves the runner.
+    # The prompt-injection eval that does call Claude is opt-in and local.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Isolation tests
+        working-directory: research/jev-local
+        run: node --test test/*.test.mjs
 
   docker:
     name: image builds and serves

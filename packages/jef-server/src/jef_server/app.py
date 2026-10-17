@@ -30,7 +30,7 @@ from pydantic import ValidationError
 
 from ._version import __version__
 from .decisions import install_decisions, seal_for_trace
-from .deps import build_scenes, get_engine, get_settings
+from .deps import build_scenes, get_engine, get_settings, manifest_check
 from .security import install_guards, json_depth
 from .settings import Settings
 
@@ -87,6 +87,7 @@ def create_app(
     app.state.settings = settings
     app.state.scene_engine = scene_engine
     app.state.scenes = registry
+    app.state.manifest = manifest_check(settings)
     CALIBRATED.set(1 if engine.calibrator.is_fitted() else 0)
 
     # Auth, size and rate checks: header-only, ahead of body parsing. Raises
@@ -248,7 +249,8 @@ def create_app(
 
         ``status: ok`` means the process answers. ``production_safe`` means
         something stricter and is false by default: a real backbone, a
-        fitted calibrator and app-level authentication. A deployment that
+        fitted calibrator, app-level authentication, and a model manifest
+        the loaded files match. A deployment that
         installs only the hashing stub, or no keys, is told so here rather
         than discovering it from a confident-looking answer.
         """
@@ -264,7 +266,13 @@ def create_app(
             # Surfaced so a deployment cannot quietly serve the test backbone.
             "test_backbone": test_backbone,
             "auth": "api-key" if settings.auth_enabled else "none",
-            "production_safe": (not test_backbone) and calibrated and settings.auth_enabled,
+            # verified | mismatch | absent. On mismatch the calibration was
+            # dropped at load, so `calibrated` is false as well.
+            "model_manifest": app.state.manifest.status,
+            "production_safe": (not test_backbone)
+            and calibrated
+            and settings.auth_enabled
+            and app.state.manifest.status == "verified",
         }
 
     # -- debug UI ----------------------------------------------------------- #
