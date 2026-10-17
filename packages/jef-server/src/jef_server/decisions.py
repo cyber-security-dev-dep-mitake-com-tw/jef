@@ -11,9 +11,12 @@ and then it reports the outcome to ``/v1/decisions/{key}:complete``.
 JEF executes nothing here and holds no EDR, IAM or firewall credentials. It
 decides whether an action may happen, once, and it keeps the receipt.
 
-Receipts live in process memory: one replica, ``JEF_WORKERS=1``. A
-multi-replica deployment needs a shared store, which this module does not
-pretend to be.
+Receipts, spent grant nonces and the audit chain live in the store named by
+``JEF_DECISION_STORE`` (``sqlite:///path`` for a persistent single-host store);
+unset, they live in process memory for one replica with ``JEF_WORKERS=1``, and
+``/v1/readiness`` reports ``policy_store:not_persistent``. If the store cannot
+be reached the endpoints answer 503 and authorise nothing: fail closed, never
+fall back to memory.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from jef_scene.authz import ProposalError, ProposedDecision
 from jef_scene.executor import Executor, OutcomeConflict, TransportResult
+from jef_scene.store import StoreUnavailable, open_store
 from prometheus_client import Counter
 
 from .settings import Settings
@@ -78,7 +82,13 @@ def install_decisions(app: FastAPI, settings: Settings) -> None:
     if settings.decisions_enabled and not settings.grant_secret:
         log.warning("JEF_GRANT_SECRET is empty: every AuthorizationGrant will be refused")
 
-    executor = Executor("jef-server", _NoTransport(), grant_secret=settings.grant_secret or None)
+    # Opened even when decisions are disabled, so a misconfigured DSN fails at
+    # startup rather than on the first authorisation.
+    store = open_store(settings.decision_store)
+    app.state.policy_store_persistent = store.persistent
+    executor = Executor(
+        "jef-server", _NoTransport(), grant_secret=settings.grant_secret or None, store=store
+    )
     app.state.decisions = executor
     app.state.proposal_secret = secret if settings.decisions_enabled else b""
 
@@ -104,12 +114,16 @@ def install_decisions(app: FastAPI, settings: Settings) -> None:
             )
         except (ProposalError, ValueError, KeyError, TypeError) as exc:
             return _error(422, "invalid_proposal", str(exc))
-        receipt = executor.authorize(
-            proposal,
-            idempotency_key=key,
-            grant=payload.get("grant"),
-            dry_run=bool(payload.get("dry_run", False)),
-        )
+        try:
+            receipt = executor.authorize(
+                proposal,
+                idempotency_key=key,
+                grant=payload.get("grant"),
+                dry_run=bool(payload.get("dry_run", False)),
+            )
+        except StoreUnavailable as exc:
+            # Nothing was authorised and nothing will be until the store is back.
+            return _error(503, "store_unavailable", str(exc))
         DECISIONS.labels(tier=str(proposal.action_tier), status=receipt.status).inc()
         if receipt.status == "not_dispatched":
             for code in receipt.reason_codes:
@@ -130,6 +144,8 @@ def install_decisions(app: FastAPI, settings: Settings) -> None:
                     str(payload["external_ref"])[:256] if payload.get("external_ref") else None
                 ),
             )
+        except StoreUnavailable as exc:
+            return _error(503, "store_unavailable", str(exc))
         except OutcomeConflict as exc:
             known = executor.receipt(key) is not None
             return _error(
@@ -141,7 +157,10 @@ def install_decisions(app: FastAPI, settings: Settings) -> None:
     def receipt(key: str) -> Any:
         if not settings.decisions_enabled:
             return _disabled()
-        found = executor.receipt(key)
+        try:
+            found = executor.receipt(key)
+        except StoreUnavailable as exc:
+            return _error(503, "store_unavailable", str(exc))
         if found is None:
             return _error(404, "unknown_key", f"no decision recorded for {key!r}")
         return found.to_dict()

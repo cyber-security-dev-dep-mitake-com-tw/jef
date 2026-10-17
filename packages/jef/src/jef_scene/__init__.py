@@ -16,6 +16,7 @@ from .expr import ExpressionError, validate_condition
 from .loader import SceneRegistry, load_scene, load_scene_text, load_scenes
 from .policy import MAX_AUTO_TIER, PolicyVerdict, authorize, tier_of
 from .schema import NEXT, Action, Gate, Layer, Scene
+from .store import MemoryStore, ReceiptStore, SQLiteStore, StoreUnavailable, open_store
 from .trace import GateTrace, LayerTrace, QuestionTrace, SceneTrace
 
 try:
@@ -39,14 +40,18 @@ __all__ = [
     "GrantError",
     "Layer",
     "LayerTrace",
+    "MemoryStore",
     "PolicyDecision",
     "PolicyVerdict",
     "ProposedDecision",
     "QuestionTrace",
+    "ReceiptStore",
+    "SQLiteStore",
     "Scene",
     "SceneEngine",
     "SceneRegistry",
     "SceneTrace",
+    "StoreUnavailable",
     "Transport",
     "TransportResult",
     "__version__",
@@ -54,6 +59,7 @@ __all__ = [
     "load_scene",
     "load_scene_text",
     "load_scenes",
+    "open_store",
     "tier_of",
     "validate_condition",
 ]
