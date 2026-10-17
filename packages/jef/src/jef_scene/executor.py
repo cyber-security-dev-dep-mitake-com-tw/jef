@@ -37,6 +37,7 @@ from .authz import (
     PolicyDecision,
     ProposedDecision,
 )
+from .store import MemoryStore, ReceiptStore
 
 __all__ = ["Executor", "OutcomeConflict", "Transport", "TransportResult"]
 
@@ -76,10 +77,24 @@ class Executor:
     #: any action name the scene produced; set it in production.
     allowed_actions: frozenset[str] = frozenset()
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
-    receipts: dict[str, ExecutionReceipt] = field(default_factory=dict)
-    audit: list[AuditEntry] = field(default_factory=list)
+    #: Receipts, spent grant nonces and the audit chain. Memory by default (one
+    #: process, one replica); a persistent store makes the once-only guarantees
+    #: survive restarts and extra workers. See :mod:`jef_scene.store`.
+    store: ReceiptStore = field(default_factory=MemoryStore)
     dispatch_count: int = 0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    @property
+    def receipts(self) -> dict[str, ExecutionReceipt]:
+        """Every receipt this executor's store holds, by idempotency key."""
+        return self.store.snapshot()
+
+    @property
+    def audit(self) -> list[AuditEntry]:
+        return self.store.audit_entries()
+
+    def _log(self, entry: AuditEntry) -> None:
+        self.store.append_audit(entry)
 
     # -- public ---------------------------------------------------------------
 
@@ -92,12 +107,13 @@ class Executor:
         dry_run: bool = False,
     ) -> ExecutionReceipt:
         with self._lock:
-            seen = self.receipts.get(idempotency_key)
+            seen = self.store.get(idempotency_key)
             if seen is not None:
                 return seen
             receipt = self._dispatch(proposal, idempotency_key, grant, dry_run)
-            self.receipts[idempotency_key] = receipt
-            return receipt
+            if dry_run:
+                return receipt
+            return self.store.put_if_absent(idempotency_key, receipt)
 
     # -- two-phase: for connectors whose platform performs the action ----------
     #
@@ -117,13 +133,12 @@ class Executor:
     ) -> ExecutionReceipt:
         """Every dispatch check, no call. ``authorized`` means "go ahead, once"."""
         with self._lock:
-            seen = self.receipts.get(idempotency_key)
+            seen = self.store.get(idempotency_key)
             if seen is not None:
                 return seen
             refused = self._check(proposal, idempotency_key, grant)
             if isinstance(refused, ExecutionReceipt):
-                self.receipts[idempotency_key] = refused
-                return refused
+                return self.store.put_if_absent(idempotency_key, refused)
             receipt = ExecutionReceipt(
                 case_id=proposal.case_id,
                 trace_id=proposal.trace_id,
@@ -139,7 +154,7 @@ class Executor:
                 started_at=_iso(self.clock()),
             )
             if not dry_run:
-                self.receipts[idempotency_key] = receipt
+                return self.store.put_if_absent(idempotency_key, receipt)
             return receipt
 
     def complete(
@@ -169,7 +184,7 @@ class Executor:
                 f"outcome must be success, failed, timeout or unknown, not {outcome!r}"
             )
         with self._lock:
-            current = self.receipts.get(idempotency_key)
+            current = self.store.get(idempotency_key)
             if current is None:
                 raise OutcomeConflict(f"{idempotency_key!r} was never authorized")
             if current.status == "authorized":
@@ -183,11 +198,17 @@ class Executor:
                         "finished_at": _iso(self.clock()),
                     }
                 )
-                self.receipts[idempotency_key] = done
+                if not self.store.replace(idempotency_key, "authorized", done):
+                    # Lost a race with another worker: report what it recorded.
+                    current = self.store.get(idempotency_key)
+                    if current is not None and current.status == normalized:
+                        return current
+                    raise OutcomeConflict(
+                        f"{idempotency_key!r} is {current.status if current else 'gone'}; "
+                        f"it cannot become {normalized}"
+                    )
                 self.dispatch_count += 1
-                self.audit.append(
-                    AuditEntry.of("receipt", done.case_id, done.trace_id, done.to_dict())
-                )
+                self._log(AuditEntry.of("receipt", done.case_id, done.trace_id, done.to_dict()))
                 return done
             if current.status == normalized:
                 return current
@@ -196,7 +217,7 @@ class Executor:
             )
 
     def receipt(self, idempotency_key: str) -> ExecutionReceipt | None:
-        return self.receipts.get(idempotency_key)
+        return self.store.get(idempotency_key)
 
     # -- internals ------------------------------------------------------------
 
@@ -204,13 +225,11 @@ class Executor:
         self, proposal: ProposedDecision, key: str, grant: Any
     ) -> ExecutionReceipt | str | None:
         """The shared checks: a refusal receipt, or the grant nonce (None if no grant needed)."""
-        self.audit.append(
+        self._log(
             AuditEntry.of("proposed", proposal.case_id, proposal.trace_id, proposal.to_dict())
         )
         decision = PolicyDecision.for_proposal(proposal)
-        self.audit.append(
-            AuditEntry.of("decided", proposal.case_id, proposal.trace_id, decision.__dict__)
-        )
+        self._log(AuditEntry.of("decided", proposal.case_id, proposal.trace_id, decision.__dict__))
         if self.allowed_actions and proposal.action not in self.allowed_actions:
             return self._refuse(
                 proposal,
@@ -248,9 +267,22 @@ class Executor:
         )
         if not ok:
             return self._refuse(proposal, key, [why], f"grant {parsed.nonce[:8]}… rejected: {why}")
-        self.audit.append(
-            AuditEntry.of("granted", proposal.case_id, proposal.trace_id, parsed.to_dict())
-        )
+        # One approval spends once. The same idempotency key may present it
+        # again (a retry); any other key is a second command on one signature.
+        if not self.store.consume_nonce(
+            parsed.nonce,
+            key,
+            case_id=proposal.case_id,
+            action=proposal.action,
+            asset_id=proposal.asset_id,
+        ):
+            return self._refuse(
+                proposal,
+                key,
+                ["GRANT_ALREADY_USED"],
+                f"grant {parsed.nonce[:8]}… was already spent by another idempotency key",
+            )
+        self._log(AuditEntry.of("granted", proposal.case_id, proposal.trace_id, parsed.to_dict()))
         return parsed.nonce
 
     def _refuse(
@@ -269,9 +301,7 @@ class Executor:
             started_at=_iso(self.clock()),
             finished_at=_iso(self.clock()),
         )
-        self.audit.append(
-            AuditEntry.of("refused", proposal.case_id, proposal.trace_id, receipt.to_dict())
-        )
+        self._log(AuditEntry.of("refused", proposal.case_id, proposal.trace_id, receipt.to_dict()))
         return receipt
 
     def _dispatch(
@@ -299,9 +329,7 @@ class Executor:
             )
 
         self.dispatch_count += 1
-        self.audit.append(
-            AuditEntry.of("dispatched", proposal.case_id, proposal.trace_id, {"key": key})
-        )
+        self._log(AuditEntry.of("dispatched", proposal.case_id, proposal.trace_id, {"key": key}))
         status: str
         detail = ""
         external: str | None = None
@@ -346,7 +374,5 @@ class Executor:
             started_at=_iso(started),
             finished_at=_iso(self.clock()),
         )
-        self.audit.append(
-            AuditEntry.of("receipt", proposal.case_id, proposal.trace_id, receipt.to_dict())
-        )
+        self._log(AuditEntry.of("receipt", proposal.case_id, proposal.trace_id, receipt.to_dict()))
         return receipt
