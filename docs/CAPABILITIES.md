@@ -40,6 +40,7 @@ production automation system.
 | `/v1/decisions` authorize and receipt endpoints | shipped | `packages/jef-server/src/jef_server/decisions.py`, `packages/jef-server/tests/test_decisions.py` | off by default; needs API keys; receipts are in memory, one replica |
 | Connector authorize / record outcome (Shuffle, n8n, Cortex) | shipped | `connectors/shuffle/jef/1.0.0/src/app.py`, `connectors/n8n/nodes/Jef/Jef.node.ts`, `connectors/cortex/JEF/jef_responder.py` | connectors never execute; platforms do |
 | Model manifest, attestations, SBOMs | shipped | `scripts/model-manifest.py`, `models/jef-v0/manifest.json`, `.github/workflows/release.yml` | mismatch at load drops calibration |
+| Model cards | shipped | `packages/jef-train/src/jef_train/model_card.py` | `python -m jef_train.model_card <model_dir>` writes `model-card.md` from the directory's own artifacts: digests checked against the manifest, every calibration bucket with its per-task status, held-out metrics labelled as self-evaluated, a blind SOC evaluation section that says *Not evaluated* until a `jef-bench evaluate` report is supplied, intended use, derived limitations and an unsigned sign-off table. Deterministic; CI fails when `models/jef-v0/model-card.md` is stale. |
 | One version source | shipped | `scripts/set-version.py`, `packages/jef-sdk-ts/src/version.ts` | |
 | jev-local research reproduction | shipped | `research/jev-local/backends/index.mjs`, `research/jev-local/test/isolation.test.mjs` | research only; the Claude backend sends state to Anthropic and is opt-in |
 
