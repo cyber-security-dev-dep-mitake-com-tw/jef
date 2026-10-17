@@ -65,6 +65,7 @@ models/jef-v0/*
 !models/jef-v0/calibration.json
 !models/jef-v0/report.json
 !models/jef-v0/manifest.json
+!models/jef-v0/model-card.md
 .cache/features/
 
 # --- npm ---

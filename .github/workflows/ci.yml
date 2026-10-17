@@ -46,6 +46,11 @@ jobs:
       - name: Weights match their manifest
         run: python scripts/model-manifest.py check models/jef-v0 --require
 
+      # The card is generated from those same artifacts; a model that changes
+      # without its card being regenerated fails here.
+      - name: Model card is current
+        run: uv run python -m jef_train.model_card models/jef-v0 --check
+
       # Links and anchors, server settings, prerelease install lines and the
       # capability matrix: docs that stop describing the code fail the PR.
       - name: Docs drift
