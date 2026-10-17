@@ -253,7 +253,16 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
             scorers.append(JefScorer(engine))
         elif spec.startswith("http="):
             url = spec.removeprefix("http=")
-            scorers.append(HttpScorer(url, name=f"http:{url}"))
+            http = HttpScorer(url, name=f"http:{url}")
+            if http.egress == "external" and http.host not in set(args.allow_egress or []):
+                print(
+                    f"refusing {url}: cases would leave this machine for {http.host!r}. "
+                    "If that egress is approved (data licence, masking, processor), pass "
+                    f"--allow-egress {http.host}",
+                    file=sys.stderr,
+                )
+                return 2
+            scorers.append(http)
         else:
             print(f"unknown scorer {spec!r}; use rules, logreg, jef or http=URL", file=sys.stderr)
             return 2
@@ -262,6 +271,7 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     except ValueError as exc:
         print(exc, file=sys.stderr)
         return 1
+    report["manifest"]["egress_allowed"] = sorted(set(args.allow_egress or []))
     args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
     for row in report["comparison"]:
         print(
@@ -351,6 +361,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--scorer", action="append", required=True, help="rules | logreg | jef | http=URL"
     )
     ev.add_argument("--split", default="test")
+    ev.add_argument(
+        "--allow-egress",
+        action="append",
+        metavar="HOST",
+        help="permit an http= scorer whose host is not loopback; repeatable, recorded in the manifest",
+    )
     ev.add_argument("--backbone", default="hashing", help="jef scorer: backbone id")
     ev.add_argument("--head", help="jef scorer: head.npz")
     ev.add_argument("--calibration", help="jef scorer: calibration.json")

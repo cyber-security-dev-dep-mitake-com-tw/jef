@@ -151,6 +151,47 @@ def _block(task: str, rows: list[dict[str, Any]], *, with_ci: bool) -> dict[str,
     return out
 
 
+def evaluation_manifest(
+    scorers: Sequence[Scorer], lock: Mapping[str, Any], split: str
+) -> dict[str, Any]:
+    """What produced this report, pinned: versions, artifacts, prompts, egress.
+
+    The plan's rule for a fair comparison is that everything shared is the
+    same and everything that differs is disclosed. The lock pins the shared
+    part; this pins the rest, per scorer, from the scorer's own ``describe()``.
+    """
+    import platform
+    import sys
+    from datetime import UTC, datetime
+
+    try:
+        from jef_core import __version__ as core_version
+    except Exception:  # pragma: no cover - version lookup is best effort
+        core_version = "unknown"
+    return {
+        "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "jef_core": core_version,
+        "lock": {
+            "cases_digest": lock.get("cases_digest"),
+            "gold_digest": lock.get("gold_digest"),
+            "seed": lock.get("seed"),
+            "split": split,
+        },
+        "scorers": {
+            s.name: (s.describe() if hasattr(s, "describe") else {"type": type(s).__name__})
+            for s in scorers
+        },
+        "egress": sorted(
+            {
+                str(d.get("egress", "unknown"))
+                for d in (s.describe() if hasattr(s, "describe") else {} for s in scorers)
+            }
+        ),
+    }
+
+
 def evaluate(
     cases: Sequence[Mapping[str, Any]],
     golds: Sequence[Mapping[str, Any]],
@@ -220,6 +261,7 @@ def evaluate(
             },
         }
 
+    report["manifest"] = evaluation_manifest(scorers, lock, split)
     report["comparison"] = [
         {
             "scorer": name,

@@ -1,0 +1,52 @@
+# Shadow-only lab: JEF, a persistent decision store, and mock targets.
+# Nothing here reaches a production system. The network is internal (no
+# default route), so even a misconfigured connector cannot leave the host.
+#
+#   docker compose -f deploy/lab/docker-compose.yml up --build
+#   curl -s -H 'X-API-Key: lab' http://127.0.0.1:8080/v1/readiness | jq
+#
+# Secrets below are lab placeholders. Inject real ones from a secret manager
+# for anything beyond this compose file.
+name: jef-lab
+networks:
+  lab:
+    internal: true   # no egress; the host's published ports are the only way in
+services:
+  jef:
+    build:
+      context: ../..
+      args:
+        JEF_EXTRAS: ""          # "torch" for the real backbone; stage weights first
+    environment:
+      JEF_BACKBONE: hashing     # replace with jhu-clsp/mmBERT-base + staged weights
+      JEF_SCENES_DIR: /app/scenes
+      JEF_API_KEYS: "lab:lab-only-not-a-secret"
+      JEF_RATE_LIMIT_PER_MINUTE: "60"
+      JEF_MAX_BODY_BYTES: "2000000"
+      JEF_MAX_JSON_DEPTH: "16"
+      JEF_MAX_QUESTIONS: "24"
+      JEF_MAX_STATE_CHARS: "200000"
+      JEF_METRICS_PUBLIC: "0"
+      # Decisions on, so authorize/complete can be exercised against the mocks;
+      # grants come from the approval stub below. Still shadow: nothing acts.
+      JEF_DECISIONS_ENABLED: "1"
+      JEF_GRANT_SECRET: "lab-grant-secret-not-for-production"
+      JEF_PROPOSAL_SECRET: "lab-proposal-secret-not-for-production"
+      JEF_DECISION_STORE: "sqlite:////var/lib/jef/decisions.db"
+      JEF_REQUIRED_TASK_IDS: "soc.alert.verdict.v1,soc.ndr.technique.v1"
+      JEF_WORKERS: "1"
+    volumes:
+      - decisions:/var/lib/jef
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks: [lab]
+  mock-targets:
+    image: python:3.12-slim
+    command: ["python", "/lab/mock_targets.py", "--host", "0.0.0.0", "--port", "9009"]
+    volumes:
+      - ./mock_targets.py:/lab/mock_targets.py:ro
+    ports:
+      - "127.0.0.1:9009:9009"
+    networks: [lab]
+volumes:
+  decisions: {}
