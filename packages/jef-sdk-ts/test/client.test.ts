@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it, vi } from 'vitest';
 
-import { JefClient, JefError, boolean, choice, noul, score } from '../src/index.js';
+import { JefClient, JefError, VERSION, boolean, choice, noul, score } from '../src/index.js';
 import type { EvaluateResult } from '../src/types.js';
 
 /** A fetch stand-in that records requests and replays canned responses. */
@@ -156,5 +158,12 @@ describe('JefClient', () => {
 
   it('strips trailing slashes from the base url', () => {
     expect(new JefClient({ baseUrl: 'http://jef.test///' }).baseUrl).toBe('http://jef.test');
+  });
+});
+
+describe('VERSION', () => {
+  it('matches package.json, so the constant cannot drift from what npm publishes', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    expect(VERSION).toBe(pkg.version);
   });
 });
