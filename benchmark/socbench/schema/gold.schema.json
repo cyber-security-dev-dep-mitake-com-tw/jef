@@ -7,7 +7,7 @@
   "required": ["case_id", "task_id", "label_origin", "gold", "adjudication_status"],
   "additionalProperties": false,
   "properties": {
-    "case_id": { "type": "string", "pattern": "^socb-[a-z]{2}(-[a-zA-Z]{2})?-[0-9]{6}$" },
+    "case_id": { "type": "string", "pattern": "^socb-[a-z0-9]+(-[a-zA-Z0-9]+)*-[0-9]{6}$" },
     "task_id": {
       "type": "string",
       "enum": [
@@ -31,6 +31,8 @@
         "scam-vs-hard-negative-prompts",
         "phishing-vs-benign-website",
         "policy-fixture",
+        "synthetic",
+        "llm-authored",
         "single-human-reviewed",
         "double-human-reviewed"
       ]
