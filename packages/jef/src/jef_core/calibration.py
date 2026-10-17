@@ -250,8 +250,8 @@ DEFAULT_ALPHAS: tuple[float, ...] = (0.01, 0.05, 0.10, 0.20)
 #:                  it was fitted for a named task, so it never unlocks
 #:                  automation. ``jef calibration migrate`` is the explicit
 #:                  way out; there is no silent one.
-#: ``incompatible`` the artifact names a model digest and the running model
-#:                  has a different one. Temperatures, quantiles and maps for
+#: ``incompatible`` the artifact names a model digest or a backbone and the
+#:                  running model has a different one. Temperatures, quantiles and maps for
 #:                  another model are noise: ``p_correct`` is ``None`` and the
 #:                  prediction set is the full set until this is fixed.
 #:
@@ -269,8 +269,8 @@ class ArtifactInfo:
     """Provenance of a calibration artifact: what, from what, when.
 
     Every field is recorded as what it is. ``model_sha256`` is the digest of
-    the head weights the buckets were fitted against, and the only basis for
-    ``incompatible``. ``dataset_digest`` is the corpus manifest the
+    the head weights the buckets were fitted against, and with the
+    calibrator's ``backbone`` the basis for ``incompatible``. ``dataset_digest`` is the corpus manifest the
     calibration split came from. ``calibration_window`` is the data's time
     range when the corpus has one, else ``None`` -- not today's date.
     """
@@ -291,6 +291,9 @@ class Calibrator:
 
     buckets: dict[str, Bucket] = field(default_factory=dict)
     backbone: str = ""
+    #: Hub commit of ``backbone`` the head and these buckets were fitted on;
+    #: ``""`` when unknown (older artifacts, local backbones).
+    backbone_revision: str = ""
     head: str = ""
     notes: str = ""
     #: Artifact format. In-memory calibrators are current; a loaded schema-1
@@ -300,6 +303,9 @@ class Calibrator:
     #: Digest of the head actually running, set by the loader (``bind_model``).
     #: Compared with ``artifact.model_sha256`` for ``incompatible``.
     runtime_model_sha256: str | None = None
+    #: Backbone actually running, set by the engine (``bind_backbone``).
+    runtime_backbone: str | None = None
+    runtime_backbone_revision: str | None = None
 
     # -- identity ---------------------------------------------------------- #
 
@@ -310,11 +316,32 @@ class Calibrator:
     @property
     def incompatible(self) -> bool:
         a, r = self.artifact.model_sha256, self.runtime_model_sha256
-        return bool(a and r and a != r)
+        return bool(a and r and a != r) or self.backbone_mismatch is not None
+
+    @property
+    def backbone_mismatch(self) -> str | None:
+        """Why the running backbone is not the one these numbers were fitted on.
+
+        ``None`` when they agree, or when either side does not say: an
+        artifact without a recorded backbone is judged by its head digest
+        alone, as before.
+        """
+        name, run = self.backbone, self.runtime_backbone
+        if name and run and name != run:
+            return f"fitted on backbone {name!r}, running {run!r}"
+        rev, run_rev = self.backbone_revision, self.runtime_backbone_revision
+        if name and name == run and rev and run_rev and rev != run_rev:
+            return f"fitted on {name}@{rev}, running {name}@{run_rev}"
+        return None
 
     def bind_model(self, model_sha256: str | None) -> None:
         """Tell the calibrator which head is running, so a mismatch can be seen."""
         self.runtime_model_sha256 = model_sha256
+
+    def bind_backbone(self, name: str, revision: str | None) -> None:
+        """Tell the calibrator which backbone is running, so a mismatch can be seen."""
+        self.runtime_backbone = name
+        self.runtime_backbone_revision = revision
 
     def _bucket(self, kind: str, n_options: int, task_id: str | None) -> Bucket | None:
         """The bucket for exactly this identity, or ``None``. Never a neighbour's.
@@ -488,6 +515,7 @@ class Calibrator:
             raise ValueError("artifact already carries task ids; refit instead of migrating")
         out = Calibrator(
             backbone=self.backbone,
+            backbone_revision=self.backbone_revision,
             head=self.head,
             notes=(self.notes + " " if self.notes else "")
             + f"Migrated from schema 1 with task_id={task_id}; provenance fields unknown.",
@@ -511,6 +539,7 @@ class Calibrator:
         return {
             "calibration_schema": CALIBRATION_SCHEMA,
             "backbone": self.backbone,
+            "backbone_revision": self.backbone_revision,
             "head": self.head,
             "notes": self.notes,
             "artifact": asdict(self.artifact),
@@ -546,6 +575,7 @@ class Calibrator:
         return cls(
             buckets=buckets,
             backbone=str(d.get("backbone", "")),
+            backbone_revision=str(d.get("backbone_revision") or ""),
             head=str(d.get("head", "")),
             notes=str(d.get("notes", "")),
             schema=schema,

@@ -21,7 +21,7 @@ over the state.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 from numpy.typing import NDArray
@@ -144,6 +144,8 @@ class BilinearHead:
         bias: float = 0.0,
         scale: float = 1.0,
         name: str = "bilinear",
+        backbone: str | None = None,
+        backbone_revision: str | None = None,
     ) -> None:
         if u.shape != v.shape:
             raise ValueError(f"U and V must share shape, got {u.shape} vs {v.shape}")
@@ -152,6 +154,12 @@ class BilinearHead:
         self.bias = float(bias)
         self.scale = float(scale)
         self.name = name
+        #: The backbone these weights were fitted against. ``dim`` alone cannot
+        #: tell two 768-wide encoders apart, so the engine compares these with
+        #: the backbone it is given. ``None`` on heads saved before they were
+        #: recorded.
+        self.backbone = backbone
+        self.backbone_revision = backbone_revision
 
     @property
     def dim(self) -> int:
@@ -180,14 +188,18 @@ class BilinearHead:
     # -- persistence ------------------------------------------------------- #
 
     def save(self, path: str | Path) -> None:
-        np.savez(
-            Path(path),
-            u=self.u,
-            v=self.v,
-            bias=np.float32(self.bias),
-            scale=np.float32(self.scale),
-            name=np.array(self.name),
-        )
+        arrays: dict[str, Any] = {
+            "u": self.u,
+            "v": self.v,
+            "bias": np.float32(self.bias),
+            "scale": np.float32(self.scale),
+            "name": np.array(self.name),
+        }
+        if self.backbone:
+            arrays["backbone"] = np.array(self.backbone)
+        if self.backbone_revision:
+            arrays["backbone_revision"] = np.array(self.backbone_revision)
+        np.savez(Path(path), **arrays)
 
     @classmethod
     def load(cls, path: str | Path) -> BilinearHead:
@@ -201,6 +213,8 @@ class BilinearHead:
             bias=float(z["bias"]),
             scale=float(z["scale"]),
             name=str(z["name"]) if "name" in z else "bilinear",
+            backbone=str(z["backbone"]) if "backbone" in z else None,
+            backbone_revision=str(z["backbone_revision"]) if "backbone_revision" in z else None,
         )
 
     @classmethod

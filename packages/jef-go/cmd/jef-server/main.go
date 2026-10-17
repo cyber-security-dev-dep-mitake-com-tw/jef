@@ -180,6 +180,17 @@ func buildEngine(cfg config, logger *slog.Logger) (*engine.Engine, error) {
 				"head expects dim %d but backbone %q has dim %d -- these artifacts do not belong together",
 				bilinear.Dim(), bb.Name(), bb.Dim())
 		}
+		var revision string
+		if r, ok := bb.(interface{ Revision() string }); ok {
+			revision = r.Revision()
+		}
+		warning, err := bilinear.CheckBackbone(bb.Name(), revision)
+		if err != nil {
+			return nil, err
+		}
+		if warning != "" {
+			logger.Warn(warning)
+		}
 		h, headName = bilinear, bilinear.Name
 	}
 

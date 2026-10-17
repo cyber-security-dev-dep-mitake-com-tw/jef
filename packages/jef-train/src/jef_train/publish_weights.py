@@ -123,6 +123,13 @@ def build_model_card(
     calibrated = report.get("calibrated", {})
     uncalibrated = report.get("uncalibrated", {})
     backbone = report.get("backbone", "jhu-clsp/mmBERT-base")
+    revision = report.get("backbone_revision")
+    pinned = (
+        f"It was fitted on `{backbone}` at commit `{revision}`, and JEF refuses to run it "
+        "on any other revision of that backbone."
+        if revision
+        else "The backbone revision it was fitted on was not recorded."
+    )
     excluded = report.get("excluded_sources") or []
     shortfalls = _coverage_warnings(report)
 
@@ -151,7 +158,7 @@ distributions with calibrated confidence out, no text generated.
 
 **This repository is not a standalone model.** It holds a bilinear decision head
 and a fitted calibrator that sit on top of a *frozen* `{backbone}`. That split is
-why it is ~400KB instead of ~800MB, and why it trains on CPU.
+why it is ~400KB instead of ~800MB, and why it trains on CPU. {pinned}
 
 ```bash
 pip install "jef[torch]"
