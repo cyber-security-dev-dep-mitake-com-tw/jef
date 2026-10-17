@@ -7,6 +7,12 @@ name: Benchmark
 # numbers in docs/ describe the current model rather than the one that happened
 # to be checked in when someone last wrote a README -- and the corpus is rebuilt
 # from live NVD data, so they genuinely drift.
+#
+# Results leave this workflow as an artifact pinned to the commit that produced
+# them, never as a push to main. Pushing raced with every other merge (run
+# 39018107664 computed everything, then failed on a non-fast-forward push) and
+# put unreviewed numbers on main. To publish a run, start benchmark-publish.yml
+# with its run id: it verifies the artifact and opens a pull request.
 on:
   schedule:
     # 03:00 UTC = 11:00 Taipei, after the working day's commits have landed.
@@ -31,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -89,17 +95,26 @@ jobs:
         if: steps.weights.outputs.present == 'true'
         run: uv run python scripts/benchmark-badge.py
 
-      # Committed rather than uploaded as an artifact: a number in a build
-      # artifact is a number nobody reads.
-      - name: Commit the results
+      - name: Pin the results to this run
         if: steps.weights.outputs.present == 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/benchmarks.json docs/context-sweep.json docs/badges/ 2>/dev/null || true
-          if git diff --staged --quiet; then
-            echo "no change in the numbers"
-          else
-            git commit -m "chore(bench): nightly third-party results"
-            git push
-          fi
+          paths="docs/benchmarks.json docs/badges"
+          [ -f docs/context-sweep.json ] && paths="$paths docs/context-sweep.json"
+          python scripts/benchmark-manifest.py write $paths \
+            --out docs/benchmark-manifest.json \
+            --source-sha "${{ github.sha }}" --run-id "${{ github.run_id }}"
+
+      # Uploaded, not pushed. benchmark-publish.yml turns a chosen run into a
+      # reviewed pull request; nothing here writes to the repository.
+      - name: Upload benchmark evidence
+        if: steps.weights.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            docs/benchmarks.json
+            docs/context-sweep.json
+            docs/badges/
+            docs/benchmark-manifest.json
+          if-no-files-found: error
+          retention-days: 90
