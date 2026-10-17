@@ -21,9 +21,19 @@ The contract is deliberately small:
     A grant nonce is bound to the first idempotency key that spends it. The
     same key may see it again (that is a retry); any other key is refused, so
     one approval cannot authorise two commands, however they are addressed.
-``append_audit`` / ``verify_audit``
+``append_audit`` / ``verify_audit`` / ``audit_head``
     Append-only, each entry carrying the digest of the previous one, so an
-    edited or deleted row breaks the chain.
+    edited or deleted row breaks the chain. ``audit_head`` is the value to
+    export to independent storage, because a database administrator could
+    otherwise recompute the whole chain after an edit.
+
+Crash windows. ``consume_nonce`` and the receipt write are separate
+operations, so a process can die after the nonce is bound and before the
+receipt exists. That window is safe by construction: the nonce is bound to an
+idempotency key, not merely marked spent, so a retry with the same key binds
+again and writes the receipt, while any other key is refused with
+``GRANT_ALREADY_USED``. One approval still authorises at most one command.
+``tests/scene/test_store.py`` simulates the crash.
 
 PostgreSQL is the deployment the execution plan recommends. It needs a driver
 this package does not ship, so :func:`open_store` names that honestly instead
@@ -70,6 +80,7 @@ class ReceiptStore(Protocol):
     def append_audit(self, entry: AuditEntry) -> None: ...
     def audit_entries(self) -> list[AuditEntry]: ...
     def verify_audit(self) -> tuple[bool, int]: ...
+    def audit_head(self) -> dict[str, Any]: ...
     def snapshot(self) -> dict[str, ExecutionReceipt]: ...
 
 
@@ -154,6 +165,12 @@ class MemoryStore:
                 return False, len(self._audit)
             prev = digest
         return True, len(self._audit)
+
+    def audit_head(self) -> dict[str, Any]:
+        return {
+            "count": len(self._audit),
+            "head": self._audit[-1][2] if self._audit else "sha256:genesis",
+        }
 
     def snapshot(self) -> dict[str, ExecutionReceipt]:
         return dict(self._receipts)
@@ -373,6 +390,20 @@ class SQLiteStore:
                 return False, len(rows)
             prev = digest
         return True, len(rows)
+
+    def audit_head(self) -> dict[str, Any]:
+        """``{count, head}``: export this periodically to storage the DB admin cannot write.
+
+        The chain detects an edited or deleted row, but someone with write
+        access to the database could recompute every digest after an edit. A
+        head recorded elsewhere before the edit no longer matches afterwards.
+        """
+        with self._connect() as con:
+            row = con.execute(
+                "SELECT COUNT(*), (SELECT event_digest FROM audit_events ORDER BY seq DESC LIMIT 1) "
+                "FROM audit_events"
+            ).fetchone()
+        return {"count": int(row[0]), "head": row[1] or "sha256:genesis"}
 
     def snapshot(self) -> dict[str, ExecutionReceipt]:
         with self._connect() as con:

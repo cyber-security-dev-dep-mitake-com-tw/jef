@@ -249,3 +249,149 @@ def test_unavailable_store_is_an_error_not_a_fallback(tmp_path: Path) -> None:
         open_store("postgresql://user@host/db")
     assert open_store(None).persistent is False
     assert open_store(f"sqlite:///{tmp_path / 'x.db'}").persistent is True
+
+
+# --------------------------------------------------------------------------- #
+# NEXT-A2: crash window, real-file outages, multi-process race, chain head
+# --------------------------------------------------------------------------- #
+
+
+class CrashAfterNonce(SQLiteStore):
+    """Dies once in put_if_absent, i.e. after the nonce was bound: a process crash."""
+
+    crashed = False
+
+    def put_if_absent(self, key: str, receipt: ExecutionReceipt) -> ExecutionReceipt:
+        if not type(self).crashed:
+            type(self).crashed = True
+            raise StoreUnavailable("simulated crash between nonce and receipt")
+        return super().put_if_absent(key, receipt)
+
+
+def test_crash_between_nonce_and_receipt_recovers_with_the_same_key_only(tmp_path: Path) -> None:
+    path = tmp_path / "d.db"
+    g = grant()
+    CrashAfterNonce.crashed = False
+    with pytest.raises(StoreUnavailable):
+        executor(CrashAfterNonce(path)).authorize(proposal(), idempotency_key="k", grant=g)
+
+    after = executor(SQLiteStore(path))  # the process came back
+    assert after.receipt("k") is None, "nothing was recorded before the crash"
+    retried = after.authorize(proposal(), idempotency_key="k", grant=g)
+    assert retried.status == "authorized", "the same key finishes what it started"
+    other = after.authorize(proposal(), idempotency_key="k-2", grant=g)
+    assert other.reason_codes == ("GRANT_ALREADY_USED",), "one approval, one command"
+
+
+def test_an_unwritable_database_fails_closed(tmp_path: Path) -> None:
+    import os
+    import stat
+
+    path = tmp_path / "ro" / "d.db"
+    store = SQLiteStore(path)
+    ex = executor(store)
+    os.chmod(path, stat.S_IRUSR)
+    os.chmod(path.parent, stat.S_IRUSR | stat.S_IXUSR)
+    try:
+        with pytest.raises(StoreUnavailable):
+            ex.authorize(proposal(), idempotency_key="k", grant=grant())
+    finally:
+        os.chmod(path.parent, stat.S_IRWXU)
+        os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+    assert ex.dispatch_count == 0
+
+
+def test_a_locked_database_fails_closed_instead_of_waiting_forever(tmp_path: Path) -> None:
+    path = tmp_path / "d.db"
+    SQLiteStore(path)
+    holder = sqlite3.connect(path, isolation_level=None)
+    holder.execute("BEGIN EXCLUSIVE")
+    try:
+        ex = executor(SQLiteStore.__new__(SQLiteStore))
+        ex.store.path = path  # reuse the file without re-running schema creation
+        ex.store.busy_timeout_ms = 200
+        with pytest.raises(StoreUnavailable):
+            ex.authorize(proposal(), idempotency_key="k", grant=grant())
+    finally:
+        holder.execute("ROLLBACK")
+        holder.close()
+
+
+_WORKER = r"""
+import json, sys
+from datetime import UTC, datetime
+from jef_scene.authz import ProposedDecision
+from jef_scene.executor import Executor, TransportResult
+from jef_scene.store import SQLiteStore
+
+class T:
+    def execute(self, *a, **k):
+        return TransportResult(ok=True)
+
+path, grant = sys.argv[1], json.loads(sys.argv[2])
+p = ProposedDecision(case_id="case-1", action="isolate_host", action_tier=3,
+    policy_verdict="review_required", reason_codes=("DISRUPTIVE_ACTION_REQUIRES_APPROVAL",),
+    scene="incident-triage", scene_version=1, model_digest="sha256:abc", trace_id="t-1",
+    asset_id="host-01")
+ex = Executor("fake", T(), grant_secret=b"approval-service-secret", store=SQLiteStore(path))
+print(json.dumps(ex.authorize(p, idempotency_key="k", grant=grant).to_dict(), sort_keys=True))
+"""
+
+
+def test_four_processes_authorise_the_same_key_once(tmp_path: Path) -> None:
+    import json
+    import subprocess
+    import sys
+
+    path = str(tmp_path / "d.db")
+    SQLiteStore(path)
+    g = json.dumps(grant())
+    procs = [
+        subprocess.Popen(  # noqa: S603 - fixed interpreter and script
+            [sys.executable, "-c", _WORKER, path, g], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        for _ in range(4)
+    ]
+    outputs = [p.communicate(timeout=120) for p in procs]
+    assert all(p.returncode == 0 for p in procs), [e.decode()[-400:] for _, e in outputs]
+    decisions = {o.decode().strip() for o, _ in outputs}
+    assert len(decisions) == 1, "every process saw one decision"
+    assert json.loads(decisions.pop())["status"] == "authorized"
+    with sqlite3.connect(path) as con:
+        assert con.execute("SELECT COUNT(*) FROM receipts").fetchone()[0] == 1
+        assert con.execute("SELECT COUNT(*) FROM grant_nonces").fetchone()[0] == 1
+
+
+def test_an_exported_head_catches_a_recomputed_chain(tmp_path: Path) -> None:
+    from jef_scene.store import _chain_digest
+
+    path = tmp_path / "d.db"
+    ex = executor(SQLiteStore(path))
+    ex.dispatch(proposal(), idempotency_key="k", grant=grant())
+    exported = ex.store.audit_head()
+    assert exported["count"] == 5
+
+    # An administrator edits a row AND recomputes every digest after it.
+    with sqlite3.connect(path) as con:
+        con.execute("UPDATE audit_events SET event = 'refused' WHERE event = 'granted'")
+        prev = "sha256:genesis"
+        for seq, at, ev, case, trace, pv, pd in con.execute(
+            "SELECT seq, at, event, case_id, trace_id, policy_version, payload_digest "
+            "FROM audit_events ORDER BY seq"
+        ).fetchall():
+            entry = {
+                "event": ev,
+                "case_id": case,
+                "trace_id": trace,
+                "policy_version": pv,
+                "payload_digest": pd,
+                "at": at,
+            }
+            digest = _chain_digest(prev, entry)
+            con.execute(
+                "UPDATE audit_events SET prev_digest=?, event_digest=? WHERE seq=?",
+                (prev, digest, seq),
+            )
+            prev = digest
+    assert ex.store.verify_audit()[0] is True, "the chain alone cannot see a full recompute"
+    assert ex.store.audit_head()["head"] != exported["head"], "the exported head can"
