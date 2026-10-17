@@ -46,7 +46,7 @@ With the hashing backbone `readiness` reports `backbone:test` and `decision_supp
 | Store down | stop the volume / make the DB path unwritable | `503 store_unavailable`; nothing authorized |
 | Egress | `egress_check.sh` | `PASS` |
 
-Collect `GET /calls` from the mock, the receipts, the readiness report and the egress output into the Safety Evidence Pack. Every T2+ action in that pack must show a grant nonce or a refusal; a dispatch without one is a No-Go.
+Collect `GET /calls` from the mock, the receipts, the readiness report and the egress output into the Safety Evidence Pack, alongside the automated half: `uv run python scripts/safety-evidence.py` maps every code-level case (S01–S16 except S14) to the tests that prove it, for the exact SHA under test. CI archives the same pack per commit. Every T2+ action in that pack must show a grant nonce or a refusal; a dispatch without one is a No-Go.
 
 ## What this lab is not
 

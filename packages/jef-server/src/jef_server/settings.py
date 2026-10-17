@@ -96,6 +96,17 @@ class Settings:
     #: trusted-ingress`` so the assertion is visible, never silent.
     trusted_ingress: bool = False
 
+    # -- profile --------------------------------------------------------------
+    #: ``JEF_PRODUCTION``: refuse to start unless the configuration passes
+    #: every check in :mod:`jef_server.profile`. Off by default so ``docker
+    #: run`` still works offline; on for anything that answers real traffic.
+    production: bool = False
+    #: ``JEF_DECISION_STORE``: DSN of the persistent grants/receipts store.
+    #: Empty means process memory, which the production profile refuses when
+    #: decisions are enabled. The store itself lands with NEXT-04; until then
+    #: any value is recorded but nothing persists.
+    decision_store: str | None = None
+
     # -- readiness ------------------------------------------------------------
     #: ``JEF_REQUIRED_TASK_IDS``: the tasks this deployment must be calibrated
     #: for before ``/v1/readiness`` reports ``automation_ready``. Empty means
@@ -126,6 +137,10 @@ class Settings:
     @property
     def auth_enabled(self) -> bool:
         return bool(self.api_keys)
+
+    @property
+    def decision_store_persistent(self) -> bool:
+        return bool(self.decision_store)
 
 
 def _int(name: str) -> int | None:
@@ -165,6 +180,8 @@ def load_settings() -> Settings:
         rate_limit_per_minute=_int("JEF_RATE_LIMIT_PER_MINUTE") or 0,
         metrics_public=_flag("JEF_METRICS_PUBLIC"),
         trusted_ingress=_flag("JEF_TRUSTED_INGRESS"),
+        production=_flag("JEF_PRODUCTION"),
+        decision_store=os.environ.get("JEF_DECISION_STORE") or None,
         required_task_ids=parse_required_tasks(os.environ.get("JEF_REQUIRED_TASK_IDS")),
         decisions_enabled=_flag("JEF_DECISIONS_ENABLED"),
         grant_secret=os.environ.get("JEF_GRANT_SECRET", "").encode(),

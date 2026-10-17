@@ -31,6 +31,7 @@ from pydantic import ValidationError
 from ._version import __version__
 from .decisions import install_decisions, seal_for_trace
 from .deps import build_scenes, get_engine, get_settings, manifest_check
+from .profile import enforce_production
 from .readiness import Readiness, assess
 from .security import install_guards, json_depth
 from .settings import Settings
@@ -89,6 +90,8 @@ def create_app(
     app.state.scene_engine = scene_engine
     app.state.scenes = registry
     app.state.manifest = manifest_check(settings)
+    # JEF_PRODUCTION: an unsafe configuration is a startup error, not a warning.
+    enforce_production(settings, app.state.manifest, engine)
     CALIBRATED.set(1 if engine.calibrator.is_fitted() else 0)
 
     # Auth, size and rate checks: header-only, ahead of body parsing. Raises
@@ -249,7 +252,9 @@ def create_app(
             app.state.engine,
             settings,
             app.state.manifest,
-            policy_store_persistent=bool(getattr(app.state, "policy_store_persistent", False)),
+            policy_store_persistent=bool(
+                getattr(app.state, "policy_store_persistent", settings.decision_store_persistent)
+            ),
             decisions_enabled=settings.decisions_enabled,
         )
 
