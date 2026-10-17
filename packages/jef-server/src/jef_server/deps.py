@@ -15,18 +15,41 @@ from jef_core import BilinearHead, Calibrator, Engine, ZeroShotHead
 from jef_core.backends import load_backbone
 from jef_core.calibration import file_sha256
 from jef_core.head import DecisionHead
+from jef_core.model_manifest import Verification, check_model_dir
 from jef_scene import SceneEngine, SceneRegistry
 
 from .settings import Settings, load_settings
 
 log = logging.getLogger("jef.server")
 
-__all__ = ["build_engine", "build_scenes", "get_engine", "get_scenes", "get_settings"]
+__all__ = [
+    "build_engine",
+    "build_scenes",
+    "get_engine",
+    "get_scenes",
+    "get_settings",
+    "manifest_check",
+]
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return load_settings()
+
+
+def manifest_check(settings: Settings) -> Verification:
+    """Verify the loaded artifacts against their manifest, if there is one.
+
+    The manifest is ``JEF_MODEL_MANIFEST`` or ``manifest.json`` beside the head.
+    No head path means there is nothing to verify (``absent``).
+    """
+    if not settings.head_path:
+        return Verification("absent")
+    head = Path(settings.head_path)
+    explicit = Path(settings.model_manifest) if settings.model_manifest else None
+    if explicit is not None and not explicit.is_file():
+        return Verification("mismatch", [f"JEF_MODEL_MANIFEST={explicit} does not exist"])
+    return check_model_dir(head.parent, explicit)
 
 
 def build_engine(settings: Settings) -> Engine:
@@ -42,6 +65,15 @@ def build_engine(settings: Settings) -> Engine:
     calibrator = (
         Calibrator.load(settings.calibration_path) if settings.calibration_path else Calibrator()
     )
+    verification = manifest_check(settings)
+    if verification.status == "mismatch":
+        # Fail closed. Numbers fitted for other bytes are not calibration: drop
+        # them, so every question reports `missing` and no gate automates.
+        log.error(
+            "model manifest mismatch; serving WITHOUT calibration: %s",
+            "; ".join(verification.problems),
+        )
+        calibrator = Calibrator()
     if settings.head_path and Path(settings.head_path).is_file():
         # So a calibration fitted for another head is seen as `incompatible`
         # rather than silently applied.

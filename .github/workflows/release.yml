@@ -102,6 +102,17 @@ jobs:
             exit 1
           }
 
+      # REL-003. The weights about to be published must be the bytes the
+      # manifest describes, and a calibration that names its head must name
+      # this one. Stdlib only, so it fails before anything is installed.
+      - name: Weights match their manifest
+        run: |
+          if [ -f models/jef-v0/head.npz ]; then
+            python scripts/model-manifest.py check models/jef-v0 --require
+          else
+            echo "::notice::no weights in models/jef-v0; nothing to verify"
+          fi
+
       - name: Sync
         run: uv sync --all-packages --no-install-package torch --no-install-package transformers
 
@@ -115,10 +126,25 @@ jobs:
       - name: Scenes lint clean
         run: uv run jef validate scenes/
 
+      # Runtime dependencies only (no dev tools), at the exact versions the
+      # lockfile pins -- the set a user installs. A known vulnerability there
+      # stops the release; fix the pin or record the exception in the PR.
+      - name: Runtime dependency audit
+        run: |
+          uv export --all-packages --no-dev --no-hashes --no-emit-workspace --frozen -o runtime-requirements.txt
+          uvx pip-audit --requirement runtime-requirements.txt --no-deps --disable-pip --progress-spinner off
+
   build-python:
     name: build python
     needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Sigstore-signed build provenance for every wheel and sdist, so a user
+      # can check with `gh attestation verify` that a file came from this
+      # workflow at this commit.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -142,6 +168,11 @@ jobs:
       # format: 'jef'".
       - name: Validate metadata
         run: uvx twine check dist/*/*
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/*/*"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -327,6 +358,9 @@ jobs:
             exit 0
           fi
           npm install
+          # Runtime dependencies only: what a consumer installs. Dev-tool
+          # advisories on the runner are not vulnerabilities in the package.
+          npm audit --omit=dev --audit-level=high
           npm run typecheck && npm test && npm run build
           npm publish --provenance --access public \
             --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }} \
@@ -377,6 +411,7 @@ jobs:
             exit 0
           fi
           npm install
+          npm audit --omit=dev --audit-level=high
           npm run typecheck && npm run build
           npm publish --provenance --access public \
             --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
@@ -392,6 +427,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -421,8 +458,14 @@ jobs:
             type=sha,format=short
 
       - uses: docker/build-push-action@v6
+        id: build
         with:
           context: .
+          # An SPDX SBOM and max-mode SLSA provenance are attached to the
+          # image itself, so `docker buildx imagetools inspect` shows what is
+          # inside and how it was built.
+          sbom: true
+          provenance: mode=max
           # arm64 matters here: the Proxmox and Apple Silicon paths in Infra/
           # both assume it exists.
           platforms: linux/amd64,linux/arm64
@@ -431,6 +474,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
       - name: The published image actually serves
         run: |
@@ -450,6 +500,10 @@ jobs:
     name: publish weights
     needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     # The head is ~400KB because only it is trained -- the backbone is frozen
     # and comes from Hugging Face at runtime. That is small enough to live in
     # git, so CI always has something to publish. (Laya ships ~800MB for the
@@ -523,6 +577,22 @@ jobs:
               )
           PY
 
+      # Again on this runner: verify ran on another machine, and this is the
+      # checkout whose bytes are about to be uploaded.
+      - name: Weights match their manifest
+        if: steps.check.outputs.present == 'true'
+        run: python scripts/model-manifest.py check models/jef-v0 --require
+
+      - name: Attest weights
+        if: steps.check.outputs.present == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            models/jef-v0/head.npz
+            models/jef-v0/calibration.json
+            models/jef-v0/report.json
+            models/jef-v0/manifest.json
+
       - name: Publish to Hugging Face
         if: steps.check.outputs.present == 'true'
         env:
@@ -549,10 +619,31 @@ jobs:
             models/jef-v0/head.npz
             models/jef-v0/calibration.json
             models/jef-v0/report.json
+            models/jef-v0/manifest.json
+
+  # A source SBOM for the release page: every Python and npm dependency the
+  # repository declares, as SPDX. The image carries its own (see ghcr).
+  sbom:
+    name: sbom
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: jef-${{ needs.verify.outputs.version }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: jef-${{ needs.verify.outputs.version }}.spdx.json
 
   github-release:
     name: github release
-    needs: [verify, pypi, npm, ghcr, weights]
+    needs: [verify, pypi, npm, ghcr, weights, sbom]
     if: always() && needs.pypi.result == 'success'
     runs-on: ubuntu-latest
     permissions:

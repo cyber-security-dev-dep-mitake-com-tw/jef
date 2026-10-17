@@ -24,7 +24,8 @@ log = logging.getLogger("jef.train.publish")
 
 __all__ = ["build_model_card", "main"]
 
-ARTIFACTS = ("head.npz", "calibration.json", "report.json")
+#: manifest.json travels with the weights so a consumer can verify the other three.
+ARTIFACTS = ("head.npz", "calibration.json", "report.json", "manifest.json")
 
 
 def _table(report: dict[str, Any]) -> str:
@@ -58,8 +59,67 @@ def _coverage_warnings(report: dict[str, Any]) -> list[str]:
     return out
 
 
-def build_model_card(report: dict[str, Any], repo: str, version: str) -> str:
-    """Generate the card from the report, so the two cannot disagree."""
+def _provenance(manifest: dict[str, Any] | None) -> str:
+    """Model-card fields that come from manifest.json (review section 13.2)."""
+    if not manifest:
+        return (
+            "## Provenance\n\nNo manifest.json was published with this version, so the "
+            "files below cannot be checked against a recorded digest. Treat it as unverified.\n"
+        )
+    arts = manifest.get("artifacts", {})
+    cal = manifest.get("calibration") or {}
+    rows = "\n".join(
+        f"| `{name}` | `{info.get('sha256', '?')}` | {info.get('size', '?')} |"
+        for name, info in arts.items()
+    )
+    if cal.get("legacy"):
+        scope = (
+            "**legacy** (calibration schema 1): buckets are keyed by answer shape, not by "
+            "task. JEF loads it, reports `calibration_status: legacy` for every question, "
+            "and no scene gate automates on it."
+        )
+    elif cal.get("tasks"):
+        scope = "task-scoped (schema 2): " + ", ".join(f"`{t}`" for t in cal["tasks"])
+    else:
+        scope = "schema 2, shape-scoped buckets only; no task is calibrated"
+    return f"""## Provenance
+
+| field | value |
+|---|---|
+| model_id | `{manifest.get("model_id", "?")}` |
+| version | `{manifest.get("version", "?")}` |
+| git_commit | `{manifest.get("git_commit") or "unknown"}` |
+| backbone | `{manifest.get("backbone") or "?"}` (frozen, loaded from Hugging Face) |
+| calibration_scope | {scope} |
+
+| file | sha256 | bytes |
+|---|---|---|
+{rows}
+
+`manifest.json` lists these digests. JEF verifies them at load and serves
+without calibration on any mismatch; the release workflow refuses to publish
+files that disagree with it, and attests each file with Sigstore
+(`gh attestation verify <file> --repo cyber-security-dev-dep-mitake-com-tw/jef`).
+
+## Intended use and scope
+
+- **Intended use:** decision support for security operations: ranking,
+  routing and enrichment suggestions an analyst reviews, read-only shadow
+  mode, and low-impact (T0/T1) automation where the task is calibrated.
+- **Out of scope:** closing or suppressing alerts, isolating hosts, disabling
+  accounts or blocking addresses without a person's signed authorization;
+  general knowledge questions; any task the calibration does not name.
+- **Known failures:** chance-level on general knowledge (TMMLU+); conformal
+  coverage can fall short under evidence-grouped splits (listed below when it
+  does); ground truth is taxonomy-derived (ATT&CK, CVSS), not analyst
+  verdicts on real alerts.
+"""
+
+
+def build_model_card(
+    report: dict[str, Any], repo: str, version: str, manifest: dict[str, Any] | None = None
+) -> str:
+    """Generate the card from the report and the manifest, so they cannot disagree."""
     calibrated = report.get("calibrated", {})
     uncalibrated = report.get("uncalibrated", {})
     backbone = report.get("backbone", "jhu-clsp/mmBERT-base")
@@ -139,13 +199,14 @@ model can be decisive and wrong, which is why most of this ecosystem ships the
 disclaimer *"confidence measures concentration, not correctness"*.
 
 `calibration.json` carries three things fitted on a held-out split: temperature
-scaling per `(kind, n_options)` bucket, split-conformal quantiles, and an
+scaling per calibration bucket (task plus answer shape since schema 2), split-conformal quantiles, and an
 isotonic map from confidence onto observed correctness. That last one is what
 makes `p_correct` meaningful — and it is absent for buckets with too few
 calibration points, which is deliberately distinguishable from a low value.
 
 {"### Conformal coverage shortfalls" + chr(10) + chr(10) + chr(10).join(shortfalls) + chr(10) + chr(10) + "Split conformal guarantees coverage under exchangeability. Grouping by evidence puts different concepts in calibration and test, which breaks that assumption. Do not gate automated actions on prediction sets from these buckets." if shortfalls else ""}
 
+{_provenance(manifest)}
 ## Training data
 
 Labels come from taxonomies, not from a language model: MITRE ATT&CK states
@@ -189,7 +250,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     report = json.loads((model_dir / "report.json").read_text(encoding="utf-8"))
-    card = build_model_card(report, args.repo, args.version)
+    manifest = json.loads((model_dir / "manifest.json").read_text(encoding="utf-8"))
+    card = build_model_card(report, args.repo, args.version, manifest)
     (model_dir / "README.md").write_text(card, encoding="utf-8")
     log.info("wrote %s (%d bytes)", model_dir / "README.md", len(card))
 
