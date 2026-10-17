@@ -74,14 +74,43 @@ curve from memorised noise.
 Apache-2.0
 
 
-## Calibration status
+## Calibration status and task identity
 
-`Calibrator.status(kind, n_options, alpha)` reports one bucket's state:
-`validated` (correctness map and a conformal quantile at `alpha`, both fitted
-on enough data), `insufficient` (the bucket exists but one of those is
-missing, for example fewer than `MIN_CORRECTNESS_SAMPLES` points) or `missing`
-(no bucket). It is decided from that bucket alone: a fitted bucket of another
-shape never makes this one look calibrated, which `is_fitted()` could not
-promise. Only `validated` unlocks automation in `jef_scene.policy`. Two tasks
-that share a shape still share a bucket; separating them is the task-scoped
-key in upgrade-plan item 04.
+Calibration is looked up by **task**, not by answer shape. `bucket_key(kind,
+n_options, task_id)` spells it `cve.user_interaction.v1|noul:2`; a question
+that declares `task_id` is answered only by a bucket fitted for that task, and
+a question that declares none is answered only by a shape-scoped bucket. The
+two never alias (POL-002): "CVE user interaction" and "phishing true positive"
+are both `noul:2` and share nothing that matters to calibration.
+
+`Calibrator.status(kind, n_options, alpha, task_id)` reports one bucket's
+state:
+
+| status | meaning | unlocks automation |
+|---|---|---|
+| `validated` | correctness map and a conformal quantile at `alpha`, fitted on enough data, for this task | yes |
+| `insufficient` | the bucket exists but one of those is missing | no |
+| `missing` | no bucket for this task and shape | no |
+| `legacy` | the artifact is schema 1 (shape keys, no provenance); numbers are shown for analysis only | no |
+| `incompatible` | the artifact's `model_sha256` differs from the head that is running; `p_correct` is `None` and prediction sets are full | no |
+
+Artifacts are **schema 2**: `calibration_schema: 2`, an `artifact` block
+(`model_sha256`, `label_schema_version`, `language`, `dataset_digest`,
+`calibration_window`, `split_policy`, `sample_count`,
+`min_validated_samples`), and task-scoped bucket keys. `jef-train` writes it
+with the head's digest and the corpus manifest's digest; loaders bind the
+running head's digest with `bind_model()` so a mismatch is seen.
+
+`models/jef-v0/calibration.json` is still schema 1 and loads as `legacy`:
+every question reports `calibration_status: legacy` and no scene gate
+automates until the artifact is refitted (task-scoped buckets come out of
+`jef-train` automatically now) or migrated on purpose:
+
+```bash
+uv run jef calibration show models/jef-v0/calibration.json
+uv run jef calibration migrate old.json new.json --task-id cve.severity.v1 --model-sha256 sha256:...
+```
+
+`migrate` relabels every bucket to one task and refuses an artifact that
+already carries tasks. It is a human asserting what the file was fitted for;
+nothing in the loader does it silently.

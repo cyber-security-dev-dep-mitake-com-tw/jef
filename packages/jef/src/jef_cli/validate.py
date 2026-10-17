@@ -194,10 +194,13 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
     used_anywhere: set[str] = set()
     defined_in: dict[str, str] = {}
 
+    question_models: dict[str, object] = {}
+
     for layer in scene.layers:
         names |= set(layer.questions)
-        for qid in layer.questions:
+        for qid, declared_q in layer.questions.items():
             defined_in[qid] = layer.id
+            question_models[qid] = declared_q
 
         for index, gate in enumerate(layer.gates):
             targeted.add(gate.then)
@@ -259,6 +262,24 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
                         _line_of(text, f"{gate.then}:"),
                     )
                 )
+
+            # An automating gate reading a question that names no task can
+            # only ever match a shape-scoped bucket, which is what task-scoped
+            # calibration exists to stop. Say so.
+            if automating and gate.when is not None:
+                for name in sorted(_referenced_names(gate.when)):
+                    declared = question_models.get(name)
+                    if declared is not None and not getattr(declared, "task_id", None):
+                        problems.append(
+                            Problem(
+                                source,
+                                "warning",
+                                f"layer {layer.id} gate {index} automates on '{name}', which "
+                                "declares no task_id; its calibration can only be matched by "
+                                "answer shape, so the runtime policy will hold it for review",
+                                _line_of(text, f"{name}:"),
+                            )
+                        )
 
             # An automating gate that reads neither p_correct nor
             # calibration_status will be held for review by the runtime policy

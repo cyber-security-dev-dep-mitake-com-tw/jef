@@ -40,6 +40,9 @@ class QuestionTrace:
     #: as "cannot be evaluated" rather than "wide but trustworthy", and it is
     #: what the policy checks before letting an action run without a human.
     calibration_status: str = "missing"
+    #: The task the question declared, which is what the status was looked up
+    #: by. ``None`` means shape-scoped lookup only.
+    task_id: str | None = None
 
 
 @dataclass

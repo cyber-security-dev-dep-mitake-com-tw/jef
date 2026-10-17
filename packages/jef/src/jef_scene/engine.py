@@ -154,10 +154,12 @@ class SceneEngine:
                 question = normalize(qid, raw)
                 answer = answers[qid]
                 p_correct = engine.calibrator.p_correct(
-                    answer.confidence, question.kind, question.n_options
+                    answer.confidence, question.kind, question.n_options, question.task_id
                 )
                 pset = self._prediction_set(answer, question, scene.alpha)
-                status = engine.calibrator.status(question.kind, question.n_options, scene.alpha)
+                status = engine.calibrator.status(
+                    question.kind, question.n_options, scene.alpha, question.task_id
+                )
                 views[qid] = AnswerView(answer, question, p_correct, pset, status)
                 question_traces.append(
                     QuestionTrace(
@@ -170,6 +172,7 @@ class SceneEngine:
                         p_correct=p_correct,
                         prediction_set=pset,
                         calibration_status=status,
+                        task_id=question.task_id,
                     )
                 )
 
@@ -307,7 +310,9 @@ class SceneEngine:
             # never fitted also yields the full set, never a bare argmax.
             return list(question.option_keys)
         probs = np.asarray(self._distribution(answer, question), dtype=np.float64)
-        indices = calibrator.prediction_set(probs, question.kind, question.n_options, alpha)
+        indices = calibrator.prediction_set(
+            probs, question.kind, question.n_options, alpha, question.task_id
+        )
         return [question.option_keys[i] for i in indices]
 
     @staticmethod

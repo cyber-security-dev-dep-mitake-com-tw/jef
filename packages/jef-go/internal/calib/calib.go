@@ -17,9 +17,12 @@ import (
 	"github.com/cyber-security-dev-dep-mitake-com-tw/jef/jef-go/internal/mathx"
 )
 
-// Bucket holds the fitted parameters for one (kind, n_options) pair.
+// Bucket holds the fitted parameters for one (task, kind, n_options) identity.
 type Bucket struct {
 	Temperature float64 `json:"temperature"`
+	// TaskID is the decision this bucket was fitted for; empty for a
+	// shape-scoped bucket from a schema-1 artifact.
+	TaskID string `json:"task_id,omitempty"`
 	// Conformal maps a stringified alpha ("0.1000") to its nonconformity quantile.
 	Conformal map[string]float64 `json:"conformal"`
 	// CorrectnessMap is the isotonic confidence -> P(correct) curve, as
@@ -29,12 +32,30 @@ type Bucket struct {
 	NSamples       int         `json:"n_samples"`
 }
 
+// Artifact is the provenance block a schema-2 file carries.
+type Artifact struct {
+	ModelSHA256   string `json:"model_sha256"`
+	DatasetDigest string `json:"dataset_digest"`
+	Language      string `json:"language"`
+	SampleCount   int    `json:"sample_count"`
+}
+
+// Schema is the artifact format this code understands. A file without the
+// field is schema 1: shape-keyed buckets and no provenance. It still loads,
+// and Status reports every bucket as "legacy".
+const Schema = 2
+
 // Calibrator is the Go counterpart of jef_core.calibration.Calibrator.
 type Calibrator struct {
+	Schema   int               `json:"calibration_schema"`
+	Artifact Artifact          `json:"artifact"`
 	Buckets  map[string]Bucket `json:"buckets"`
 	Backbone string            `json:"backbone"`
 	Head     string            `json:"head"`
 	Notes    string            `json:"notes"`
+	// RuntimeModelSHA256 is the digest of the head actually loaded, set by the
+	// server. Compared with Artifact.ModelSHA256 for "incompatible".
+	RuntimeModelSHA256 string `json:"-"`
 }
 
 // New returns an unfitted calibrator: identity temperature, no P(correct), and
@@ -56,22 +77,83 @@ func Load(path string) (*Calibrator, error) {
 	if c.Buckets == nil {
 		c.Buckets = map[string]Bucket{}
 	}
+	if c.Schema == 0 {
+		c.Schema = 1
+	}
+	if c.Schema > Schema {
+		return nil, fmt.Errorf("jef: calibration %s is schema %d, newer than this build understands (%d)", path, c.Schema, Schema)
+	}
 	return c, nil
 }
 
-// Key is the bucket identity: question kind plus option count. A 2-option noul
-// and a 2-option choice are separate buckets because their sharpness profiles
-// differ even at identical width.
+// Key is the shape-only bucket identity: question kind plus option count.
+// Kept for schema-1 artifacts and for questions that declare no task.
 func Key(kind string, nOptions int) string {
 	return fmt.Sprintf("%s:%d", kind, nOptions)
+}
+
+// KeyFor is the full bucket identity. With a task it reads
+// "cve.user_interaction.v1|noul:2"; without, it is Key. The two never alias:
+// a question that names its task is answered only by a bucket fitted for that
+// task, and a shape-only question only by a shape-only bucket.
+func KeyFor(taskID, kind string, nOptions int) string {
+	if taskID == "" {
+		return Key(kind, nOptions)
+	}
+	return taskID + "|" + Key(kind, nOptions)
 }
 
 // IsFitted reports whether any calibration was loaded.
 func (c *Calibrator) IsFitted() bool { return len(c.Buckets) > 0 }
 
+// Legacy reports a schema-1 artifact: no task identity, no provenance. Its
+// numbers are still applied for display, but Status never says "validated".
+func (c *Calibrator) Legacy() bool { return c.Schema < Schema }
+
+// Incompatible reports that the artifact names a model digest and the loaded
+// head has a different one. Numbers fitted for another model are noise, so
+// every lookup below behaves as unfitted.
+func (c *Calibrator) Incompatible() bool {
+	return c.Artifact.ModelSHA256 != "" && c.RuntimeModelSHA256 != "" &&
+		c.Artifact.ModelSHA256 != c.RuntimeModelSHA256
+}
+
+func (c *Calibrator) bucket(taskID, kind string, nOptions int) (Bucket, bool) {
+	if c.Incompatible() {
+		return Bucket{}, false
+	}
+	b, ok := c.Buckets[KeyFor(taskID, kind, nOptions)]
+	return b, ok
+}
+
+// Status mirrors jef_core.calibration.Calibrator.status: one of validated,
+// insufficient, missing, legacy, incompatible. Only validated may unlock
+// automation on the Python side; the Go server reports it and never acts.
+func (c *Calibrator) Status(taskID, kind string, nOptions int, alpha float64) string {
+	if c.Legacy() {
+		return "legacy"
+	}
+	if c.Incompatible() {
+		return "incompatible"
+	}
+	b, ok := c.Buckets[KeyFor(taskID, kind, nOptions)]
+	if !ok {
+		return "missing"
+	}
+	if _, has := b.Conformal[alphaKey(alpha)]; !has || len(b.CorrectnessMap) == 0 {
+		return "insufficient"
+	}
+	return "validated"
+}
+
 // Temperature returns the fitted temperature, or 1.0 (identity) if unfitted.
 func (c *Calibrator) Temperature(kind string, nOptions int) float64 {
-	if b, ok := c.Buckets[Key(kind, nOptions)]; ok {
+	return c.TemperatureFor("", kind, nOptions)
+}
+
+// TemperatureFor is Temperature for a task-scoped question.
+func (c *Calibrator) TemperatureFor(taskID, kind string, nOptions int) float64 {
+	if b, ok := c.bucket(taskID, kind, nOptions); ok {
 		return b.Temperature
 	}
 	return 1.0
@@ -79,7 +161,12 @@ func (c *Calibrator) Temperature(kind string, nOptions int) float64 {
 
 // Apply turns logits into calibrated probabilities.
 func (c *Calibrator) Apply(logits []float64, kind string, nOptions int) ([]float64, error) {
-	return mathx.Softmax(logits, c.Temperature(kind, nOptions))
+	return c.ApplyFor("", logits, kind, nOptions)
+}
+
+// ApplyFor is Apply for a task-scoped question.
+func (c *Calibrator) ApplyFor(taskID string, logits []float64, kind string, nOptions int) ([]float64, error) {
+	return mathx.Softmax(logits, c.TemperatureFor(taskID, kind, nOptions))
 }
 
 // PCorrect maps Jev's confidence statistic onto the probability that the top
@@ -90,7 +177,12 @@ func (c *Calibrator) Apply(logits []float64, kind string, nOptions int) ([]float
 // probability: "we cannot say how reliable this is" and "this is unreliable"
 // lead to different decisions.
 func (c *Calibrator) PCorrect(confidence float64, kind string, nOptions int) (float64, bool) {
-	b, ok := c.Buckets[Key(kind, nOptions)]
+	return c.PCorrectFor("", confidence, kind, nOptions)
+}
+
+// PCorrectFor is PCorrect for a task-scoped question.
+func (c *Calibrator) PCorrectFor(taskID string, confidence float64, kind string, nOptions int) (float64, bool) {
+	b, ok := c.bucket(taskID, kind, nOptions)
 	if !ok || len(b.CorrectnessMap) == 0 {
 		return 0, false
 	}
@@ -119,12 +211,21 @@ func (c *Calibrator) PCorrect(confidence float64, kind string, nOptions int) (fl
 // PredictionSet returns the option indices whose probability clears the
 // conformal threshold for this miscoverage level.
 //
-// Without a fitted quantile it returns every index. That is the only set that
-// honestly covers at any level, and it matters: returning an empty or singleton
-// set would let a gate written as `set_size <= 2` fire on an uncalibrated
-// server and automate a decision nobody could stand behind.
+// It fails closed, exactly as the Python side does since PR 4: without a
+// bucket, without a quantile for this alpha, or when no probability clears the
+// threshold, it returns every index. That is the only set whose coverage is
+// guaranteed without a quantile, and it matters: an empty or singleton set
+// would let a gate written as `set_size <= 2` fire on an uncalibrated server
+// and automate a decision nobody could stand behind. An earlier version
+// returned the argmax on an empty keep set, which dressed an uncalibrated
+// guess up as a certified singleton.
 func (c *Calibrator) PredictionSet(probabilities []float64, kind string, nOptions int, alpha float64) []int {
-	b, ok := c.Buckets[Key(kind, nOptions)]
+	return c.PredictionSetFor("", probabilities, kind, nOptions, alpha)
+}
+
+// PredictionSetFor is PredictionSet for a task-scoped question.
+func (c *Calibrator) PredictionSetFor(taskID string, probabilities []float64, kind string, nOptions int, alpha float64) []int {
+	b, ok := c.bucket(taskID, kind, nOptions)
 	if !ok {
 		return allIndices(len(probabilities))
 	}
@@ -140,15 +241,19 @@ func (c *Calibrator) PredictionSet(probabilities []float64, kind string, nOption
 		}
 	}
 	if len(keep) == 0 {
-		// An empty set is never the right answer: some option was chosen.
-		return []int{mathx.ArgMax(probabilities)}
+		return allIndices(len(probabilities))
 	}
 	return keep
 }
 
 // HasCorrectnessMap reports whether P(correct) is available for a bucket.
 func (c *Calibrator) HasCorrectnessMap(kind string, nOptions int) bool {
-	b, ok := c.Buckets[Key(kind, nOptions)]
+	return c.HasCorrectnessMapFor("", kind, nOptions)
+}
+
+// HasCorrectnessMapFor is HasCorrectnessMap for a task-scoped question.
+func (c *Calibrator) HasCorrectnessMapFor(taskID, kind string, nOptions int) bool {
+	b, ok := c.bucket(taskID, kind, nOptions)
 	return ok && len(b.CorrectnessMap) > 0
 }
 

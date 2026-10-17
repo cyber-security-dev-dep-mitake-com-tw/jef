@@ -11,6 +11,7 @@ package contract
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 )
 
@@ -31,7 +32,13 @@ type Question struct {
 	Type         string          `json:"type"`
 	Instructions string          `json:"instructions"`
 	Criteria     json.RawMessage `json:"criteria,omitempty"`
+	// TaskID names the decision, e.g. "cve.attack_vector.v1". Calibration is
+	// looked up by task, never by answer shape alone.
+	TaskID string `json:"task_id,omitempty"`
 }
+
+// taskIDPattern mirrors jef_core.types.TASK_ID_PATTERN.
+var taskIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_-]+)*\.v[0-9]+$`)
 
 // Request is the POST /v1/systemone body.
 //
@@ -110,6 +117,8 @@ type Normalized struct {
 	// Dialect is the spelling the caller used for a noul question, so the reply
 	// can use the same one.
 	Dialect string
+	// TaskID is carried through so the calibrator is asked by task.
+	TaskID string
 }
 
 // NOptions is the calibration bucket width.
@@ -117,6 +126,18 @@ func (n Normalized) NOptions() int { return len(n.OptionKeys) }
 
 // Normalize validates a wire question and reduces it.
 func Normalize(id string, q Question) (Normalized, error) {
+	if q.TaskID != "" && !taskIDPattern.MatchString(q.TaskID) {
+		return Normalized{}, fmt.Errorf("question %q: task_id %q must look like cve.attack_vector.v1", id, q.TaskID)
+	}
+	n, err := normalizeShape(id, q)
+	if err != nil {
+		return Normalized{}, err
+	}
+	n.TaskID = q.TaskID
+	return n, nil
+}
+
+func normalizeShape(id string, q Question) (Normalized, error) {
 	switch q.Type {
 	case KindChoice:
 		keys, labels, err := decodeChoiceCriteria(q.Criteria)

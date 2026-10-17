@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from jef_core.backends import load_backbone
-from jef_core.calibration import Calibrator
+from jef_core.calibration import ArtifactInfo, Calibrator, file_sha256, split_bucket_key
 
 from .cache import FeatureCache, build_feature_cache
 from .evaluate import evaluate_cache, majority_baseline
@@ -97,6 +97,17 @@ def _split_caches(
     return out
 
 
+def _corpus_languages(manifest: Path) -> str:
+    """``"en,zh-TW"`` from the corpus manifest, or ``""`` when it has none."""
+    if not manifest.is_file():
+        return ""
+    try:
+        summary = json.loads(manifest.read_text(encoding="utf-8")).get("summary", {})
+    except (OSError, ValueError):
+        return ""
+    return ",".join(sorted(summary.get("by_state_lang", {})))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Train and calibrate a JEF head")
     parser.add_argument("--corpus", default="data/corpus")
@@ -165,16 +176,29 @@ def main(argv: list[str] | None = None) -> int:
     calib_logits = logits_for(head, caches["calibration"])
     calibrator = Calibrator(backbone=args.backbone, head=head.name)
     for bucket, idx in caches["calibration"].buckets().items():
-        kind, width = bucket.split(":")
+        task, kind, width = split_bucket_key(bucket)
         calibrator.fit_bucket(
             kind,
-            int(width),
+            width,
             [calib_logits[i] for i in idx],
             [int(caches["calibration"].labels[i]) for i in idx],
+            task_id=task,
         )
     calibrator.notes = (
         "Temperature and conformal quantiles fitted on a held-out calibration "
-        "split, never on training data."
+        "split, never on training data. Buckets are task-scoped (schema 2)."
+    )
+    # Provenance the loader checks against: the head these were fitted for,
+    # and the corpus they were fitted from. A later head with the same name is
+    # a different model, and the loader will say `incompatible`.
+    manifest = corpus / "manifest.json"
+    calibrator.artifact = ArtifactInfo(
+        model_sha256=file_sha256(out / "head.npz"),
+        dataset_digest=file_sha256(manifest) if manifest.is_file() else None,
+        language=_corpus_languages(manifest),
+        calibration_window=None,  # the corpus carries no event dates
+        split_policy="group",
+        sample_count=len(caches["calibration"]),
     )
     calibrator.save(out / "calibration.json")
 

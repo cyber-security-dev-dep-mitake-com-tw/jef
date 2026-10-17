@@ -28,7 +28,7 @@ from jef_core.head import attention_pool, build_query_texts
 from jef_core.types import NormalizedQuestion
 from numpy.typing import NDArray
 
-from .schema import Sample
+from .schema import Sample, task_id_for
 
 log = logging.getLogger("jef.train.cache")
 
@@ -78,14 +78,15 @@ class FeatureCache:
         return self.ctx[lo:hi], self.queries[lo:hi], int(self.labels[i])
 
     def bucket_of(self, i: int) -> str:
-        return f"{self.kinds[i]}:{int(self.n_options[i])}"
+        return f"{task_id_for(self.sources[i])}|{self.kinds[i]}:{int(self.n_options[i])}"
 
     def buckets(self) -> dict[str, list[int]]:
         """Sample indices grouped by calibration bucket.
 
-        Grouping is by (kind, n_options) rather than n_options alone because the
-        calibrator buckets the same way -- a 2-option noul and a 2-option choice
-        have different sharpness profiles even at identical width.
+        Grouping is by (task, kind, n_options), matching ``Sample.bucket`` and
+        the calibrator's key: a 2-option noul and a 2-option choice have
+        different sharpness profiles even at identical width, and two tasks
+        of identical shape have different truth, base rate and error cost.
         """
         out: dict[str, list[int]] = {}
         for i in range(len(self)):

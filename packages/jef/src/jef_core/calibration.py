@@ -52,9 +52,24 @@ __all__ = [
 ]
 
 
-def bucket_key(kind: str, n_options: int) -> str:
-    """Calibration bucket identity: question kind plus option count."""
-    return f"{kind}:{n_options}"
+def bucket_key(kind: str, n_options: int, task_id: str | None = None) -> str:
+    """Calibration bucket identity.
+
+    ``task_id|kind:n`` when the task is known, ``kind:n`` otherwise. The two
+    never alias: a question that names its task is answered only by a bucket
+    fitted for that task, and a question that does not is answered only by a
+    shape-scoped bucket. "CVE user interaction" and "phishing true positive"
+    are both ``noul:2``; their ground truth, base rate and error cost are not.
+    """
+    shape = f"{kind}:{n_options}"
+    return f"{task_id}|{shape}" if task_id else shape
+
+
+def split_bucket_key(key: str) -> tuple[str | None, str, int]:
+    """Inverse of :func:`bucket_key`: ``(task_id, kind, n_options)``."""
+    task, _, shape = key.rpartition("|")
+    kind, _, n = shape.partition(":")
+    return (task or None), kind, int(n)
 
 
 @dataclass
@@ -69,6 +84,13 @@ class Bucket:
     #: unfitted, in which case P(correct) is simply not available.
     correctness_map: list[list[float]] = field(default_factory=list)
     n_samples: int = 0
+    #: The task this bucket was fitted for; ``None`` for a shape-scoped bucket.
+    #: Redundant with the key on purpose: a bucket pulled out of the dict still
+    #: knows what it is for.
+    task_id: str | None = None
+    #: Measured on the calibration split when the bucket was fitted (ece, brier,
+    #: nll, coverage_at_90). Absent when the fitter did not compute them.
+    metrics: dict[str, float] | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -223,9 +245,44 @@ DEFAULT_ALPHAS: tuple[float, ...] = (0.01, 0.05, 0.10, 0.20)
 #:                  quantile for this alpha. ``p_correct`` is ``None``.
 #: ``missing``      no bucket for this (kind, n_options) at all.
 #:
-#: Only ``validated`` may unlock automation. The other two are both "cannot
-#: say", and a UI must render them as such, not as a wide-but-trustworthy set.
-CalibrationStatus = Literal["validated", "insufficient", "missing"]
+#: ``legacy``       the artifact predates task-scoped calibration (schema 1).
+#:                  Its numbers are still shown for analysis, but nothing in
+#:                  it was fitted for a named task, so it never unlocks
+#:                  automation. ``jef calibration migrate`` is the explicit
+#:                  way out; there is no silent one.
+#: ``incompatible`` the artifact names a model digest and the running model
+#:                  has a different one. Temperatures, quantiles and maps for
+#:                  another model are noise: ``p_correct`` is ``None`` and the
+#:                  prediction set is the full set until this is fixed.
+#:
+#: Only ``validated`` may unlock automation. Everything else is "cannot say",
+#: and a UI must render it as such, not as a wide-but-trustworthy set.
+CalibrationStatus = Literal["validated", "insufficient", "missing", "legacy", "incompatible"]
+
+#: The artifact format this code writes. 1 is the shape-keyed format that
+#: ``models/jef-v0/calibration.json`` still carries; it loads as ``legacy``.
+CALIBRATION_SCHEMA = 2
+
+
+@dataclass
+class ArtifactInfo:
+    """Provenance of a calibration artifact: what, from what, when.
+
+    Every field is recorded as what it is. ``model_sha256`` is the digest of
+    the head weights the buckets were fitted against, and the only basis for
+    ``incompatible``. ``dataset_digest`` is the corpus manifest the
+    calibration split came from. ``calibration_window`` is the data's time
+    range when the corpus has one, else ``None`` -- not today's date.
+    """
+
+    model_sha256: str | None = None
+    label_schema_version: str = "1"
+    language: str = ""
+    dataset_digest: str | None = None
+    calibration_window: list[str] | None = None
+    split_policy: str = "group"
+    sample_count: int = 0
+    min_validated_samples: int = MIN_CORRECTNESS_SAMPLES
 
 
 @dataclass
@@ -236,33 +293,77 @@ class Calibrator:
     backbone: str = ""
     head: str = ""
     notes: str = ""
+    #: Artifact format. In-memory calibrators are current; a loaded schema-1
+    #: file keeps 1 and reports every bucket as ``legacy``.
+    schema: int = CALIBRATION_SCHEMA
+    artifact: ArtifactInfo = field(default_factory=ArtifactInfo)
+    #: Digest of the head actually running, set by the loader (``bind_model``).
+    #: Compared with ``artifact.model_sha256`` for ``incompatible``.
+    runtime_model_sha256: str | None = None
+
+    # -- identity ---------------------------------------------------------- #
+
+    @property
+    def legacy(self) -> bool:
+        return self.schema < CALIBRATION_SCHEMA
+
+    @property
+    def incompatible(self) -> bool:
+        a, r = self.artifact.model_sha256, self.runtime_model_sha256
+        return bool(a and r and a != r)
+
+    def bind_model(self, model_sha256: str | None) -> None:
+        """Tell the calibrator which head is running, so a mismatch can be seen."""
+        self.runtime_model_sha256 = model_sha256
+
+    def _bucket(self, kind: str, n_options: int, task_id: str | None) -> Bucket | None:
+        """The bucket for exactly this identity, or ``None``. Never a neighbour's.
+
+        Also ``None`` when the artifact is incompatible with the running model:
+        numbers fitted for another head are not calibration, and every
+        inference path below falls back to its uncalibrated behaviour.
+        """
+        if self.incompatible:
+            return None
+        return self.buckets.get(bucket_key(kind, n_options, task_id))
 
     # -- inference --------------------------------------------------------- #
 
-    def temperature(self, kind: str, n_options: int) -> float:
-        b = self.buckets.get(bucket_key(kind, n_options))
+    def temperature(self, kind: str, n_options: int, task_id: str | None = None) -> float:
+        b = self._bucket(kind, n_options, task_id)
         return b.temperature if b else 1.0
 
-    def status(self, kind: str, n_options: int, alpha: float = 0.10) -> CalibrationStatus:
+    def status(
+        self, kind: str, n_options: int, alpha: float = 0.10, task_id: str | None = None
+    ) -> CalibrationStatus:
         """Per-bucket calibration status; see :data:`CalibrationStatus`.
 
-        Decided from this bucket alone. A fitted bucket of another shape never
-        makes this one look calibrated, which is what ``is_fitted()`` could not
-        promise: it answers "is anything fitted", and a scene gate that asked
-        it would automate a noul:2 question on the strength of a choice:5
-        bucket. (Two tasks that share a shape still share a bucket; separating
-        them is the task-scoped key in upgrade-plan item 04, not this method.)
+        Decided from this bucket alone. A fitted bucket of another shape, or of
+        the same shape for another task, never makes this one look calibrated.
+        ``legacy`` and ``incompatible`` are artifact-wide and come first: a
+        schema-1 file has no task identity to check, and an artifact for a
+        different model has nothing to say about this one.
         """
-        b = self.buckets.get(bucket_key(kind, n_options))
+        if self.legacy:
+            return "legacy"
+        if self.incompatible:
+            return "incompatible"
+        b = self.buckets.get(bucket_key(kind, n_options, task_id))
         if b is None:
             return "missing"
         if not b.correctness_map or b.conformal.get(_akey(alpha)) is None:
             return "insufficient"
         return "validated"
 
-    def apply(self, logits: NDArray[np.floating], kind: str, n_options: int) -> NDArray[np.float64]:
+    def apply(
+        self,
+        logits: NDArray[np.floating],
+        kind: str,
+        n_options: int,
+        task_id: str | None = None,
+    ) -> NDArray[np.float64]:
         """Logits -> calibrated probabilities."""
-        return softmax(logits, temperature=self.temperature(kind, n_options))
+        return softmax(logits, temperature=self.temperature(kind, n_options, task_id))
 
     def prediction_set(
         self,
@@ -270,6 +371,7 @@ class Calibrator:
         kind: str,
         n_options: int,
         alpha: float = 0.10,
+        task_id: str | None = None,
     ) -> list[int]:
         """Indices whose probability clears the conformal threshold.
 
@@ -288,7 +390,7 @@ class Calibrator:
         """
         p = np.asarray(probabilities, dtype=np.float64)
         full = list(range(len(p)))
-        b = self.buckets.get(bucket_key(kind, n_options))
+        b = self._bucket(kind, n_options, task_id)
         if b is None:
             return full
         qhat = b.conformal.get(_akey(alpha))
@@ -297,15 +399,19 @@ class Calibrator:
         keep = [int(i) for i in np.flatnonzero(p >= 1.0 - qhat)]
         return keep or full
 
-    def p_correct(self, confidence: float, kind: str, n_options: int) -> float | None:
+    def p_correct(
+        self, confidence: float, kind: str, n_options: int, task_id: str | None = None
+    ) -> float | None:
         """Calibrated probability that the top answer is correct.
 
         ``None`` when no correctness map was fitted for this bucket -- the
         honest answer, and the one a gate must be able to distinguish from a
         low probability. Scene gates surface this as ``p_correct`` so a
-        threshold means what an operator thought it meant.
+        threshold means what an operator thought it meant. A ``legacy``
+        artifact still answers here, for analysis; ``status()`` is what says
+        whether the answer may drive anything.
         """
-        bucket = self.buckets.get(bucket_key(kind, n_options))
+        bucket = self._bucket(kind, n_options, task_id)
         if bucket is None or not bucket.correctness_map:
             return None
         points = bucket.correctness_map
@@ -324,9 +430,13 @@ class Calibrator:
     def is_fitted(self) -> bool:
         return bool(self.buckets)
 
-    def has_correctness_map(self, kind: str, n_options: int) -> bool:
-        bucket = self.buckets.get(bucket_key(kind, n_options))
+    def has_correctness_map(self, kind: str, n_options: int, task_id: str | None = None) -> bool:
+        bucket = self._bucket(kind, n_options, task_id)
         return bool(bucket and bucket.correctness_map)
+
+    def tasks(self) -> list[str]:
+        """Distinct task ids this artifact was fitted for (empty for shape-only)."""
+        return sorted({b.task_id for b in self.buckets.values() if b.task_id})
 
     # -- fitting ----------------------------------------------------------- #
 
@@ -337,6 +447,9 @@ class Calibrator:
         logits: Sequence[NDArray[np.floating]],
         labels: Sequence[int],
         alphas: Sequence[float] = DEFAULT_ALPHAS,
+        *,
+        task_id: str | None = None,
+        metrics: dict[str, float] | None = None,
     ) -> Bucket:
         """Fit temperature then conformal quantiles for one bucket.
 
@@ -353,17 +466,54 @@ class Calibrator:
             conformal={_akey(a): fit_conformal_quantile(probs, labels, a) for a in alphas},
             correctness_map=fit_correctness_map(confidences, hits),
             n_samples=len(labels),
+            task_id=task_id,
+            metrics=metrics,
         )
-        self.buckets[bucket_key(kind, n_options)] = bucket
+        self.buckets[bucket_key(kind, n_options, task_id)] = bucket
         return bucket
+
+    # -- migration --------------------------------------------------------- #
+
+    def migrate(self, task_id: str, *, model_sha256: str | None = None) -> Calibrator:
+        """A schema-2 copy of a legacy artifact with every bucket scoped to ``task_id``.
+
+        Deliberately explicit and deliberately whole: the caller asserts that
+        every bucket in the file was fitted on data for this one task. A file
+        that mixes tasks has to be refitted, not relabelled. The original is
+        not touched.
+        """
+        if not task_id:
+            raise ValueError("migrate needs a task_id")
+        if any(b.task_id for b in self.buckets.values()):
+            raise ValueError("artifact already carries task ids; refit instead of migrating")
+        out = Calibrator(
+            backbone=self.backbone,
+            head=self.head,
+            notes=(self.notes + " " if self.notes else "")
+            + f"Migrated from schema 1 with task_id={task_id}; provenance fields unknown.",
+            artifact=ArtifactInfo(
+                model_sha256=model_sha256, sample_count=self.artifact.sample_count
+            ),
+        )
+        for key, bucket in self.buckets.items():
+            _, kind, n = split_bucket_key(key)
+            moved = Bucket(**{**asdict(bucket), "task_id": task_id})
+            out.buckets[bucket_key(kind, n, task_id)] = moved
+        out.artifact.sample_count = sum(b.n_samples for b in out.buckets.values())
+        return out
 
     # -- persistence ------------------------------------------------------- #
 
     def to_dict(self) -> dict[str, object]:
+        """Always the current schema. A legacy calibrator saved here becomes a
+        schema-2 file with shape-only buckets, which is still ``missing`` for
+        any question that names a task -- saving does not launder it."""
         return {
+            "calibration_schema": CALIBRATION_SCHEMA,
             "backbone": self.backbone,
             "head": self.head,
             "notes": self.notes,
+            "artifact": asdict(self.artifact),
             "buckets": {k: asdict(v) for k, v in self.buckets.items()},
         }
 
@@ -377,12 +527,29 @@ class Calibrator:
         raw = d.get("buckets") or {}
         if not isinstance(raw, dict):
             raise TypeError("calibration 'buckets' must be an object")
-        buckets = {str(k): Bucket(**v) for k, v in raw.items()}
+        schema = int(d.get("calibration_schema", 1))  # type: ignore[call-overload]
+        if schema > CALIBRATION_SCHEMA:
+            raise ValueError(
+                f"calibration_schema {schema} is newer than this code understands "
+                f"({CALIBRATION_SCHEMA}); upgrade jef"
+            )
+        buckets: dict[str, Bucket] = {}
+        for k, v in raw.items():
+            task, _, _ = split_bucket_key(str(k))
+            fields = {**v, "task_id": v.get("task_id") or task}
+            if schema < CALIBRATION_SCHEMA and fields["task_id"]:
+                raise ValueError(f"schema-1 artifact carries a task-scoped bucket {k!r}")
+            buckets[str(k)] = Bucket(**fields)
+        info = d.get("artifact") or {}
+        if not isinstance(info, dict):
+            raise TypeError("calibration 'artifact' must be an object")
         return cls(
             buckets=buckets,
             backbone=str(d.get("backbone", "")),
             head=str(d.get("head", "")),
             notes=str(d.get("notes", "")),
+            schema=schema,
+            artifact=ArtifactInfo(**info),
         )
 
     @classmethod
@@ -395,3 +562,14 @@ class Calibrator:
 
 def _akey(alpha: float) -> str:
     return f"{alpha:.4f}"
+
+
+def file_sha256(path: str | Path) -> str:
+    """``sha256:<hex>`` of a file, streamed. Used to fingerprint head weights."""
+    import hashlib
+
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as fh:
+        while chunk := fh.read(1 << 20):
+            digest.update(chunk)
+    return "sha256:" + digest.hexdigest()
