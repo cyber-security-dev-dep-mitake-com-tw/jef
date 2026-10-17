@@ -22,6 +22,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from jef_core import Engine, EvaluateRequest
+from jef_core.engine import render_state
 from jef_core.errors import JefError
 from jef_scene import SceneEngine, SceneRegistry
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
@@ -29,6 +30,7 @@ from pydantic import ValidationError
 
 from ._version import __version__
 from .deps import build_scenes, get_engine, get_settings
+from .security import install_guards, json_depth
 from .settings import Settings
 
 log = logging.getLogger("jef.server")
@@ -86,6 +88,28 @@ def create_app(
     app.state.scenes = registry
     CALIBRATED.set(1 if engine.calibrator.is_fitted() else 0)
 
+    # Auth, size and rate checks: header-only, ahead of body parsing. Raises
+    # at startup if JEF_REQUIRE_AUTH is set without keys.
+    install_guards(app, settings)
+    if not settings.auth_enabled:
+        log.warning(
+            "JEF_API_KEYS is empty: the API has no authentication of its own. Only "
+            "acceptable behind an ingress that authenticates; /healthz reports auth=none"
+        )
+
+    def _budget(payload: dict[str, Any]) -> None:
+        """Per-request budgets that need the parsed body, still ahead of inference."""
+        depth = json_depth(payload)
+        if depth > settings.max_json_depth:
+            raise _TooDeep(f"payload nests {depth} levels; the limit is {settings.max_json_depth}")
+        state = payload.get("state")
+        if state is not None:
+            chars = len(state) if isinstance(state, str) else len(render_state(state))
+            if chars > settings.max_state_chars:
+                raise _StateTooLarge(
+                    f"state is {chars} characters; the limit is {settings.max_state_chars}"
+                )
+
     # -- error handling ---------------------------------------------------- #
 
     @app.exception_handler(JefError)
@@ -112,6 +136,7 @@ def create_app(
         started = time.perf_counter()
         eng: Engine = app.state.engine
 
+        _budget(payload)
         req = EvaluateRequest.model_validate(payload)
 
         n = len(req.questions)
@@ -163,6 +188,7 @@ def create_app(
         scene = app.state.scenes.get(scene_id)
         if "state" not in payload:
             raise _MissingState("request body must contain 'state'")
+        _budget(payload)
 
         trace = app.state.scene_engine.run(scene, payload["state"])
 
@@ -201,17 +227,35 @@ def create_app(
         return {
             "max_questions_per_request": settings.max_questions,
             "max_state_chars": settings.max_state_chars,
+            "max_body_bytes": settings.max_body_bytes,
+            "max_json_depth": settings.max_json_depth,
+            "rate_limit_per_minute": settings.rate_limit_per_minute,
+            "auth": "api-key" if settings.auth_enabled else "none",
         }
 
     @app.get("/healthz")
     def healthz() -> dict[str, Any]:
+        """Liveness, plus the facts a deployer needs to judge readiness.
+
+        ``status: ok`` means the process answers. ``production_safe`` means
+        something stricter and is false by default: a real backbone, a
+        fitted calibrator and app-level authentication. A deployment that
+        installs only the hashing stub, or no keys, is told so here rather
+        than discovering it from a confident-looking answer.
+        """
         eng: Engine = app.state.engine
+        test_backbone = settings.is_test_backbone or eng.backbone.name == "hashing"
+        calibrated = eng.calibrator.is_fitted()
         return {
             "status": "ok",
             "model": eng.model_name,
-            "calibrated": eng.calibrator.is_fitted(),
+            "model_loaded": True,
+            "calibrated": calibrated,
+            "calibration_scope": sorted(eng.calibrator.buckets),
             # Surfaced so a deployment cannot quietly serve the test backbone.
-            "test_backbone": settings.is_test_backbone,
+            "test_backbone": test_backbone,
+            "auth": "api-key" if settings.auth_enabled else "none",
+            "production_safe": (not test_backbone) and calibrated and settings.auth_enabled,
         }
 
     # -- debug UI ----------------------------------------------------------- #
@@ -246,4 +290,14 @@ class _TooMany(JefError):
 
 class _MissingState(JefError):
     code = "invalid_request"
+    status = 422
+
+
+class _StateTooLarge(JefError):
+    code = "state_too_large"
+    status = 413
+
+
+class _TooDeep(JefError):
+    code = "payload_too_deep"
     status = 422
