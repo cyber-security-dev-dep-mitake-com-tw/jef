@@ -208,14 +208,22 @@ class SQLiteStore:
     """
 
     persistent = True
+    #: Schema creation from several threads at once (several workers starting
+    #: together) is serialised in-process; across processes SQLite's own lock
+    #: and the busy timeout cover it.
+    _init_lock = threading.Lock()
 
-    def __init__(self, path: str | Path, *, busy_timeout_ms: int = 5000) -> None:
+    def __init__(self, path: str | Path, *, busy_timeout_ms: int = 10_000) -> None:
         self.path = Path(path)
         self.busy_timeout_ms = busy_timeout_ms
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            with self._connect() as con:
-                con.execute("PRAGMA journal_mode=WAL")
+            with self._init_lock, self._connect() as con:
+                # WAL needs a moment with no other connection open; if another
+                # process holds one, the default journal is still correct, only
+                # slower, so a failure here is not an error.
+                with suppress(sqlite3.OperationalError):
+                    con.execute("PRAGMA journal_mode=WAL")
                 con.executescript(_SCHEMA)
         except (sqlite3.Error, OSError) as exc:
             raise StoreUnavailable(f"cannot open decision store at {self.path}: {exc}") from exc

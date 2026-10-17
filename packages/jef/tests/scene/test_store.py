@@ -202,11 +202,17 @@ def test_ten_workers_authorise_the_same_key_exactly_once(tmp_path: Path) -> None
     path = tmp_path / "d.db"
     g = grant()
     results: list[ExecutionReceipt] = []
+    errors: list[BaseException] = []
     lock = threading.Lock()
 
     def worker() -> None:
-        ex = executor(SQLiteStore(path))  # each worker: its own connection and lock
-        r = ex.authorize(proposal(), idempotency_key="k", grant=g)
+        try:
+            ex = executor(SQLiteStore(path))  # each worker: its own connection and lock
+            r = ex.authorize(proposal(), idempotency_key="k", grant=g)
+        except BaseException as exc:  # surfaced by the assertion below
+            with lock:
+                errors.append(exc)
+            return
         with lock:
             results.append(r)
 
@@ -215,6 +221,7 @@ def test_ten_workers_authorise_the_same_key_exactly_once(tmp_path: Path) -> None
         t.start()
     for t in threads:
         t.join()
+    assert errors == [], f"a worker failed instead of waiting: {errors!r}"
     assert len(results) == 10
     assert all(r == results[0] for r in results), "everyone sees one decision"
     assert results[0].status == "authorized"
