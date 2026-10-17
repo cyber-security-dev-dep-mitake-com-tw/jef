@@ -112,6 +112,10 @@ def export_tasks(cases: Iterable[Mapping[str, Any]], annotator: str) -> list[dic
                 "prohibited_actions": [],
                 "required_followup": [],
                 "note": "",
+                # Optional, but the pilot needs it: wall-clock seconds spent on
+                # this case, so the full gold set can be scheduled from measured
+                # throughput rather than a guess.
+                "seconds_spent": None,
             }
         )
     return sorted(tasks, key=lambda t: _order_key(annotator, t["case_id"]))
@@ -127,6 +131,7 @@ class Annotation:
     prohibited_actions: tuple[str, ...] = ()
     required_followup: tuple[str, ...] = ()
     note: str = ""
+    seconds_spent: float | None = None
 
 
 def parse_annotations(
@@ -157,6 +162,11 @@ def parse_annotations(
         unknown_ids = sorted(set(ids) - known_ids)
         if unknown_ids:
             raise AnnotationError(f"{cid}: evidence ids {unknown_ids} are not in the case")
+        spent = row.get("seconds_spent")
+        if spent is not None and (
+            isinstance(spent, bool) or not isinstance(spent, (int, float)) or spent < 0
+        ):
+            raise AnnotationError(f"{cid}: seconds_spent must be a non-negative number or null")
         out.append(
             Annotation(
                 case_id=cid,
@@ -167,6 +177,7 @@ def parse_annotations(
                 prohibited_actions=tuple(row.get("prohibited_actions") or ()),
                 required_followup=tuple(row.get("required_followup") or ()),
                 note=str(row.get("note") or ""),
+                seconds_spent=float(spent) if spent is not None else None,
             )
         )
     return out
@@ -243,10 +254,29 @@ def agreement(
             "per_class": per_class,
             "caveat": "kappa is unstable under class imbalance; read it with the per-class counts",
         }
+    timing: dict[str, dict[str, Any]] = {}
+    spent_by_task: dict[str, list[float]] = defaultdict(list)
+    for cid, anns in by_case.items():
+        for ann in anns:
+            if ann.seconds_spent is not None:
+                spent_by_task[cases[cid]["task_id"]].append(ann.seconds_spent)
+    for task, values in sorted(spent_by_task.items()):
+        ordered = sorted(values)
+        timing[task] = {
+            "reviews_timed": len(ordered),
+            "median_seconds": ordered[len(ordered) // 2],
+            "p90_seconds": ordered[min(len(ordered) - 1, int(0.9 * len(ordered)))],
+            "reviewer_hours_per_100_cases_double_reviewed": round(
+                2 * 100 * (sum(ordered) / len(ordered)) / 3600, 2
+            ),
+        }
     return {
         "reviewers": reviewers,
         "cases_reviewed": len(by_case),
         "by_task": per_task,
+        # Measured throughput, for scheduling the rest of the gold set. Excludes
+        # adjudication time, which the third reviewer should log separately.
+        "timing": timing,
         "queue": queue,
         "adjudication_rate": round(
             sum(q["reason"] == "disagreement" for q in queue)

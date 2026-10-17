@@ -221,9 +221,17 @@ def evaluate(
     for scorer in scorers:
         rows: list[dict[str, Any]] = []
         latencies: list[float] = []
+        failures: list[dict[str, str]] = []
         for c in items:
             started = time.perf_counter()
-            probs = scorer.predict(c)
+            try:
+                probs = scorer.predict(c)
+            except Exception as exc:  # a timeout, refusal or unparseable reply is a result too
+                latencies.append(time.perf_counter() - started)
+                failures.append(
+                    {"case_id": c["case_id"], "task": c["task_id"], "error": type(exc).__name__}
+                )
+                continue
             latencies.append(time.perf_counter() - started)
             g = gold_by[c["case_id"]]
             rows.append(
@@ -236,6 +244,7 @@ def evaluate(
                     "language": str(c.get("language")),
                     "tier": trust_tier(g["label_origin"]),
                     "source": c["source_dataset"],
+                    "track": "hard_negative" if c.get("hard_negative") else "natural",
                 }
             )
         by_task: dict[str, Any] = {}
@@ -244,7 +253,7 @@ def evaluate(
             grouped[r["task"]].append(r)
         for task, task_rows in sorted(grouped.items()):
             block = _block(task, task_rows, with_ci=True)
-            for facet in ("language", "tier", "source"):
+            for facet in ("language", "tier", "source", "track"):
                 parts: dict[str, list[dict[str, Any]]] = defaultdict(list)
                 for r in task_rows:
                     parts[r[facet]].append(r)
@@ -258,6 +267,15 @@ def evaluate(
             "latency_s": {
                 "p50": float(np.quantile(lat, 0.5)),
                 "p95": float(np.quantile(lat, 0.95)),
+                "p99": float(np.quantile(lat, 0.99)),
+            },
+            # Every case the scorer could not answer -- timeout, refusal, bad JSON.
+            # Metrics above cover the answered cases only; read them with this.
+            "failures": {
+                "count": len(failures),
+                "rate": (len(failures) / len(items)) if items else 0.0,
+                "by_error": dict(Counter(f["error"] for f in failures)),
+                "cases": failures[:50],
             },
         }
 
@@ -270,6 +288,7 @@ def evaluate(
             "pr_auc": b.get("binary", {}).get("pr_auc"),
             "ece": b["ece"],
             "mistaken_closures": b.get("unknown_handling", {}).get("mistaken_closures"),
+            "failure_rate": s["failures"]["rate"],
         }
         for name, s in report["scorers"].items()
         for task, b in s["tasks"].items()
