@@ -43,38 +43,62 @@ LABELS = (
     f"fox,service_scans,{ts('2022-01-18T11:10:00')},{ts('2022-01-18T11:20:00')}\n"
 )
 
+FW, INTRA, MAIL = "10.35.32.1", "10.35.35.206", "172.17.131.81"
+
+# Shaped like the published records (checked 2026-10-17): one replaying agent
+# named wazuh-client for every host, the host identified by agent.ip, an
+# occasional predecoder.hostname, and an @timestamp carrying event time.
 WAZUH = [
-    # Suricata via Wazuh, event time in data.timestamp; the top-level timestamp
-    # is the replay time and must be ignored.
+    # Suricata via Wazuh, event time in data.timestamp. A stray top-level
+    # timestamp (raw Wazuh's replay time) must be ignored.
     {
         "timestamp": "2022-06-01T00:00:00.000+0000",
+        "@timestamp": "2022-01-18T11:00:30.000000Z",
         "rule": {"description": "Suricata: ET SCAN Nmap Scripting Engine", "level": 3},
-        "agent": {"name": "fox-inet-firewall", "ip": "10.0.0.1"},
+        "agent": {"name": "wazuh-client", "ip": FW},
         "data": {
             "timestamp": "2022-01-18T11:00:30.000000+0000",
             "src_ip": "192.168.1.5",
             "dest_ip": "10.35.35.2",
             "dest_port": "80",
+            "alert": {"severity": 1},
         },
+    },
+    # Suricata protocol noise at severity 3, outside every window, and the Wazuh
+    # counting rule built on it at level 10: neither is a hard-negative candidate.
+    {
+        "rule": {
+            "description": "Suricata: Alert - SURICATA TLS invalid record/traffic",
+            "level": 3,
+        },
+        "agent": {"name": "wazuh-client", "ip": "10.35.35.9"},
+        "data": {"timestamp": "2022-01-18T17:00:00.000000+0000", "alert": {"severity": 3}},
+    },
+    {
+        "rule": {"description": "Multiple IDS alerts for same id.", "level": 10},
+        "agent": {"name": "wazuh-client", "ip": "10.35.35.9"},
+        "data": {"timestamp": "2022-01-18T17:00:05.000000+0000"},
     },
     # Benign housekeeping inside the window, same host and bucket: DATA-002.
     {
         "rule": {"description": "ClamAV database update", "level": 3},
-        "agent": {"name": "fox-inet-firewall"},
-        "predecoder": {"timestamp": "Jan 18 11:02:00"},
+        "agent": {"name": "wazuh-client", "ip": FW},
+        "predecoder": {"hostname": "inet-firewall", "timestamp": "Jan 18 11:02:00"},
     },
     # Syslog-only time on another host, inside the window.
     {
         "rule": {"description": "sshd: authentication failed.", "level": 5},
-        "agent": {"name": "fox-intranet"},
-        "predecoder": {"timestamp": "Jan 18 11:05:00"},
+        "agent": {"name": "wazuh-client", "ip": INTRA},
+        "predecoder": {"hostname": "intranet-server", "timestamp": "Jan 18 11:05:00"},
     },
     # Apache access log time from full_log, hours after any window: unknown.
+    # Wazuh's own web fields are srcip / dstip / url, not Suricata's names.
     {
         "rule": {"description": "Web server 400 error code.", "level": 5},
-        "agent": {"name": "fox-intranet"},
+        "agent": {"name": "wazuh-client", "ip": INTRA},
+        "data": {"srcip": "10.1.1.1", "url": "/wp-login.php", "protocol": "GET"},
         "location": "/var/log/apache2/intranet-access.log",
-        "full_log": '10.1.1.1 - - [18/Jan/2022:15:00:00 +0000] "GET / HTTP/1.1" 400 0',
+        "full_log": '10.1.1.1 - - [18/Jan/2022:15:00:00 +0000] "GET /wp-login.php HTTP/1.1" 400 0',
     },
     # High severity outside every window: a hard-negative candidate.
     {
@@ -82,20 +106,20 @@ WAZUH = [
             "description": "Multiple authentication failures followed by a success.",
             "level": 12,
         },
-        "agent": {"name": "fox-mail"},
-        "predecoder": {"timestamp": "Jan 18 16:00:00"},
+        "agent": {"name": "wazuh-client", "ip": MAIL},
+        "predecoder": {"hostname": "mail", "timestamp": "Jan 18 16:00:00"},
     },
     # Only the replay timestamp: untimed, dropped.
     {
         "timestamp": "2022-06-01T00:00:00.000+0000",
         "rule": {"description": "x", "level": 3},
-        "agent": {"name": "h"},
+        "agent": {"name": "wazuh-client", "ip": FW},
     },
 ]
 AMINER = [
     {
-        "AnalysisComponent": {"AnalysisComponentName": "NewMatchPathValueDetector"},
-        "AMiner": {"ID": "fox-intranet"},
+        "AnalysisComponent": {"AnalysisComponentName": "AMiner: New event type."},
+        "AMiner": {"ID": INTRA},
         "LogData": {"DetectionTimestamp": [ts("2022-01-18T11:06:00")], "RawLogData": ["x"]},
     }
 ]
@@ -124,9 +148,10 @@ def test_phase_windows_read_the_published_columns() -> None:
 
 def test_event_time_follows_the_authors_order_and_ignores_replay_time() -> None:
     assert ait_ads.event_time(WAZUH[0], 2022) == ts("2022-01-18T11:00:30")
-    assert ait_ads.event_time(WAZUH[2], 2022) == ts("2022-01-18T11:05:00")
-    assert ait_ads.event_time(WAZUH[3], 2022) == ts("2022-01-18T15:00:00")
-    assert ait_ads.event_time(WAZUH[5], 2022) is None, "the replay timestamp is not event time"
+    assert ait_ads.event_time(WAZUH[1], 2022) == ts("2022-01-18T17:00:00")
+    assert ait_ads.event_time(WAZUH[4], 2022) == ts("2022-01-18T11:05:00")
+    assert ait_ads.event_time(WAZUH[5], 2022) == ts("2022-01-18T15:00:00")
+    assert ait_ads.event_time(WAZUH[7], 2022) is None, "the replay timestamp is not event time"
     fast = {"predecoder": {"timestamp": "01/18/2022-11:00:30.123456"}}
     assert ait_ads.event_time(fast, 2022) == pytest.approx(ts("2022-01-18T11:00:30.123456"))
     audit = {
@@ -141,7 +166,7 @@ def test_alerts_parse_and_stats_count_what_was_dropped(ait_files) -> None:
     windows = ait_ads.read_phase_windows(labels.read_text())
     stats = ait_ads.ParseStats()
     alerts = list(ait_ads.iter_alerts(archive, windows, stats))
-    assert stats.alerts == 6 and len(alerts) == 6
+    assert stats.alerts == 8 and len(alerts) == 8
     assert stats.untimed == 1 and stats.skipped == 1 and stats.malformed == 1
     sensors = {a.sensor for a in alerts}
     assert sensors == {"wazuh", "suricata", "aminer"}
@@ -155,7 +180,7 @@ def test_data_002_benign_alerts_in_a_window_are_suspicious_not_malicious(ait_fil
     alerts = list(ait_ads.iter_alerts(archive, windows))
     cases, golds, summary = ait_ads.build_cases(alerts, windows, source_hash="sha256:" + "0" * 64)
     by_id = {g["case_id"]: g for g in golds}
-    firewall = next(c for c in cases if c["state"]["host"] == "fox-inet-firewall")
+    firewall = next(c for c in cases if FW in c["state"]["host"])
     gold = by_id[firewall["case_id"]]
     assert "ClamAV database update" in firewall["state"]["alerts"]
     assert gold["gold"]["verdict"] == "suspicious"
@@ -170,17 +195,43 @@ def test_outside_every_window_is_unknown_and_severe_ones_are_candidates(ait_file
     archive, labels = ait_files
     windows = ait_ads.read_phase_windows(labels.read_text())
     cases, golds, summary = ait_ads.build_cases(
-        list(ait_ads.iter_alerts(archive, windows)), windows, source_hash="sha256:" + "0" * 64
+        ait_ads.iter_alerts(archive, windows), windows, source_hash="sha256:" + "0" * 64
     )
     verdicts = {
-        c["state"]["window_start"][11:16] + c["state"]["host"]: g["gold"]["verdict"]
+        (c["state"]["window_start"][11:16], c["state"]["host"]): g["gold"]["verdict"]
         for c, g in zip(cases, golds, strict=True)
     }
-    assert verdicts["15:00fox-intranet"] == "unknown"
-    assert verdicts["16:00fox-mail"] == "unknown"
-    mail = next(c for c in cases if c["state"]["host"] == "fox-mail")
+    assert verdicts[("15:00", f"intranet-server ({INTRA})")] == "unknown"
+    assert verdicts[("16:00", f"mail ({MAIL})")] == "unknown"
+    mail = next(c for c in cases if MAIL in c["state"]["host"])
     assert mail["case_id"] in summary["hard_negative_candidates"]
+    noise = next(c for c in cases if "10.35.35.9" in c["state"]["host"])
+    assert noise["case_id"] not in summary["hard_negative_candidates"], (
+        "counting rules over severity-3 noise are not alarming"
+    )
+    assert "suricata S3 Alert - SURICATA TLS" in noise["state"]["alerts"]
     assert "benign" not in {g["gold"]["verdict"] for g in golds}
+
+
+def test_hosts_are_agent_ips_shared_with_aminer(ait_files) -> None:
+    """agent.name is one replaying collector; the IP is the host, as in AMiner.ID."""
+    archive, labels = ait_files
+    windows = ait_ads.read_phase_windows(labels.read_text())
+    cases, _, _ = ait_ads.build_cases(
+        ait_ads.iter_alerts(archive, windows), windows, source_hash="sha256:" + "0" * 64
+    )
+    assert all("wazuh-client" not in c["state"]["host"] for c in cases)
+    intranet = next(
+        c
+        for c in cases
+        if c["state"]["host"] == f"intranet-server ({INTRA})"
+        and c["state"]["window_start"].endswith("11:00:00Z")
+    )
+    assert intranet["state"]["sensors"] == "aminer:1, wazuh:1", (
+        "AMiner and Wazuh alerts for one IP share a case"
+    )
+    web = next(c for c in cases if c["state"]["window_start"].endswith("15:00:00Z"))
+    assert "/wp-login.php" in web["state"]["alerts"] and "src 10.1.1.1" in web["state"]["alerts"]
 
 
 def test_the_state_never_carries_the_label(ait_files) -> None:
@@ -287,7 +338,10 @@ def ctu_archive(tmp_path: Path) -> Path:
         ("flow=From-Botnet-V43-UDP-DNS", "botnet"),
         ("flow=To-Botnet-V42-TCP-Attempt", "unknown"),
         ("flow=From-Normal-V42-Stribrek", "benign"),
-        ("flow=To-Normal-V42-Grill", "benign"),
+        ("flow=To-Normal-V45-UDP-NTP-server", "unknown"),
+        ("flow=Normal-V45-HTTP-windowsupdate", "benign"),
+        ("flow=From-Botnet-V45-TCP-CC106-IRC-Not-Encrypted", "c2"),
+        ("flow=From-Botnet-V45-TCP-Attempt-SPAM", "botnet"),
         ("flow=Background-UDP-Established", "unknown"),
         ("flow=To-Background-UDP-CVUT-DNS-Server", "unknown"),
         ("", "unknown"),

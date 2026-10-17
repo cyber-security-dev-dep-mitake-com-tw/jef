@@ -5,17 +5,19 @@
     {
       "name": "CTU-13-Dataset.tar.bz2",
       "url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-13-Dataset/CTU-13-Dataset.tar.bz2",
-      "size": null,
+      "sha256": "1f8daeca146131a368b432b2d8625de5e4429bce833f3e4cf4bea8312344ab7f",
+      "size": 1997547391,
       "upstream_checksum": null,
-      "sha256": null,
+      "recorded_at": "2026-10-17",
       "note": "~1.9 GB; listed as 2014-11-01. Background flows are unknown, never benign (item 10)."
     },
     {
       "name": "README.md",
       "url": "https://mcfp.felk.cvut.cz/publicDatasets/CTU-13-Dataset/README.md",
-      "size": null,
+      "sha256": "f0854168ab93a5517d50cf15956036e8df45009cf4cfb4c8fc32f54851aa274d",
+      "size": 482,
       "upstream_checksum": null,
-      "sha256": null
+      "recorded_at": "2026-10-17"
     }
   ]
 }

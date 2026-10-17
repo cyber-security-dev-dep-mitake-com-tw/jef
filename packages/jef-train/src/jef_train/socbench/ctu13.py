@@ -12,9 +12,13 @@ label contains             maps to     why
 ``To-Botnet``              ``unknown`` sent *to* the bot by others; the
                                        capture README says not necessarily
                                        malicious
-``Normal``                 ``benign``  hosts the authors verified; their
-                                       README calls server labels less
-                                       reliable, so confidence is medium
+``To-Normal``              ``unknown`` sent *to* a verified normal host by an
+                                       unverified source: the mirror of
+                                       To-Botnet, and just as unverified
+``Normal`` (From-, bare)   ``benign``  traffic from hosts the authors
+                                       verified; their README calls server
+                                       labels less reliable, so confidence
+                                       is medium
 ``Background`` / other     ``unknown`` unverified university traffic; never
                                        benign (DATA-001)
 =========================  ==========  ====================================
@@ -65,7 +69,9 @@ def map_label(raw: str) -> tuple[str, str]:
     label = raw.strip().removeprefix("flow=")
     if "From-Botnet" in label:
         return ("c2" if _CC.search(label) else "botnet"), "high"
-    if "To-Botnet" in label:
+    if "To-Botnet" in label or "To-Normal" in label:
+        # The destination was verified; the source was not. Seen on the
+        # published data as e.g. To-Normal-V45-UDP-NTP-server.
         return "unknown", "low"
     if "Normal" in label:
         return "benign", "medium"
@@ -182,7 +188,7 @@ def build_cases(
     *,
     source_hash: str,
     background_rate: float = 0.001,
-    max_cases_per_class: int = 2000,
+    max_cases_per_class: int = 300,
     max_evidence: int = 10,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Aggregate flows into conversations and attach flow-label gold."""
@@ -219,11 +225,14 @@ def build_cases(
             return "c2", "high"  # a bot conversation that includes its C&C
         return "unknown", "low"
 
-    by_class: dict[str, list[_Conversation]] = {}
+    # Capped per (scenario, class), not per class: splits are by scenario, and
+    # on the published data a global cap gave one scenario over half of all
+    # benign cases and another most of the C&C.
+    by_class: dict[tuple[str, str], list[_Conversation]] = {}
     for c in convs.values():
-        by_class.setdefault(verdict(c)[0], []).append(c)
+        by_class.setdefault((c.key[0], verdict(c)[0]), []).append(c)
     kept: list[_Conversation] = []
-    for _cls, items in sorted(by_class.items()):
+    for _key, items in sorted(by_class.items()):
         # Deterministic cap: smallest key hashes win, so a rebuild keeps the same set.
         items.sort(
             key=lambda c: hashlib.sha1(

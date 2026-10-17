@@ -62,6 +62,11 @@
     },
     "hard_negative": { "type": "boolean" },
     "paired_with": { "type": ["string", "null"] },
+    "pair_kind": {
+      "type": ["string", "null"],
+      "description": "Why paired_with is set: hard-negative (a legitimate twin differing in the decisive detail) or translation (the same evidence in another language). Both share family_id, so a family split keeps them together.",
+      "enum": ["hard-negative", "translation", null]
+    },
     "split_group": { "type": "string" },
     "license_reviewed": { "type": "boolean" },
     "pii_reviewed": { "type": "boolean" }

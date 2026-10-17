@@ -22,11 +22,20 @@ by family never puts one attack chain on both sides (review 9.3, step 5).
 
 Event times follow the dataset authors' ``analyze.py`` exactly. Wazuh's own
 top-level ``timestamp`` is **not** used: AIT-ADS was produced by replaying
-logs, so that field is the replay time. The order is ``data.timestamp``
-(Suricata eve), then ``predecoder.timestamp``, then the timestamp inside
-``full_log`` chosen by the log file in ``location``; AMiner alerts use the
-last ``LogData.DetectionTimestamp``. Every time is taken as UTC, as the
-authors do; syslog lines have no year and take the scenario's.
+logs, so in raw Wazuh output that field is the replay time. The order is
+``data.timestamp`` (Suricata eve), then ``predecoder.timestamp``, then the
+timestamp inside ``full_log`` chosen by the log file in ``location``; AMiner
+alerts use the last ``LogData.DetectionTimestamp``. Every time is taken as
+UTC, as the authors do; syslog lines have no year and take the scenario's.
+(Checked against the published archive, 2026-10-17: the records carry no
+top-level ``timestamp`` but an ``@timestamp``, and the derived event time
+equals it for every one of 340,000 sampled alerts across three scenarios.)
+
+Hosts. Every Wazuh record names the same agent (``agent.name`` is
+``wazuh-client``: one collector replayed every host's logs), so the host is
+``agent.ip``, which is also what AMiner records carry as ``AMiner.ID``. That is
+the key the authors use too. A host's display name is the most common
+``predecoder.hostname`` seen for its IP, when any is.
 """
 
 from __future__ import annotations
@@ -81,6 +90,11 @@ class Alert:
     src_ip: str | None = None
     dest_ip: str | None = None
     dest_port: int | None = None
+    url: str | None = None
+    host_name: str | None = None
+    #: Suricata's own alert severity (1 high .. 3 low); Wazuh files every
+    #: Suricata alert at rule level 3, so the level says nothing for them.
+    severity: int | None = None
     ref: str = ""
 
 
@@ -206,19 +220,30 @@ def _wazuh(j: dict[str, Any], scenario: str, ref: str, year: int) -> Alert | Non
     agent = j.get("agent") or {}
     raw_data = j.get("data")
     data: dict[str, Any] = raw_data if isinstance(raw_data, dict) else {}
+    pre = j.get("predecoder") if isinstance(j.get("predecoder"), dict) else {}
     suricata = description.startswith("Suricata: ")
-    port = data.get("dest_port")
+    port = data.get("dest_port") or data.get("dstport")
     level = rule.get("level")
+    url = data.get("url")
+    alert_block = data.get("alert") if isinstance(data.get("alert"), dict) else {}
+    sev = (alert_block or {}).get("severity")
     return Alert(
         scenario=scenario,
         sensor="suricata" if suricata else "wazuh",
         time=t,
         name=description.removeprefix("Suricata: "),
-        host=str(agent.get("name") or agent.get("ip") or "unknown"),
+        # agent.name is the one replaying collector for every record; the IP
+        # is the host (and matches AMiner.ID).
+        host=str(agent.get("ip") or agent.get("name") or "unknown"),
+        host_name=(pre or {}).get("hostname") or None,
         level=int(level) if isinstance(level, int | str) and str(level).isdigit() else None,
-        src_ip=data.get("src_ip"),
-        dest_ip=data.get("dest_ip"),
+        src_ip=data.get("src_ip") or data.get("srcip"),
+        dest_ip=data.get("dest_ip") or data.get("dstip"),
         dest_port=int(port) if isinstance(port, int | str) and str(port).isdigit() else None,
+        url=str(url)[:160] if url else None,
+        severity=int(sev)
+        if suricata and isinstance(sev, int | str) and str(sev).isdigit()
+        else None,
         ref=ref,
     )
 
@@ -303,7 +328,9 @@ def _iso(t: float) -> str:
 
 def _line(a: Alert, repeat: int) -> str:
     parts = [_iso(a.time)[11:], a.sensor]
-    if a.level is not None:
+    if a.sensor == "suricata" and a.severity is not None:
+        parts.append(f"S{a.severity}")
+    elif a.level is not None:
         parts.append(f"L{a.level}")
     parts.append(a.name)
     net = " ".join(
@@ -316,9 +343,43 @@ def _line(a: Alert, repeat: int) -> str:
     )
     if net:
         parts.append(f"[{net}]")
+    if a.url:
+        parts.append(a.url)
     if repeat > 1:
         parts.append(f"x{repeat}")
     return " ".join(parts)
+
+
+@dataclass
+class _Distinct:
+    first: Alert
+    count: int = 0
+    in_window: bool = False
+
+
+@dataclass
+class _Group:
+    count: int = 0
+    max_level: int = 0
+    sensors: Counter[str] = field(default_factory=Counter)
+    phases: Counter[str] = field(default_factory=Counter)
+    in_window: int = 0
+    alarming: set[str] = field(default_factory=set)
+    distinct: dict[tuple[Any, ...], _Distinct] = field(default_factory=dict)
+
+
+#: Wazuh correlation rules whose level comes from counting other IDS alerts,
+#: not from what happened. On the published data they are almost all built on
+#: Suricata's severity-3 TLS protocol anomalies, so they say "noisy", not
+#: "alarming".
+_COUNTING_RULES = ("Multiple IDS alerts", "Multiple IDS events")
+
+
+def _alarming(a: Alert, level: int) -> bool:
+    """An alert an analyst would look at twice: worth a hard-negative review when unlabelled."""
+    if a.sensor == "suricata":
+        return a.severity is not None and a.severity <= 2
+    return (a.level or 0) >= level and not a.name.startswith(_COUNTING_RULES)
 
 
 def build_cases(
@@ -329,36 +390,65 @@ def build_cases(
     bucket_seconds: int = 600,
     max_evidence: int = 25,
     hard_negative_level: int = 10,
+    candidates_per_signature: int = 20,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
-    """Group alerts into cases and attach weak gold. Returns (cases, gold, summary)."""
-    groups: dict[tuple[str, str, int], list[Alert]] = defaultdict(list)
+    """Group alerts into cases and attach weak gold. Returns (cases, gold, summary).
+
+    Hard-negative candidates are unlabelled cases with an alarming alert
+    (Wazuh level >= ``hard_negative_level`` that is not a counting rule, or
+    Suricata severity 1-2), at most ``candidates_per_signature`` per alarming
+    signature per scenario. On the published data one informational rule
+    (DNS queries to .biz) fires in about 3,000 buckets; uncapped, it would be
+    most of the review list.
+
+    Streams: each group keeps counts and one representative per distinct
+    alert signature, never the alerts themselves, so memory follows the number
+    of groups and signatures rather than the 2.6 million alerts.
+    """
+    groups: dict[tuple[str, str, int], _Group] = defaultdict(_Group)
+    names: dict[str, Counter[str]] = defaultdict(Counter)
     for a in alerts:
-        groups[(a.scenario, a.host, int(a.time // bucket_seconds))].append(a)
+        g = groups[(a.scenario, a.host, int(a.time // bucket_seconds))]
+        g.count += 1
+        g.max_level = max(g.max_level, a.level or 0)
+        g.sensors[a.sensor] += 1
+        phase = phase_of(a.time, windows.get(a.scenario, ()))
+        if phase:
+            g.in_window += 1
+            g.phases[phase] += 1
+        if _alarming(a, hard_negative_level):
+            g.alarming.add(f"{a.sensor}: {a.name}")
+        sig = (a.sensor, a.name, a.level, a.src_ip, a.dest_ip, a.dest_port, a.url)
+        d = g.distinct.get(sig)
+        if d is None:
+            d = g.distinct[sig] = _Distinct(first=a)
+        elif a.time < d.first.time:
+            d.first = a
+        d.count += 1
+        d.in_window = d.in_window or bool(phase)
+        if a.host_name:
+            names[a.host][a.host_name] += 1
 
     cases: list[dict[str, Any]] = []
     golds: list[dict[str, Any]] = []
     verdicts: Counter[str] = Counter()
-    phases: Counter[str] = Counter()
+    stages: Counter[str] = Counter()
     candidates: list[str] = []
+    signature_cases: Counter[tuple[str, str]] = Counter()
+    signature_total: Counter[str] = Counter()
 
     for n, key in enumerate(sorted(groups), start=1):
         scenario, host, bucket = key
-        items = sorted(groups[key], key=lambda a: (a.time, a.name))
+        g = groups[key]
         cid = case_id("ait", n)
-
-        # Evidence: distinct (sensor, name, level, src, dst) in time order, repeats counted.
-        seen: dict[tuple[Any, ...], list[Alert]] = {}
-        for a in items:
-            seen.setdefault(
-                (a.sensor, a.name, a.level, a.src_ip, a.dest_ip, a.dest_port), []
-            ).append(a)
-        distinct = sorted(seen.values(), key=lambda xs: xs[0].time)
+        distinct = sorted(g.distinct.values(), key=lambda d: (d.first.time, d.first.name))
+        shown = distinct[:max_evidence]
         evidence = [
-            {"id": f"e{i}", "field": "alert", "value": _line(group[0], len(group))}
-            for i, group in enumerate(distinct[:max_evidence], start=1)
+            {"id": f"e{i}", "field": "alert", "value": _line(d.first, d.count)}
+            for i, d in enumerate(shown, start=1)
         ]
-        sensors = Counter(a.sensor for a in items)
         start, end = bucket * bucket_seconds, (bucket + 1) * bucket_seconds
+        label = names[host].most_common(1)[0][0] if names.get(host) else None
 
         # The state is what a model sees: alerts only. No phase, no window
         # membership, no scenario name -- each of those would be the label.
@@ -372,11 +462,12 @@ def build_cases(
                 "language": "en",
                 "task_id": TASK_ID,
                 "state": {
-                    "host": host,
+                    "host": f"{label} ({host})" if label else host,
                     "window_start": _iso(start),
                     "window_end": _iso(end),
-                    "alert_count": len(items),
-                    "sensors": ", ".join(f"{k}:{v}" for k, v in sorted(sensors.items())),
+                    "alert_count": g.count,
+                    "distinct_alerts": len(distinct),
+                    "sensors": ", ".join(f"{k}:{v}" for k, v in sorted(g.sensors.items())),
                     "alerts": "\n".join(e["value"] for e in evidence),
                 },
                 "evidence": evidence,
@@ -386,23 +477,19 @@ def build_cases(
             }
         )
 
-        hits = [(a, phase_of(a.time, windows.get(scenario, ()))) for a in items]
-        in_window = [(a, p) for a, p in hits if p]
-        if in_window:
-            stage = Counter(p for _, p in in_window).most_common(1)[0][0]
+        if g.in_window:
+            stage = g.phases.most_common(1)[0][0]
             gold: dict[str, Any] = {
                 "verdict": "suspicious",
                 "confidence_of_gold": "low",
                 "allowed_alternatives": ["confirmed_malicious", "confirmed_benign"],
                 "attack_stage": stage,
                 "correct_evidence_ids": [
-                    e["id"]
-                    for e, group in zip(evidence, distinct, strict=False)
-                    if any(phase_of(a.time, windows.get(scenario, ())) for a in group)
+                    e["id"] for e, d in zip(evidence, shown, strict=True) if d.in_window
                 ],
                 "prohibited_actions": ["close", "suppress"],
             }
-            phases[stage] += 1
+            stages[stage] += 1
         else:
             gold = {
                 "verdict": "unknown",
@@ -410,9 +497,14 @@ def build_cases(
                 "allowed_alternatives": ["confirmed_benign", "suspicious"],
                 "attack_stage": None,
             }
-            max_level = max((a.level or 0) for a in items)
-            if max_level >= hard_negative_level or sensors.get("suricata"):
-                candidates.append(cid)
+            if g.alarming:
+                signature_total.update(g.alarming)
+                if any(
+                    signature_cases[(scenario, sig)] < candidates_per_signature
+                    for sig in g.alarming
+                ):
+                    candidates.append(cid)
+                    signature_cases.update((scenario, sig) for sig in g.alarming)
         verdicts[gold["verdict"]] += 1
         golds.append(
             {
@@ -422,8 +514,8 @@ def build_cases(
                 "gold": gold,
                 "adjudication_status": "not-applicable",
                 "adjudication_note": (
-                    f"{len(in_window)} of {len(items)} alerts fall inside an attack-phase window"
-                    if in_window
+                    f"{g.in_window} of {g.count} alerts fall inside an attack-phase window"
+                    if g.in_window
                     else "no alert falls inside an attack-phase window; unlabelled, not benign"
                 ),
             }
@@ -436,9 +528,17 @@ def build_cases(
         "trust_tier": "D",
         "cases": len(cases),
         "by_verdict": dict(verdicts),
-        "by_attack_stage": dict(phases),
+        "by_attack_stage": dict(stages),
         "families": sorted({c["family_id"] for c in cases}),
+        "hosts": {
+            fam: n
+            for fam, n in sorted(
+                Counter(f"ait-{k[0]}" for k in {(s, h) for s, h, _ in groups}).items()
+            )
+        },
         "hard_negative_candidates": candidates,
+        "hard_negative_signatures": dict(signature_total.most_common()),
+        "candidates_per_signature": candidates_per_signature,
         "bucket_seconds": bucket_seconds,
         "caveat": (
             "suspicious means 'inside an attack-phase window', not 'malicious'; unknown means "

@@ -3,8 +3,8 @@
 What JEF does today, what is in review, and what it deliberately does not do.
 `scripts/check-docs.py` (run in CI) fails when a **shipped** row cites a path
 that does not exist, so this table cannot quietly outlive the code it
-describes. Status is as of the commit it is read at; "in review" rows name the
-pull request.
+describes. Status is as of the commit it is read at; an "in review" row names
+its pull request.
 
 ## Deployment tiers
 
@@ -31,10 +31,10 @@ production automation system.
 | Task-scoped calibration (schema 2) | shipped | `packages/jef/src/jef_core/calibration.py` | **the shipped `models/jef-v0/calibration.json` is schema 1, so it loads as `legacy` and nothing automates until it is refit** |
 | Scenes, gates and decision traces | shipped | `packages/jef/src/jef_scene/engine.py`, `scenes/incident-triage.zh-tw.yaml` | |
 | Runtime policy verdict and action tiers | shipped | `packages/jef/src/jef_scene/policy.py` | no uncalibrated auto-close; T2+ never automates |
-| Proposal, grant, receipt contract | shipped | `packages/jef/src/jef_scene/authz.py`, `packages/jef/src/jef_scene/executor.py` | library only on main |
+| Proposal, grant, receipt contract | shipped | `packages/jef/src/jef_scene/authz.py`, `packages/jef/src/jef_scene/executor.py` | sealed proposals, two-phase authorize / complete |
 | HTTP auth, input budgets, rate limits, readiness | shipped | `packages/jef-server/src/jef_server/security.py` | auth is off unless `JEF_API_KEYS` is set; `/healthz` says so |
-| `/v1/decisions` authorize and receipt endpoints | in review (#21) | | off by default; needs API keys |
-| Connector authorize / record outcome (Shuffle, n8n, Cortex) | in review (#21) | | connectors never execute; platforms do |
+| `/v1/decisions` authorize and receipt endpoints | shipped | `packages/jef-server/src/jef_server/decisions.py`, `packages/jef-server/tests/test_decisions.py` | off by default; needs API keys; receipts are in memory, one replica |
+| Connector authorize / record outcome (Shuffle, n8n, Cortex) | shipped | `connectors/shuffle/jef/1.0.0/src/app.py`, `connectors/n8n/nodes/Jef/Jef.node.ts`, `connectors/cortex/JEF/jef_responder.py` | connectors never execute; platforms do |
 | Model manifest, attestations, SBOMs | shipped | `scripts/model-manifest.py`, `models/jef-v0/manifest.json`, `.github/workflows/release.yml` | mismatch at load drops calibration |
 | One version source | shipped | `scripts/set-version.py`, `packages/jef-sdk-ts/src/version.ts` | |
 | jev-local research reproduction | shipped | `research/jev-local/backends/index.mjs`, `research/jev-local/test/isolation.test.mjs` | research only; the Claude backend sends state to Anthropic and is opt-in |
@@ -45,10 +45,10 @@ production automation system.
 |---|---|---|---|
 | Source manifest, fetch, SHA-256 pins | shipped | `benchmark/socbench/sources/sources.yaml`, `packages/jef-train/src/jef_train/socbench/pipeline.py` | restricted sources are never downloaded |
 | Case and gold schemas | shipped | `benchmark/socbench/schema/case.schema.json`, `benchmark/socbench/schema/gold.schema.json` | |
-| AIT-ADS and CTU-13 adapters | in review (#22) | | weak gold, tiers D and C |
-| Two-reviewer annotation and the gold lock | in review (#23) | | |
-| Baselines and SOC metrics report | in review (#24) | | |
-| zh-TW seed cases and bilingual track | in review (#25) | | LLM-authored seeds, tier E |
+| AIT-ADS and CTU-13 adapters | shipped | `packages/jef-train/src/jef_train/socbench/ait_ads.py`, `packages/jef-train/src/jef_train/socbench/ctu13.py` | weak gold, tiers D and C; validated on the published archives (2,655,821 alerts; 19,976,700 flows) |
+| Two-reviewer annotation and the gold lock | shipped | `packages/jef-train/src/jef_train/socbench/annotate.py`, `packages/jef-train/src/jef_train/socbench/splits.py` | |
+| Baselines and SOC metrics report | shipped | `packages/jef-train/src/jef_train/socbench/report.py`, `packages/jef-train/src/jef_train/socbench/metrics.py`, `packages/jef-train/src/jef_train/socbench/baselines.py` | B0, B1, B2/B3 and B4; B5 needs a schema-2 calibration |
+| zh-TW seed cases and bilingual track | shipped | `benchmark/socbench/seeds/zh-TW/cases.jsonl`, `packages/jef-train/src/jef_train/socbench/bilingual.py` | LLM-authored seeds, tier E, awaiting review |
 | BOTS v3 investigation cases | planned | | the Q&A is not in the public repository |
 | LANL, CICIDS2017, CAC datasets | planned | | access needs a human request or registration |
 | Analyst-reviewed test set (300+ double-reviewed) | not started | | needs analysts; no number from SOCBench is a SOC claim until it exists |
