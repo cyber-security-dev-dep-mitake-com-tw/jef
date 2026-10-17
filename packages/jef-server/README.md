@@ -28,6 +28,8 @@ Or `pip install "jef[server]"` to get it with the CLI.
 |---|---|
 | `JEF_BACKBONE` | Model id, or `hashing` for the deterministic test stub |
 | `JEF_HEAD_PATH` `JEF_CALIBRATION_PATH` | Trained artifacts |
+| `JEF_MODEL_NAME` | The model id reported in responses and `/v1/models` (default: derived from backbone and head) |
+| `JEF_ALPHA` | Stored on the engine (default 0.10) but **currently unused**: scene prediction sets use each scene's own `alpha`, and `/v1/systemone` returns no prediction set |
 | `JEF_MODEL_MANIFEST` | `manifest.json` to verify the head and calibration against; defaults to the one beside the head. On a mismatch the server runs without calibration and `/healthz` says `model_manifest: mismatch`. |
 | `JEF_SCENES_DIR` | Scenes to load and compile at startup |
 | `JEF_THREADS` | Intra-op threads. Set below the CPU limit — oversubscribing worsens p99. |

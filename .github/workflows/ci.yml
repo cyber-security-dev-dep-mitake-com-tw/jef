@@ -46,6 +46,11 @@ jobs:
       - name: Weights match their manifest
         run: python scripts/model-manifest.py check models/jef-v0 --require
 
+      # Links and anchors, server settings, prerelease install lines and the
+      # capability matrix: docs that stop describing the code fail the PR.
+      - name: Docs drift
+        run: python scripts/check-docs.py
+
       # The schema is what an editor uses to tell a scene author they are wrong
       # before they run anything, so it must agree with the model that rejects
       # the scene.

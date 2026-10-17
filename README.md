@@ -15,16 +15,22 @@ generation, no parsing, no prompt wrangling.
 ```bash
 pip install jef                # engine, scenes, SDK and the `jef` CLI
 pip install "jef[torch]"       # + the real backbone
-npm install @jef-ai/sdk        # TypeScript client
+npm install @jef-ai/sdk@next   # TypeScript client (release candidates publish to `next`)
 ```
 
-> **Release status (2026-10-16):** `0.2.0` is not on PyPI or npm yet. The
-> `0.2.0rc3` rehearsal is on TestPyPI
-> (`pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ jef==0.2.0rc3`);
-> the npm and Hugging Face channels of every rehearsal failed on credentials, not
-> code. [`docs/RELEASING.md`](docs/RELEASING.md#preflight-why-the-four-rc-runs-failed)
-> lists exactly what is left before the first real tag. Until then, run from a
-> checkout: `uv sync && uv run jef ask …`, or `docker build -t jef .`.
+> **Release status (2026-10-17):** `0.2.0` is not released. Release candidate
+> `0.2.0rc4` is on TestPyPI
+> (`pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ jef==0.2.0rc4`),
+> on npm as `@jef-ai/sdk@0.2.0-rc.4` and `n8n-nodes-jef@0.2.0-rc.4` (tag `next`),
+> on GHCR, and its weights on Hugging Face. Pin the version you test.
+> [`docs/RELEASING.md`](docs/RELEASING.md) describes the release pipeline.
+
+> **Not production automation.** JEF today supports research and a controlled
+> decision-support proof of concept. It does not isolate hosts, disable
+> accounts or close alerts on its own, and the shipped calibration is `legacy`,
+> so no scene gate automates until a task-scoped calibration is fitted. See
+> [`docs/CAPABILITIES.md`](docs/CAPABILITIES.md) for what is shipped, in
+> review, and deliberately unsupported.
 
 ```bash
 jef ask "客戶回報：連續三天付款失敗，錯誤碼 502。" \

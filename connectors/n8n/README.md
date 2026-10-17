@@ -4,10 +4,11 @@ An [n8n](https://n8n.io) node for JEF — typed decisions with calibrated
 confidence. Route, score and judge without generating text to parse.
 
 ```bash
-npm install n8n-nodes-jef
+npm install n8n-nodes-jef@next   # release candidates publish to `next`
 ```
 
-Or install it from **Settings → Community Nodes** as `n8n-nodes-jef`.
+Or install it from **Settings → Community Nodes** as `n8n-nodes-jef` (enter a
+version such as `0.2.0-rc.4` until `0.2.0` is released).
 
 ## Credentials
 
