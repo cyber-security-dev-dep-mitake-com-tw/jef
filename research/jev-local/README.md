@@ -1,6 +1,8 @@
 # jev-local: Jev reproduced on this Mac
 
-A local reproduction of TypeSafe AI's **Jev** "System One" decision model that runs on this machine with **no Vercel traffic**. It speaks Jev's two public protocols, so the official TypeSafe SDK, the Vercel AI SDK's `experimental_decide`, plain curl, and the bundled `jev` CLI all work against it unchanged. Judgment comes from Claude through your local `claude` CLI (Anthropic only); an offline heuristic backend exists for contract tests.
+A local reproduction of TypeSafe AI's **Jev** "System One" decision model that runs on this machine with **no Vercel traffic**. It speaks Jev's two public protocols, so the official TypeSafe SDK, the Vercel AI SDK's `experimental_decide`, plain curl, and the bundled `jev` CLI all work against it unchanged. Judgment comes from Claude through your local `claude` CLI (Anthropic only), which you enable explicitly because it sends request state off this machine; the default is an offline heuristic backend for contract tests, marked TEST-ONLY.
+
+> **Research only.** This is a compatibility reproduction, not JEF's native model and not a production decision service. Do not send production telemetry to the Claude backend unless that data is cleared for third-party processing.
 
 What is reproduced: the API contract, limits, aliases, confidence maths, answer types, zstd/gzip request handling, both wire dialects, and Jev's decision behaviour as measured against every answer TypeSafe has published. What is not: Jev's weights. Those are private, so the judgment engine is a stand-in model prompted to behave as a calibrated decision model.
 
@@ -8,7 +10,8 @@ What is reproduced: the API contract, limits, aliases, confidence maths, answer 
 
 ```bash
 npm install
-npm start                                   # local Jev on http://127.0.0.1:4141, Claude backend
+npm start                                   # local Jev on http://127.0.0.1:4141, heuristic backend (offline, TEST-ONLY)
+npm run start:claude                        # Claude backend: sends state to Anthropic, needs the opt-in it passes
 ```
 
 Ask it something (security triage is the intended workload; see `examples/`):
@@ -45,14 +48,28 @@ node --import ./register.mjs snippet.mjs     # the vercel.com model-page snippet
 | Env / flag | Default | Meaning |
 |---|---|---|
 | `--port`, `PORT` | 4141 | listen port (loopback only) |
-| `--backend`, `JEV_BACKEND` | `claude` | `claude` (Anthropic via `claude` CLI) or `heuristic` (offline) |
+| `--backend`, `JEV_BACKEND` | `heuristic` | `heuristic` (offline, TEST-ONLY) or `claude` (Anthropic via `claude` CLI). Any other value fails at startup. |
+| `--allow-third-party`, `JEV_ALLOW_THIRD_PARTY=1` | off | required for `claude`; without it the server exits with code 2 rather than send state to Anthropic |
+| `JEV_REDACT` | `secrets` | masked before state leaves the machine: `secrets` (bearer tokens, API keys, private keys, password assignments), add `emails`, `ipv4`; `off` disables |
 | `--model`, `JEV_CLAUDE_MODEL` | `claude-sonnet-5-5` | Claude model used for judgment; `claude-haiku-5-5` is about 3x cheaper and slightly less calibrated |
 | `--samples`, `JEV_SAMPLES` | 1 | self-consistency samples averaged per request (×cost, better calibration) |
 | `JEV_CONCURRENCY` | 2 | parallel `claude` processes |
-| `JEV_CACHE_DIR` | `.jev-cache/` | content-hash cache; identical requests are free and instant |
+| `JEV_CACHE_DIR` | `.jev-cache/` | cache, one directory per tenant (digest of the caller's `Authorization` header); keys include model, samples, redaction set and prompt digest, so callers never share entries |
 | `TypeSafe-Danger-Zone-Long-Context: true` header | off | raises both context limits to 262k tokens, as the real API does |
 
 Cost: Jev's own price does not apply. Each uncached request is one `claude` CLI call, roughly $0.01 to $0.02 with Sonnet or $0.003 to $0.007 with Haiku, billed to your Anthropic account. Identical requests are served from the cache for free.
+
+## Isolation
+
+The state is low-trust data written by whoever raised the alert, so the Claude backend treats it that way:
+
+- The CLI runs with no tools (`--tools ""`), in `--restricted` mode, with `--strict-mcp-config` and `--disable-slash-commands`, in an empty scratch directory. A state that says "read ~/.ssh/id_rsa" has nothing to read it with.
+- The state is fenced between `<<<STATE` and `STATE>>>`, the system prompt declares the fence to be data, and a fence marker inside the state is neutralised before it is sent.
+- Secrets are masked by default (`JEV_REDACT`).
+- Request bodies are capped at 32 MiB before and after decompression; a gzip or zstd bomb is answered with 413.
+- `test/fixtures/prompt-injection.json` holds adversarial states (system override, fake tool result, fence escape, fake approval, base64 instruction, reverse demand), each paired with a clean control. `npm run test:unit` checks the isolation offline; `JEV_ALLOW_THIRD_PARTY=1 npm run eval:injection` measures, against Claude, whether an injection moves the answer more than 0.15 toward what it demands. The eval sends every fixture to Anthropic and is not run in CI.
+
+Native JEF and jev-local are reported separately: JEF is a frozen encoder plus a trained head on this machine; jev-local's Claude backend is a CLI call to a third-party model per uncached request, with cost and latency to match.
 
 ## Endpoints
 
@@ -96,10 +113,14 @@ REA needed a shadow Command Line Tools toolchain on this host (`scripts/make-sha
 
 ```
 bin/jev.mjs             launcher and CLI: serve | ask | models
-server.mjs              HTTP server, both dialects, zstd/gzip bodies, limits, errors
+server.mjs              listener: resolves the backend, refuses unknown or un-opted-in ones
+app.mjs                 request handler: both dialects, capped zstd/gzip bodies, limits, errors, tenant
+backends/index.mjs      the closed backend table and the third-party opt-in
 jev-core.mjs            contract: validation, limits, aliases, confidence, answer builders
-backends/claude.mjs     judgment via `claude` CLI: Jev system prompt, validation, retries, sampling, cache, concurrency gate
-backends/heuristic.mjs  offline deterministic stand-in for contract tests
+backends/claude.mjs     judgment via `claude` CLI: fenced prompt, no tools, redaction, retries, sampling, tenant cache
+backends/heuristic.mjs  offline deterministic stand-in for contract tests (TEST-ONLY)
+test/isolation.test.mjs offline isolation tests (`npm run test:unit`)
+eval-injection.mjs      opt-in prompt-injection eval against the Claude backend
 register.mjs            default-provider shim so `decide({ model: 'typesafe-ai/jev' })` stays local
 examples/               cybersecurity decision examples: phishing triage, SOAR chain, NDR triage
 test-typesafe-sdk.mjs   official SDK against local Jev (zstd and plain)
