@@ -261,6 +261,9 @@ def published_versions() -> list[str]:
         check=True,
         capture_output=True,
         text=True,
+        # Fails closed like the registry fetches, and as fast: a hung origin
+        # must not hold the release until the job timeout.
+        timeout=60,
     ).stdout
     found.extend(line.rsplit("refs/tags/", 1)[-1] for line in tags.splitlines() if line)
     return found

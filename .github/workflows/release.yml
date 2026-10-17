@@ -24,6 +24,15 @@ on:
 permissions:
   contents: read
 
+# One release at a time, queued rather than cancelled. Two blank dispatches
+# started together would both resolve the same `--next` version before either
+# published it, and the second would then fail on every registry. Serialised,
+# the second one sees what the first published. (GitHub keeps one pending run
+# per group: a third started while one runs and one waits replaces the waiter.)
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   verify:
     name: verify
@@ -624,7 +633,15 @@ jobs:
             git commit -q -am "release: ${{ needs.verify.outputs.version }}"
           fi
           git tag -a "$tag" -m "$tag"
-          git push origin "refs/tags/$tag"
+          # Another run may have pushed the same tag since the check above;
+          # that is the release already being tagged, not a failure.
+          if ! git push origin "refs/tags/$tag"; then
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+              echo "::notice::$tag was created by another run; releasing on it"
+              exit 0
+            fi
+            exit 1
+          fi
           echo "::notice::tagged $(git rev-parse --short HEAD) as $tag"
 
       # The notes lead with what each channel actually did. v0.2.0rc3 shipped
