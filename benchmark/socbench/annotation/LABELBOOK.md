@@ -91,12 +91,25 @@ Kappa is unstable when one class dominates. Always read it next to the per-class
 - After a lock, the **test** split is never relabelled in place. A labelling error found later goes into a new dataset version with a new lock; the old one stays as it was, so a published number can always be reproduced.
 - Model and tuning people do not see test-split gold. Only the evaluation owner runs `jef-bench evaluate` against it.
 
-## 8. The pilot (first 50 cases)
+## 8. The pilot (first 50–65 cases)
 
-1. `jef-bench sample --task soc.ndr.technique.v1 --per-family 5 ...` for a 50–65 case pilot across families, with the weak labels used only to stratify.
-2. Both reviewers label it independently, filling `seconds_spent`.
+### With one reviewer (the usual start)
+
+A single security engineer can run the pilot. The result is **Tier B** (`single-human-reviewed`) and is reported as that, never as agreement.
+
+1. `jef-bench sample --task soc.ndr.technique.v1 --per-family 5 --seed pilot-01 ...`: at most 65 cases (13 CTU-13 scenarios × 5); read the real count from the manifest.
+2. `jef-bench annotate export --annotator analyst-anon-01 ...` and fill every task, including `note` and `seconds_spent`.
+3. `jef-bench annotate pilot-report --cases ... --labels review-a.jsonl --weak-gold gold.jsonl --hourly-rate <rate> --out pilot.json` reports completeness field by field, the undetermined share, median and p90 seconds, the share of cases traceable to a pinned source artifact, a **source-label check** (your verdict against the dataset's own label, explicitly not inter-annotator agreement, no kappa), and reviewer cost kept apart from inference cost.
+4. `jef-bench annotate adjudicate --labels review-a.jsonl --out gold.jsonl` with the one file writes `single-human-reviewed` gold.
+
+Do not run a second "reviewer" yourself, with a second handle, or with an LLM. That is the one shortcut that turns the whole set into a false Tier A.
+
+### With two independent reviewers
+
+1. Export the same sample to both, blind to each other, the weak labels and any model output.
+2. Both label independently, filling `seconds_spent`.
 3. `jef-bench annotate agree`: read kappa per class, the disagreement queue, and `timing.reviewer_hours_per_100_cases_double_reviewed`.
-4. Meet once, with the adjudicator: for each disagreement, decide whether the **labelbook** was unclear (fix this file) or a reviewer erred (adjudicate). Do not relabel agreed cases.
+4. Meet once with the adjudicator: for each disagreement, decide whether the **labelbook** was unclear (fix this file) or a reviewer erred (adjudicate). Do not relabel agreed cases.
 5. Schedule the rest of the gold set from the measured hours, not from an estimate. Sample the next batch with `--exclude sampled-pilot.jsonl`.
 
 ## 9. Things that are never Tier A

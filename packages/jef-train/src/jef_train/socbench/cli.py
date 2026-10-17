@@ -172,6 +172,40 @@ def cmd_annotate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
         annotations = [
             a for path in args.labels for a in parse_annotations(read_jsonl(path), cases)
         ]
+        if args.annotate_command == "pilot-report":
+            from .pilot import pilot_report
+
+            pins: dict[str, set[str]] = {}
+            for source in {str(c.get("source_dataset")) for c in cases.values()}:
+                try:
+                    # Pins store bare hex; cases store "sha256:<hex>". Compare one form.
+                    pins[source] = {
+                        a.sha256 if a.sha256.startswith("sha256:") else f"sha256:{a.sha256}"
+                        for a in repo.load_pins(source).artifacts
+                        if a.sha256
+                    }
+                except (FileNotFoundError, ValueError, KeyError):
+                    continue
+            try:
+                report = pilot_report(
+                    annotations,
+                    cases,
+                    weak_golds=read_jsonl(args.weak_gold) if args.weak_gold else [],
+                    pinned_hashes=pins,
+                    hourly_rate=args.hourly_rate,
+                )
+            except ValueError as exc:
+                print(exc, file=sys.stderr)
+                return 2
+            args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
+            t, c = report["time"], report["completeness"]
+            print(
+                f"Tier B pilot by {report['reviewer']}: {report['cases']} cases, complete "
+                f"{c['complete_share']}, undetermined {report['undetermined']['share']}, "
+                f"median {t['median_seconds']}s, p90 {t['p90_seconds']}s, traceable "
+                f"{report['traceability']['traceable_share']} -> {args.out}"
+            )
+            return 0
         if args.annotate_command == "agree":
             report = agreement(annotations, cases)
             args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
@@ -398,6 +432,7 @@ def build_parser() -> argparse.ArgumentParser:
     for name, help_ in (
         ("agree", "agreement, kappa and the disagreement queue"),
         ("adjudicate", "gold from reviews and decisions"),
+        ("pilot-report", "one reviewer's pilot: completeness, time, traceability (Tier B)"),
     ):
         ap = asub.add_parser(name, help=help_)
         ap.add_argument("--cases", type=Path, required=True)
@@ -407,8 +442,13 @@ def build_parser() -> argparse.ArgumentParser:
         ap.add_argument("--out", type=Path, required=True)
         if name == "agree":
             ap.add_argument("--queue", type=Path, help="write the disagreement queue here")
-        else:
+        elif name == "adjudicate":
             ap.add_argument("--decisions", type=Path, help="adjudicator decisions for the queue")
+        else:
+            ap.add_argument(
+                "--weak-gold", type=Path, help="source labels, for a labelled source-label check"
+            )
+            ap.add_argument("--hourly-rate", type=float, help="reviewer cost per hour")
 
     lk = sub.add_parser("lock", help="family-grouped splits and the gold lock")
     lk.add_argument("--cases", type=Path, required=True)

@@ -46,7 +46,15 @@ With the hashing backbone `readiness` reports `backbone:test` and `decision_supp
 | Store down | stop the volume / make the DB path unwritable | `503 store_unavailable`; nothing authorized |
 | Egress | `egress_check.sh` | `PASS` |
 
-Collect `GET /calls` from the mock, the receipts, the readiness report and the egress output into the Safety Evidence Pack, alongside the automated half: `uv run python scripts/safety-evidence.py` maps every code-level case (S01–S16 except S14) to the tests that prove it, for the exact SHA under test. CI archives the same pack per commit. Every T2+ action in that pack must show a grant nonce or a refusal; a dispatch without one is a No-Go.
+Collect `GET /calls` from the mock, the receipts, the readiness report and the egress output into the Safety Evidence Pack, alongside the automated half. Run it inside the lab VM so the pack is bound to where it ran:
+
+```bash
+bash deploy/lab/egress_check.sh | tee /tmp/egress.log
+uv run python scripts/safety-evidence.py --operator <name> --lab-host <vm> \
+  --port-group JEF-LAB-CORE --egress-log /tmp/egress.log
+```
+
+That maps every code-level case to the tests that prove it for the exact SHA, records the operator, host, port group and compose file digest, copies the egress log in with its SHA-256, and passes S14 only if the log ends in `PASS` with no `LEAK` line. Without `--egress-log` the pack says it is a code-level run and S14 stays manual. CI archives the code-level pack per commit. Every T2+ action in that pack must show a grant nonce or a refusal; a dispatch without one is a No-Go.
 
 ## What this lab is not
 
