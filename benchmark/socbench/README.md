@@ -104,23 +104,30 @@ uv run jef-bench lock --verify lock.json --cases cases.jsonl --gold gold.jsonl
   and language, and the hard-negative share of negatives (target 35 to 45
   percent).
 
-## zh-TW: two tracks, reported apart
+## Comparing scorers on a locked split
 
-- **Native zh-TW** (local context): `seeds/zh-TW/` holds twelve families of
-  Taiwan scenarios (bank, e-invoice, LINE, parcel, traffic fine, supplier
-  payment, password expiry, HR, VPN, backup, PowerShell, firewall change),
-  each a positive and a hard-negative twin that differs only in the decisive
-  detail. They are **LLM-authored seeds (tier E)**, not gold; see the
-  directory's README.
-- **Parallel bilingual** (language robustness): the same evidence in two
-  languages, `pair_kind: translation`. `bilingual.pair_translation` builds a
-  twin that keeps every field, the verdict and the family;
-  `bilingual.check_pairs` refuses pairs across families or tasks, a
-  translation in the same language or with a different verdict, and a
-  hard-negative pair that is not one positive and one negative.
+```bash
+uv run jef-bench evaluate --lock lock.json --cases cases.jsonl --gold gold.jsonl \
+    --scorer rules --scorer logreg --scorer jef --backbone jhu-clsp/mmBERT-base \
+    --head models/jef-v0/head.npz --calibration models/jef-v0/calibration.json --out report.json
+```
 
-`zh-TW`, `zh-CN` and `en` are separate values of `language`, and the report
-breaks every metric down by it.
+| scorer | what | review 11.2 |
+|---|---|---|
+| `rules` | transparent per-task rules on the case's own fields (severity levels, attack words, beacon regularity, ports) | B0 |
+| `logreg` | hashed character n-grams + logistic regression, fitted on the lock's **train** split only | B1 |
+| `http=URL` | any `/v1/systemone` service: a fixed-prompt LLM service, or `research/jev-local` (opt-in: cases leave the machine) | B2 / B3 |
+| `jef` | JEF native: one choice question over the task labels, with the task's calibration | B4 |
+
+`evaluate` verifies the lock first and refuses edited files. Every scorer
+sees the same cases in the same order. Per scorer and task the report gives
+accuracy and macro-F1 with family-clustered 95% CIs, the confusion matrix,
+ECE / Brier / NLL, risk-coverage (AURC); over known labels, PR-AUC with CI,
+FNR at 1% and 5% FPR, precision at analyst budgets of 10/50/100, and the PPV
+that the measured TPR and FPR imply at 1/3/5% prevalence; and separately, how
+often a scorer would auto-close a case whose gold is `unknown` and how many
+positives it would auto-close (mistaken closures). Everything is broken down
+by language, trust tier and source, with p50/p95 latency.
 
 ## Rules the code enforces
 
