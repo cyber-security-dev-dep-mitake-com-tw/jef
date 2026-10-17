@@ -235,6 +235,20 @@ jobs:
           test "$(kubectl get deploy jef -o jsonpath='{.spec.replicas}')" = "1"
           test "$(kubectl get cm jef -o jsonpath='{.data.JEF_THREADS}')" = "6"
 
+  jev-local:
+    name: jev-local isolation
+    runs-on: ubuntu-latest
+    # Offline only: no npm install, no claude CLI, nothing leaves the runner.
+    # The prompt-injection eval that does call Claude is opt-in and local.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Isolation tests
+        working-directory: research/jev-local
+        run: node --test test/*.test.mjs
+
   docker:
     name: image builds and serves
     runs-on: ubuntu-latest
