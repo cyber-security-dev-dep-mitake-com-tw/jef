@@ -216,3 +216,33 @@ def test_responder_caps_observables(cortex_responder_module: Any) -> None:
         "observables": [{"dataType": "ip", "data": f"10.0.0.{i}"} for i in range(200)],
     }
     assert len(_responder(cortex_responder_module, data)._state()["observables"]) == 50
+
+
+def test_responder_reports_a_proposal_not_an_outcome(cortex_responder_module: Any) -> None:
+    """A tag must not read as "JEF closed this"; the responder executes nothing."""
+    responder = _responder(cortex_responder_module, {"title": "x"})
+    report = responder._report(
+        {
+            "action": "close",
+            "human_review": True,
+            "calibrated": False,
+            "policy_verdict": "review_required",
+            "reason_codes": ["AUTO_CLOSE_PROHIBITED", "UNVALIDATED_CALIBRATION:is_false_positive"],
+            "action_params": {"queue": "closed"},
+        }
+    )
+    assert "JEF:proposed=close" in report["tags"]
+    assert "JEF:policy=review_required" in report["tags"]
+    assert "JEF:human-review" in report["tags"]
+    assert "JEF:uncalibrated" in report["tags"]
+    assert "JEF:reason=AUTO_CLOSE_PROHIBITED" in report["tags"]
+    assert "JEF:close" not in report["tags"]
+    assert "nothing was executed" in report["message"]
+
+
+def test_responder_defaults_to_review_when_the_server_predates_the_policy(
+    cortex_responder_module: Any,
+) -> None:
+    responder = _responder(cortex_responder_module, {"title": "x"})
+    report = responder._report({"action": "assign", "human_review": False, "calibrated": True})
+    assert "JEF:policy=review_required" in report["tags"]

@@ -69,19 +69,35 @@ class JefTriage(Responder):
             self.error(f"JEF returned HTTP {response.status_code}: {response.text[:400]}")
 
         trace = response.json()
-        action = trace.get("action") or "none"
+        self.report(self._report(trace))
 
-        tags = [f"JEF:{action}"]
+    def _report(self, trace: dict[str, Any]) -> dict[str, Any]:
+        """Tags that describe a proposal, in words that cannot be read as an outcome.
+
+        The responder applies tags; it executes nothing. `JEF:proposed=close`
+        plus `JEF:policy=review_required` tells the analyst what the model
+        would do and that nobody has authorised it. Dispatching a T2+ action
+        needs a signed AuthorizationGrant and an ExecutionReceipt
+        (jef_scene.authz); a tag is neither.
+        """
+        action = trace.get("action") or "none"
+        verdict = trace.get("policy_verdict") or "review_required"
+
+        tags = [f"JEF:proposed={action}", f"JEF:policy={verdict}"]
         if trace.get("human_review"):
             tags.append("JEF:human-review")
         if not trace.get("calibrated", False):
             # Explicit, because an uncalibrated server routes everything to a
             # human and that must not be mistaken for a considered judgement.
             tags.append("JEF:uncalibrated")
+        for code in trace.get("reason_codes") or []:
+            if code != "HUMAN_REVIEW_ACTION":
+                tags.append(f"JEF:reason={code}")
         for key, value in (trace.get("action_params") or {}).items():
             tags.append(f"JEF:{key}={value}")
 
-        self.report({"message": f"scene {self.scene} -> {action}", "tags": tags})
+        message = f"scene {self.scene} proposed {action} ({verdict}); nothing was executed"
+        return {"message": message, "tags": tags}
 
     def operations(self, raw: dict[str, Any]) -> list[dict[str, Any]]:
         return [self.build_operation("AddTagToCase", tag=tag) for tag in raw.get("tags", [])]

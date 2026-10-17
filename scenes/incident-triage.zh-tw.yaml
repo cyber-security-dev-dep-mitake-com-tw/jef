@@ -39,7 +39,9 @@ layers:
         because: 高度疑似已知良性樣態，建議關閉，交由人確認
       # 證據不足時不猜。猜出來的答案會帶著同樣的信心分數往下傳，
       # 而下游閘門無從分辨「有把握」與「沒東西可看」。
-      - when: 'has_evidence.probability < 0.40'
+      # 自動回頭要資料雖然只是 T1 動作，仍要求這題的 bucket 已校準驗證；
+      # 否則 0.40 這個門檻沒有意義，runtime policy 也會把它改為人工覆核。
+      - when: 'has_evidence.calibration_status == "validated" and has_evidence.probability < 0.40'
         then: request_context
         because: 證據不足，回頭要資料而非硬猜
       - else: true

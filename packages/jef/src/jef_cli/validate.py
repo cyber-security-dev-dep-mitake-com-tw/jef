@@ -260,6 +260,29 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
                     )
                 )
 
+            # An automating gate that reads neither p_correct nor
+            # calibration_status will be held for review by the runtime policy
+            # until the bucket is validated. Say so here, where the author can
+            # decide whether that is what they meant.
+            if automating and gate.when is not None:
+                read = {
+                    attr
+                    for name in _referenced_names(gate.when)
+                    for attr in _attributes_on(gate.when, name)
+                }
+                if not read & {"p_correct", "calibration_status"}:
+                    problems.append(
+                        Problem(
+                            source,
+                            "warning",
+                            f"layer {layer.id} gate {index} automates to '{gate.then}' "
+                            "without reading p_correct or calibration_status; the runtime "
+                            "policy will require human review until the question's bucket "
+                            "is validated",
+                            _line_of(text, gate.when),
+                        )
+                    )
+
             # The thesis check. `confidence` is distribution sharpness; a gate
             # that acts *because* it is high is saying "the model sounded sure",
             # which is not the same as "the model is likely right". Flagged only

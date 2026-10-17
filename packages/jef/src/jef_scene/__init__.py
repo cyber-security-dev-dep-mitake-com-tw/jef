@@ -11,6 +11,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _dist_version
 
 from .engine import AnswerView, SceneEngine
+from .executor import Executor, Transport, TransportResult
 from .expr import ExpressionError, validate_condition
 from .loader import SceneRegistry, load_scene, load_scene_text, load_scenes
 from .policy import MAX_AUTO_TIER, PolicyVerdict, authorize, tier_of
@@ -25,19 +26,29 @@ except PackageNotFoundError:  # a source tree that was never installed
 __all__ = [
     "MAX_AUTO_TIER",
     "NEXT",
+    "POLICY_VERSION",
     "Action",
     "AnswerView",
+    "AuditEntry",
+    "AuthorizationGrant",
+    "ExecutionReceipt",
+    "Executor",
     "ExpressionError",
     "Gate",
     "GateTrace",
+    "GrantError",
     "Layer",
     "LayerTrace",
+    "PolicyDecision",
     "PolicyVerdict",
+    "ProposedDecision",
     "QuestionTrace",
     "Scene",
     "SceneEngine",
     "SceneRegistry",
     "SceneTrace",
+    "Transport",
+    "TransportResult",
     "__version__",
     "authorize",
     "load_scene",

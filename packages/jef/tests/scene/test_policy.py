@@ -229,6 +229,7 @@ def test_authorize_never_consults_the_probability() -> None:
 
     class View:
         p_correct = None
+        calibration_status = "missing"
         probability = 0.99999
 
     verdict = authorize("assign", Action(), referenced={"q"}, views={"q": View()})  # type: ignore[dict-item]
@@ -316,3 +317,66 @@ def test_trace_dict_carries_the_policy_fields(scene_engine: SceneEngine, minimal
         assert key in d
     assert d["executed_action"] is None
     assert d["execution_status"] == "not_dispatched"
+
+
+# --------------------------------------------------------------------------- #
+# Calibration status travels with every answer
+# --------------------------------------------------------------------------- #
+
+
+def test_question_trace_carries_calibration_status(calibrated_engine: Engine) -> None:
+    uncal = SceneEngine(ScriptedEngine(sure_false_positive())).run(scene_for("close"), "x")
+    assert uncal.layers[0].questions[0].calibration_status == "missing"
+    cal = SceneEngine(ScriptedEngine(sure_false_positive(), calibrated_engine.calibrator)).run(
+        scene_for("close"), "x"
+    )
+    assert cal.layers[0].questions[0].calibration_status == "validated"
+
+
+def test_insufficient_bucket_is_held_for_review() -> None:
+    """A bucket that exists but could not fit a correctness map is not validated."""
+    import numpy as np
+
+    rng = np.random.default_rng(1)
+    cal = Calibrator()
+    logits = [rng.normal(0, 1, size=2) for _ in range(60)]  # below MIN_CORRECTNESS_SAMPLES
+    cal.fit_bucket("noul", 2, logits, [int(rng.integers(2)) for _ in range(60)])
+    assert cal.status("noul", 2) == "insufficient"
+    trace = SceneEngine(ScriptedEngine(sure_false_positive(), cal)).run(
+        scene_for("request_context"), "x"
+    )
+    assert trace.layers[0].questions[0].calibration_status == "insufficient"
+    assert trace.policy_verdict == "review_required"
+    assert trace.reason_codes == ["UNVALIDATED_CALIBRATION:is_fp"]
+
+
+STATUS_GATE = """
+scene: t
+fallthrough: review
+layers:
+  - id: L1
+    questions:
+      is_fp:
+        type: noul
+        instructions: 是否為誤報？
+    gates:
+      - when: 'is_fp.calibration_status == "validated" and is_fp.probability > 0.90'
+        then: request_context
+      - else: true
+        then: review
+actions:
+  request_context: {}
+  review: {human_review: true}
+"""
+
+
+def test_a_gate_can_read_calibration_status(calibrated_engine: Engine) -> None:
+    """The scene author can make the requirement explicit instead of relying on the policy."""
+    scene = load_scene_text(STATUS_GATE)
+    uncal = SceneEngine(ScriptedEngine(sure_false_positive())).run(scene, "x")
+    assert uncal.action == "review", "the gate must not fire on a missing bucket"
+    cal = SceneEngine(ScriptedEngine(sure_false_positive(), calibrated_engine.calibrator)).run(
+        scene, "x"
+    )
+    assert cal.action == "request_context"
+    assert cal.policy_verdict == "allow"
