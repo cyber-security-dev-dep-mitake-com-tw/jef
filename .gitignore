@@ -64,6 +64,7 @@ models/jef-v0/*
 !models/jef-v0/head.npz
 !models/jef-v0/calibration.json
 !models/jef-v0/report.json
+!models/jef-v0/manifest.json
 .cache/features/
 
 # --- npm ---

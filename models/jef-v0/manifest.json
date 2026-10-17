@@ -1,0 +1,30 @@
+{
+  "manifest_schema": 1,
+  "model_id": "jef-v0",
+  "version": "0.2.0rc4",
+  "git_commit": "ae77515b21ba7f8d44e2bd77294691b4fc2bd959",
+  "backbone": "jhu-clsp/mmBERT-base",
+  "artifacts": {
+    "head.npz": {
+      "sha256": "sha256:202b98571b09de6540176c6ca3e0436e3e0093750fd2621d2c9cebc06bb53d2e",
+      "size": 394484
+    },
+    "calibration.json": {
+      "sha256": "sha256:dacf41ff5f07f26389a8386b922a9aa8f0c56e895414a895e5dba9f0af04ef33",
+      "size": 4577
+    },
+    "report.json": {
+      "sha256": "sha256:5e087e0d974ab1992c5e56161edf0f623b571ce06977b9a486a0bb267d95a3a0",
+      "size": 33844
+    }
+  },
+  "calibration": {
+    "schema": 1,
+    "legacy": true,
+    "buckets": 4,
+    "tasks": [],
+    "declared_head_sha256": null,
+    "backbone": "jhu-clsp/mmBERT-base",
+    "head": "bilinear-r64"
+  }
+}

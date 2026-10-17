@@ -15,6 +15,7 @@ from jef_core import BilinearHead, Calibrator, Engine, EvaluateResponse, ZeroSho
 from jef_core.backends import load_backbone
 from jef_core.calibration import file_sha256
 from jef_core.head import DecisionHead
+from jef_core.model_manifest import check_model_dir
 from jef_scene import Scene, SceneEngine, SceneRegistry, SceneTrace, load_scene
 
 log = logging.getLogger("jef.sdk")
@@ -63,6 +64,13 @@ class Jef:
         else:
             calibrator = calibration
         if isinstance(head, (str, Path)) and Path(head).is_file():
+            verification = check_model_dir(Path(head).parent)
+            if verification.status == "mismatch":
+                log.error(
+                    "model manifest mismatch; running WITHOUT calibration: %s",
+                    "; ".join(verification.problems),
+                )
+                calibrator = Calibrator()
             calibrator.bind_model(file_sha256(head))
         if calibrator.legacy:
             log.warning(
