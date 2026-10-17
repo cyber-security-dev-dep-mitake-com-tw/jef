@@ -72,6 +72,9 @@ class RuleScorer:
 
     name = "rules"
 
+    def describe(self) -> dict[str, Any]:
+        return {"type": "rules", "egress": "none"}
+
     def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
         task = case["task_id"]
         labels = TASK_LABELS[task]
@@ -148,6 +151,9 @@ class LogisticScorer:
             self.trained_on |= {c["case_id"] for c in items}
         return self
 
+    def describe(self) -> dict[str, Any]:
+        return {"type": "logreg", "egress": "none", "trained_on": getattr(self, "n_train", None)}
+
     def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
         labels = TASK_LABELS[case["task_id"]]
         fitted = self._models.get(case["task_id"])
@@ -161,6 +167,17 @@ class LogisticScorer:
 # --------------------------------------------------------------------------- #
 # B4: JEF native
 # --------------------------------------------------------------------------- #
+
+HTTP_INSTRUCTIONS = "Which verdict does this evidence support?"
+
+
+def prompt_digest(instructions: str) -> str:
+    """sha256 over the instructions and every label text: the prompt contract, pinned."""
+    import hashlib
+
+    raw = json.dumps({"instructions": instructions, "labels": dict(LABEL_TEXT)}, sort_keys=True)
+    return "sha256:" + hashlib.sha256(raw.encode()).hexdigest()
+
 
 LABEL_TEXT: Mapping[str, str] = {
     "confirmed_malicious": "confirmed attacker activity",
@@ -188,6 +205,20 @@ class JefScorer:
 
     def __init__(self, engine: Any) -> None:
         self.engine = engine
+
+    def describe(self) -> dict[str, Any]:
+        eng = self.engine
+        cal = getattr(eng, "calibrator", None)
+        return {
+            "type": "jef",
+            "model_name": getattr(eng, "model_name", None),
+            "backbone": getattr(getattr(eng, "backbone", None), "name", None),
+            "head": getattr(getattr(eng, "head", None), "name", None),
+            "calibration_schema": getattr(cal, "schema", None),
+            "calibration_buckets": sorted(getattr(cal, "buckets", {}) or {}),
+            "model_sha256": getattr(getattr(cal, "artifact", None), "model_sha256", None),
+            "egress": "none",
+        }
 
     def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
         labels = TASK_LABELS[case["task_id"]]
@@ -227,6 +258,28 @@ class HttpScorer:
         self.timeout = timeout
         self._post = post or self._default_post
 
+    @property
+    def host(self) -> str:
+        from urllib.parse import urlparse
+
+        return urlparse(self.base_url).hostname or ""
+
+    @property
+    def egress(self) -> str:
+        """``loopback`` or ``external``: whether a case leaves this machine."""
+        return "loopback" if self.host in {"127.0.0.1", "localhost", "::1"} else "external"
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "type": "http",
+            "base_url": self.base_url,
+            "host": self.host,
+            "egress": self.egress,
+            "model": self.model,
+            "timeout_s": self.timeout,
+            "prompt_digest": prompt_digest(HTTP_INSTRUCTIONS),
+        }
+
     def _default_post(self, url: str, body: dict[str, Any]) -> dict[str, Any]:
         import urllib.request
 
@@ -249,7 +302,7 @@ class HttpScorer:
             "questions": {
                 "verdict": {
                     "type": "choice",
-                    "instructions": "Which verdict does this evidence support?",
+                    "instructions": HTTP_INSTRUCTIONS,
                     "criteria": {lab: LABEL_TEXT.get(lab, lab) for lab in labels},
                 }
             },
