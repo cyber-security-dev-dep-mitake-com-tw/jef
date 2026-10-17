@@ -53,13 +53,37 @@ AIT-ADS event times follow the dataset authors' `analyze.py`: Suricata's
 `full_log` for the log file named in `location`; AMiner's last
 `DetectionTimestamp`. Wazuh's top-level `timestamp` is the replay time and is
 never used. Alerts with no recoverable event time are counted in
-`summary.parse.untimed`, not guessed. Severe out-of-window AIT cases are
-listed as `hard_negative_candidates` for review; nothing is marked a hard
-negative without one.
+`summary.parse.untimed`, not guessed. The host is `agent.ip` (every Wazuh
+record names the same replaying agent, `wazuh-client`), which is also
+AMiner's `AMiner.ID`; the display name is the most common
+`predecoder.hostname` for that IP. Unlabelled cases with an alarming alert
+(Wazuh level 10 or more that is not a counting rule such as "Multiple IDS
+alerts for same id", or Suricata severity 1 to 2) are listed as
+`hard_negative_candidates` for review, at most 20 per signature per
+scenario, with every signature's total in `hard_negative_signatures`.
+Nothing is marked a hard negative without review.
+
+On the published archive (sha256 `9f0595c4…`, checked 2026-10-17) the
+build reads all 2,655,821 alerts with none untimed, and makes 19,726 cases
+over 94 hosts: 497 `suspicious` (2.5%) and 19,229 `unknown`, with 309
+hard-negative candidates. It takes about 70 seconds and 1.4 GB of memory.
+Read a few in-window cases before trusting the label: inside a `dirb`
+window the alerts can be nothing but DNS lookups, and inside a `dnsteal`
+window nothing but successful mail logins.
+
+On the published archive (sha256 `1f8daeca…`, checked 2026-10-17) CTU-13
+reads 19,976,700 flows in all 13 scenarios (19.18 M unknown, 438,678
+botnet, 355,165 benign, 6,021 C&C) and, at `--background-rate 0.001` and
+the default cap, makes 9,932 cases: 349 `c2`, 3,500 `botnet`, 3,345
+`benign`, 2,738 `unknown`. It takes about 7 minutes (bzip2 is read end to
+end) and under 300 MB of memory. Real C&C is not a tidy beacon: the median
+interval coefficient of variation of C&C conversations with five or more
+flows is 0.92.
 
 CTU-13 keeps every conversation that has a Botnet or Normal flow and samples
 Background-only conversations by a hash of their key (`--background-rate`),
-so rebuilds pick the same ones. `summary.json` reports known-label and
+so rebuilds pick the same ones, and caps each verdict per scenario
+(`--max-cases-per-class`, 300) so no single capture dominates a class. `summary.json` reports known-label and
 unknown-label case counts separately; report them separately too.
 
 Trust tiers (review section 9.4): A two analysts adjudicated, B one analyst,

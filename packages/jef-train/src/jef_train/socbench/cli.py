@@ -259,7 +259,9 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--out", type=Path, help="output dir (default: <data-dir>/derived/<source>)")
     b.add_argument("--bucket-seconds", type=int, help="AIT-ADS: case window (600)")
     b.add_argument("--background-rate", type=float, help="CTU-13: Background sampling (0.001)")
-    b.add_argument("--max-cases-per-class", type=int, help="CTU-13: cap per verdict (2000)")
+    b.add_argument(
+        "--max-cases-per-class", type=int, help="CTU-13: cap per verdict per scenario (300)"
+    )
 
     a = sub.add_parser("annotate", help="blind two-reviewer annotation and adjudication")
     asub = a.add_subparsers(dest="annotate_command", required=True)

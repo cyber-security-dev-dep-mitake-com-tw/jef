@@ -68,7 +68,7 @@ def build_source(
     if source == "ait-ads":
         windows = ait_ads.read_phase_windows(paths["labels"].read_text(encoding="utf-8"))
         stats = ait_ads.ParseStats()
-        alerts = list(ait_ads.iter_alerts(paths["archive"], windows, stats))
+        alerts = ait_ads.iter_alerts(paths["archive"], windows, stats)
         cases, golds, summary = ait_ads.build_cases(alerts, windows, source_hash=digest, **opts)
         summary["parse"] = asdict(stats)
     else:
