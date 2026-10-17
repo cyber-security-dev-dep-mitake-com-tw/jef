@@ -271,6 +271,37 @@ def cmd_evaluate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_corpus(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    import json
+
+    from .corpus_export import ExportError, export_corpus
+    from .records import read_jsonl
+    from .splits import LockError
+
+    cases, golds = read_jsonl(args.cases), read_jsonl(args.gold)
+    lock = json.loads(args.lock.read_text("utf-8"))
+    try:
+        manifest = export_corpus(
+            cases,
+            golds,
+            lock,
+            args.out,
+            min_tier=args.min_tier,
+            question_lang=args.question_lang,
+        )
+    except (LockError, ExportError) as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    print(f"wrote {args.out}: " + ", ".join(f"{k}={v}" for k, v in manifest["splits"].items()))
+    if manifest["excluded_by_tier"]:
+        print(
+            "excluded below tier "
+            f"{args.min_tier}: {manifest['excluded_by_tier']} (weak labels are reported, not trained on)"
+        )
+    print(f"next: python -m jef_train.fit --corpus {args.out} --out models/jef-soc-candidate")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="jef-bench", description=__doc__.split("\n\n")[0])
     p.add_argument(
@@ -343,6 +374,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--pin", action="append", metavar="FAMILY=SPLIT", help="force a family into a split"
     )
 
+    ex = sub.add_parser(
+        "export-corpus", help="locked gold -> jef_train.fit corpus, split as the lock says"
+    )
+    ex.add_argument("--lock", type=Path, required=True)
+    ex.add_argument("--cases", type=Path, required=True)
+    ex.add_argument("--gold", type=Path, required=True)
+    ex.add_argument("--out", type=Path, required=True, help="corpus directory to write")
+    ex.add_argument(
+        "--min-tier",
+        default="A",
+        choices=list("ABCDE"),
+        help="weakest label trust tier to train on (default A: two independent reviewers)",
+    )
+    ex.add_argument("--question-lang", default="en", choices=["en", "zh-TW"])
+
     ev = sub.add_parser("evaluate", help="score a locked split with baselines and JEF")
     ev.add_argument("--lock", type=Path, required=True)
     ev.add_argument("--cases", type=Path, required=True)
@@ -377,6 +423,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_build(repo, args)
     if args.command == "annotate":
         return cmd_annotate(repo, args)
+    if args.command == "export-corpus":
+        return cmd_export_corpus(repo, args)
     if args.command == "evaluate":
         return cmd_evaluate(repo, args)
     if args.command == "lock":
