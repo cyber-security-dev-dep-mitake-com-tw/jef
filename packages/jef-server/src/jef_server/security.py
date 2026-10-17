@@ -60,7 +60,7 @@ REJECTED = Counter(
 )
 
 #: Always reachable: an orchestrator's liveness probe carries no credentials.
-OPEN_PATHS: frozenset[str] = frozenset({"/healthz"})
+OPEN_PATHS: frozenset[str] = frozenset({"/healthz", "/readyz"})
 
 
 def _reject(status: int, code: str, message: str, **headers: str) -> JSONResponse:

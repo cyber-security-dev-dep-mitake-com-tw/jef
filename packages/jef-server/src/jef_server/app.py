@@ -31,6 +31,7 @@ from pydantic import ValidationError
 from ._version import __version__
 from .decisions import install_decisions, seal_for_trace
 from .deps import build_scenes, get_engine, get_settings, manifest_check
+from .readiness import Readiness, assess
 from .security import install_guards, json_depth
 from .settings import Settings
 
@@ -243,37 +244,62 @@ def create_app(
             "auth": "api-key" if settings.auth_enabled else "none",
         }
 
+    def _readiness() -> Readiness:
+        return assess(
+            app.state.engine,
+            settings,
+            app.state.manifest,
+            policy_store_persistent=bool(getattr(app.state, "policy_store_persistent", False)),
+            decisions_enabled=settings.decisions_enabled,
+        )
+
     @app.get("/healthz")
     def healthz() -> dict[str, Any]:
-        """Liveness, plus the facts a deployer needs to judge readiness.
+        """Liveness: the process answers. Nothing here is permission to automate.
 
-        ``status: ok`` means the process answers. ``production_safe`` means
-        something stricter and is false by default: a real backbone, a
-        fitted calibrator, app-level authentication, and a model manifest
-        the loaded files match. A deployment that
-        installs only the hashing stub, or no keys, is told so here rather
-        than discovering it from a confident-looking answer.
+        The descriptive fields stay for operators and dashboards that read
+        them. ``production_safe`` is kept for compatibility but now equals
+        ``automation_ready`` from ``/v1/readiness``, which is decided per
+        required task and fail-closed; a legacy or missing calibration can no
+        longer make it true.
         """
         eng: Engine = app.state.engine
-        test_backbone = settings.is_test_backbone or eng.backbone.name == "hashing"
-        calibrated = eng.calibrator.is_fitted()
+        r = _readiness()
         return {
             "status": "ok",
             "model": eng.model_name,
             "model_loaded": True,
-            "calibrated": calibrated,
+            "calibrated": eng.calibrator.is_fitted(),
             "calibration_scope": sorted(eng.calibrator.buckets),
-            # Surfaced so a deployment cannot quietly serve the test backbone.
-            "test_backbone": test_backbone,
+            "test_backbone": r.checks["test_backbone"],
             "auth": "api-key" if settings.auth_enabled else "none",
-            # verified | mismatch | absent. On mismatch the calibration was
-            # dropped at load, so `calibrated` is false as well.
             "model_manifest": app.state.manifest.status,
-            "production_safe": (not test_backbone)
-            and calibrated
-            and settings.auth_enabled
-            and app.state.manifest.status == "verified",
+            "production_safe": r.automation_ready,
+            "production_safe_deprecated": "use /v1/readiness: automation_ready and blocking_reasons",
         }
+
+    @app.get("/readyz")
+    def readyz() -> JSONResponse:
+        """Serving readiness for an orchestrator: model loaded, artifacts verified.
+
+        503 when the manifest does not match the loaded files, because the
+        calibration was dropped at load and answers would be uncalibrated.
+        """
+        manifest = app.state.manifest
+        ready = manifest.status != "mismatch"
+        body = {
+            "ready": ready,
+            "model": app.state.engine.model_name,
+            "model_manifest": manifest.status,
+        }
+        if not ready:
+            body["problems"] = list(manifest.problems)
+        return JSONResponse(status_code=200 if ready else 503, content=body)
+
+    @app.get("/v1/readiness")
+    def readiness() -> dict[str, Any]:
+        """Decision-support and automation readiness, with every blocking reason."""
+        return _readiness().as_dict()
 
     # -- debug UI ----------------------------------------------------------- #
 
