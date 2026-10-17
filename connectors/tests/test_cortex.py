@@ -246,3 +246,18 @@ def test_responder_defaults_to_review_when_the_server_predates_the_policy(
     responder = _responder(cortex_responder_module, {"title": "x"})
     report = responder._report({"action": "assign", "human_review": False, "calibrated": True})
     assert "JEF:policy=review_required" in report["tags"]
+
+
+def test_responder_surfaces_the_proposal_token_and_case_id(cortex_responder_module: Any) -> None:
+    responder = _responder(cortex_responder_module, {"_id": "~4096", "title": "x"})
+    assert responder._case_id() == "~4096"
+    report = responder._report(
+        {
+            "action": "close_pending_review",
+            "policy_verdict": "review_required",
+            "proposal_token": "T.mac",
+            "trace_id": "abc",
+        }
+    )
+    assert report["proposal_token"] == "T.mac"
+    assert not any(t.startswith("JEF:proposal") for t in report["tags"]), "the token is not a tag"

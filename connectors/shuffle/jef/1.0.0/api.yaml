@@ -56,6 +56,97 @@ actions:
         example: "CrowdStrike 於 02:14 偵測到主機 db-core-02 出現大量檔案加密行為。"
         schema:
           type: string
+      - name: case_id
+        description: >-
+          Optional. The case this run is about. With decisions enabled on the
+          server, the trace then carries a proposal_token for authorize_action.
+        required: false
+        schema:
+          type: string
+      - name: asset_id
+        description: Optional. The asset an action on this case would touch (host, account, IP).
+        required: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: authorize_action
+    description: >-
+      Ask JEF whether the action a scene proposed may be performed, once. Branch on
+      status == "authorized" before running the platform action; anything else
+      (not_dispatched) carries reason_codes. A state-changing action (close, isolate,
+      disable, block) needs a signed AuthorizationGrant from your approval service;
+      `approved: true` is not one. This app performs nothing itself.
+    parameters:
+      - name: proposal_token
+        description: The proposal_token from run_scene (with case_id set)
+        required: true
+        schema:
+          type: string
+      - name: idempotency_key
+        description: >-
+          Stable per intended action, e.g. "<case id>:<action>:<asset>". A retried
+          step with the same key gets the same answer and never authorizes twice.
+        required: true
+        schema:
+          type: string
+      - name: grant
+        description: AuthorizationGrant JSON, issued and signed by your approval service
+        required: false
+        multiline: true
+        schema:
+          type: string
+      - name: dry_run
+        description: '"true" to run every check without recording an authorization'
+        required: false
+        example: "false"
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: record_outcome
+    description: >-
+      Report what the platform did for an authorized key. success or failed only on
+      the platform's own answer; a timeout is "timeout" and is stored as unknown,
+      never as success.
+    parameters:
+      - name: idempotency_key
+        description: The key used with authorize_action
+        required: true
+        schema:
+          type: string
+      - name: outcome
+        description: success | failed | timeout | unknown
+        required: true
+        schema:
+          type: string
+      - name: detail
+        description: What the platform reported
+        required: false
+        multiline: true
+        schema:
+          type: string
+      - name: external_ref
+        description: The platform's own id for the operation, if it returned one
+        required: false
+        schema:
+          type: string
+    returns:
+      schema:
+        type: string
+
+  - name: get_decision
+    description: The stored receipt for an idempotency key
+    parameters:
+      - name: idempotency_key
+        description: The key used with authorize_action
+        required: true
+        schema:
+          type: string
     returns:
       schema:
         type: string

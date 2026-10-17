@@ -55,10 +55,15 @@ class JefTriage(Responder):
         if self.api_key:
             headers["authorization"] = f"Bearer {self.api_key}"
 
+        body: dict[str, Any] = {"state": self._state()}
+        case_id = self._case_id()
+        if case_id:
+            # Lets a server with decisions enabled seal a proposal for this case.
+            body["case_id"] = case_id
         try:
             response = requests.post(
                 f"{self.base_url}/v1/scenes/{self.scene}:evaluate",
-                json={"state": self._state()},
+                json=body,
                 headers=headers,
                 timeout=self.timeout,
             )
@@ -97,7 +102,21 @@ class JefTriage(Responder):
             tags.append(f"JEF:{key}={value}")
 
         message = f"scene {self.scene} proposed {action} ({verdict}); nothing was executed"
-        return {"message": message, "tags": tags}
+        report: dict[str, Any] = {"message": message, "tags": tags}
+        if trace.get("proposal_token"):
+            # Not a tag: it is long and opaque. A workflow that wants to act on
+            # the proposal redeems it at /v1/decisions:authorize.
+            report["proposal_token"] = trace["proposal_token"]
+            report["trace_id"] = trace.get("trace_id")
+        return report
+
+    def _case_id(self) -> str | None:
+        data = self.get_data() or {}
+        for key in ("_id", "id", "caseId"):
+            value = data.get(key)
+            if value:
+                return str(value)
+        return None
 
     def operations(self, raw: dict[str, Any]) -> list[dict[str, Any]]:
         return [self.build_operation("AddTagToCase", tag=tag) for tag in raw.get("tags", [])]

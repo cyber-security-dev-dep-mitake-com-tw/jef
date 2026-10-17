@@ -37,6 +37,9 @@ Or `pip install "jef[server]"` to get it with the CLI.
 | `JEF_MAX_STATE_CHARS` `JEF_MAX_JSON_DEPTH` `JEF_MAX_QUESTIONS` | Per-request budgets checked after parsing and before inference (413 / 422 / 413). |
 | `JEF_RATE_LIMIT_PER_MINUTE` | Per-caller fixed window; 429 with `Retry-After`. 0 disables. |
 | `JEF_METRICS_PUBLIC` | Leave `/metrics` reachable without a key. |
+| `JEF_DECISIONS_ENABLED` | Serve `/v1/decisions` (authorize, complete, receipt). Off by default; requires `JEF_API_KEYS`. JEF authorizes and records; it executes nothing. |
+| `JEF_GRANT_SECRET` | Verifies `AuthorizationGrant`s, shared with your approval service. Empty: every grant is refused. |
+| `JEF_PROPOSAL_SECRET` `JEF_PROPOSAL_TTL_SECONDS` | Seals `proposal_token`s (default: random per process) and how long they stay redeemable (3600). |
 
 ### Readiness
 

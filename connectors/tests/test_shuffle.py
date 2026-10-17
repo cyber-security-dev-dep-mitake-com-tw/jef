@@ -160,3 +160,50 @@ def test_missing_url_fails_without_making_a_request(app: Any) -> None:
     result = json.loads(app._request("", "", "/healthz", None))
     assert result["success"] is False
     assert "no JEF url" in result["error"]
+
+
+# --------------------------------------------------------------------------- #
+# Authorize / record: the platform acts, JEF decides
+# --------------------------------------------------------------------------- #
+
+
+def test_run_scene_passes_case_and_asset(app: Any, captured: list[dict[str, Any]]) -> None:
+    app.run_scene("http://jef", "", "incident-triage", "告警", case_id="case-1", asset_id="host-7")
+    assert captured[-1]["payload"] == {"state": "告警", "case_id": "case-1", "asset_id": "host-7"}
+    app.run_scene("http://jef", "", "incident-triage", "告警")
+    assert captured[-1]["payload"] == {"state": "告警"}
+
+
+def test_authorize_action_shapes_the_request(app: Any, captured: list[dict[str, Any]]) -> None:
+    grant = json.dumps({"case_id": "case-1", "signature": "abc"})
+    app.authorize_action("http://jef", "k", "TOKEN", "case-1:isolate:host-7", grant, "true")
+    call = captured[-1]
+    assert call["path"] == "/v1/decisions:authorize"
+    assert call["payload"] == {
+        "proposal_token": "TOKEN",
+        "idempotency_key": "case-1:isolate:host-7",
+        "dry_run": True,
+        "grant": {"case_id": "case-1", "signature": "abc"},
+    }
+
+
+def test_authorize_action_refuses_bad_input(app: Any, captured: list[dict[str, Any]]) -> None:
+    assert "proposal_token is required" in app.authorize_action("http://jef", "", "", "k")
+    assert "idempotency_key is required" in app.authorize_action("http://jef", "", "T", "")
+    assert "grant must be" in app.authorize_action("http://jef", "", "T", "k", "{not json")
+    assert captured == []
+
+
+def test_record_outcome_never_turns_a_timeout_into_success(
+    app: Any, captured: list[dict[str, Any]]
+) -> None:
+    app.record_outcome("http://jef", "", "case-1:x", "Timeout", "no answer")
+    assert captured[-1]["path"] == "/v1/decisions/case-1:x:complete"
+    assert captured[-1]["payload"]["outcome"] == "timeout"
+    assert "outcome must be" in app.record_outcome("http://jef", "", "case-1:x", "done")
+
+
+def test_get_decision_is_a_get(app: Any, captured: list[dict[str, Any]]) -> None:
+    app.get_decision("http://jef", "", "case-1:x")
+    assert captured[-1]["path"] == "/v1/decisions/case-1:x"
+    assert captured[-1]["payload"] is None

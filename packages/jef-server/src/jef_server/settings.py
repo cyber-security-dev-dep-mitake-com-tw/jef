@@ -51,6 +51,22 @@ class Settings:
     #: send one. Off by default: the metrics name every scene.
     metrics_public: bool = False
 
+    # -- decisions (authorize / receipt) --------------------------------------
+    #: ``JEF_DECISIONS_ENABLED``: serve /v1/decisions. Off by default; when on,
+    #: JEF_API_KEYS is required, because these endpoints record what a SOAR
+    #: platform did. JEF still executes nothing and holds no platform
+    #: credentials: it authorizes, and it records.
+    decisions_enabled: bool = False
+    #: Verifies AuthorizationGrants. Shared with the approval service that
+    #: issues them. Empty: every grant is refused, so only allowed T0/T1
+    #: proposals can be authorized.
+    grant_secret: bytes = b""
+    #: Seals proposal tokens. Empty: a random per-process secret, so tokens do
+    #: not survive a restart and do not work across replicas.
+    proposal_secret: bytes = b""
+    #: How long a sealed proposal stays redeemable.
+    proposal_ttl_seconds: int = 3600
+
     @property
     def is_test_backbone(self) -> bool:
         return self.backbone == "hashing"
@@ -95,4 +111,8 @@ def load_settings() -> Settings:
         max_json_depth=_int("JEF_MAX_JSON_DEPTH") or 32,
         rate_limit_per_minute=_int("JEF_RATE_LIMIT_PER_MINUTE") or 0,
         metrics_public=_flag("JEF_METRICS_PUBLIC"),
+        decisions_enabled=_flag("JEF_DECISIONS_ENABLED"),
+        grant_secret=os.environ.get("JEF_GRANT_SECRET", "").encode(),
+        proposal_secret=os.environ.get("JEF_PROPOSAL_SECRET", "").encode(),
+        proposal_ttl_seconds=_int("JEF_PROPOSAL_TTL_SECONDS") or 3600,
     )

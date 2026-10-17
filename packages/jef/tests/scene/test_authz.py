@@ -357,3 +357,117 @@ actions:
     trace = SceneEngine(Engine()).run(scene, "x")
     assert trace.verdict == "fallthrough" and trace.action == "review"
     assert ProposedDecision.from_trace(trace, case_id="c") is not None
+
+
+# --------------------------------------------------------------------------- #
+# Sealed proposals: a connector cannot edit what the scene proposed
+# --------------------------------------------------------------------------- #
+
+SEAL = b"server-proposal-secret"
+
+
+def test_a_sealed_proposal_round_trips() -> None:
+    p = proposal()
+    token = p.seal(SEAL, now=T0)
+    assert ProposedDecision.unseal(token, SEAL, now=T0 + timedelta(minutes=5)) == p
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda d: d["proposal"].update(action_tier=1),
+        lambda d: d["proposal"].update(policy_verdict="allow"),
+        lambda d: d["proposal"].update(asset_id="host-02"),
+        lambda d: d["proposal"].update(action="tag"),
+    ],
+)
+def test_editing_a_sealed_proposal_breaks_it(edit) -> None:
+    import base64
+    import json as _json
+
+    from jef_scene.authz import ProposalError
+
+    token = proposal().seal(SEAL, now=T0)
+    encoded, mac = token.split(".")
+    body = _json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    edit(body)
+    forged = base64.urlsafe_b64encode(_json.dumps(body).encode()).decode().rstrip("=") + "." + mac
+    with pytest.raises(ProposalError, match="does not verify"):
+        ProposedDecision.unseal(forged, SEAL, now=T0)
+
+
+def test_sealed_proposals_expire_and_need_the_secret() -> None:
+    from jef_scene.authz import ProposalError
+
+    token = proposal().seal(SEAL, now=T0)
+    with pytest.raises(ProposalError, match="expired"):
+        ProposedDecision.unseal(token, SEAL, now=T0 + timedelta(hours=2))
+    with pytest.raises(ProposalError):
+        ProposedDecision.unseal(token, b"other", now=T0)
+    with pytest.raises(ProposalError):
+        ProposedDecision.unseal("not-a-token", SEAL)
+    with pytest.raises(ProposalError):
+        proposal().seal(b"")
+
+
+# --------------------------------------------------------------------------- #
+# Two-phase: authorize, the platform acts, complete
+# --------------------------------------------------------------------------- #
+
+
+def test_two_phase_authorize_then_complete() -> None:
+    ex = executor()
+    first = ex.authorize(proposal(), idempotency_key="k", grant=grant())
+    assert first.status == "authorized"
+    assert first.grant_nonce
+    assert ex.dispatch_count == 0, "authorizing performs nothing"
+    done = ex.complete("k", "success", detail="isolated", external_ref="edr-9")
+    assert done.status == "success" and done.external_ref == "edr-9"
+    assert ex.receipt("k") is done
+    assert ex.dispatch_count == 1
+
+
+def test_pol_005_two_phase_is_idempotent() -> None:
+    ex = executor()
+    receipts = [ex.authorize(proposal(), idempotency_key="same", grant=grant()) for _ in range(10)]
+    assert len({id(r) for r in receipts}) == 1
+    ex.complete("same", "success")
+    assert ex.authorize(proposal(), idempotency_key="same", grant=grant()).status == "success"
+    assert ex.complete("same", "success").status == "success"
+    assert ex.dispatch_count == 1
+
+
+def test_pol_007_two_phase_timeout_is_unknown() -> None:
+    ex = executor()
+    ex.authorize(proposal(), idempotency_key="k", grant=grant())
+    done = ex.complete("k", "timeout")
+    assert done.status == "unknown"
+    assert "OUTCOME_UNOBSERVED" in done.reason_codes
+
+
+def test_complete_refuses_what_was_never_authorized() -> None:
+    from jef_scene.executor import OutcomeConflict
+
+    ex = executor()
+    with pytest.raises(OutcomeConflict, match="never authorized"):
+        ex.complete("nope", "success")
+    refused = ex.authorize(proposal(), idempotency_key="r")  # no grant
+    assert refused.status == "not_dispatched"
+    with pytest.raises(OutcomeConflict, match="not_dispatched"):
+        ex.complete("r", "success")
+    ex.authorize(proposal(), idempotency_key="k", grant=grant())
+    ex.complete("k", "failed")
+    with pytest.raises(OutcomeConflict, match="cannot become success"):
+        ex.complete("k", "success")
+    with pytest.raises(OutcomeConflict, match="outcome must be"):
+        ex.complete("k", "done")
+
+
+def test_two_phase_dry_run_records_nothing() -> None:
+    ex = executor()
+    assert (
+        ex.authorize(proposal(), idempotency_key="k", grant=grant(), dry_run=True).status
+        == "dry_run"
+    )
+    assert ex.receipt("k") is None
+    assert ex.authorize(proposal(), idempotency_key="k", grant=grant()).status == "authorized"

@@ -29,6 +29,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, ge
 from pydantic import ValidationError
 
 from ._version import __version__
+from .decisions import install_decisions, seal_for_trace
 from .deps import build_scenes, get_engine, get_settings
 from .security import install_guards, json_depth
 from .settings import Settings
@@ -91,6 +92,8 @@ def create_app(
     # Auth, size and rate checks: header-only, ahead of body parsing. Raises
     # at startup if JEF_REQUIRE_AUTH is set without keys.
     install_guards(app, settings)
+    # /v1/decisions: off unless JEF_DECISIONS_ENABLED; requires API keys when on.
+    install_decisions(app, settings)
     if not settings.auth_enabled:
         log.warning(
             "JEF_API_KEYS is empty: the API has no authentication of its own. Only "
@@ -202,7 +205,13 @@ def create_app(
         REQUESTS.labels(endpoint="scene", status="200").inc()
         LATENCY.labels(endpoint="scene").observe(time.perf_counter() - started)
 
-        return trace.to_dict()
+        out = trace.to_dict()
+        # With decisions enabled and a case_id in the request, the trace carries
+        # a sealed proposal the connector redeems at /v1/decisions:authorize.
+        out.update(
+            seal_for_trace(app, trace, payload, app.state.engine.calibrator.runtime_model_sha256)
+        )
+        return out
 
     # -- discovery --------------------------------------------------------- #
 
