@@ -428,3 +428,54 @@ def test_python_dunder_versions_read_the_installed_distribution() -> None:
     assert jef_server.__version__ == importlib.metadata.version("jef-server")
     python = {v for label, v in set_version.read_versions().items() if label.startswith("py:")}
     assert python == {jef_dist}
+
+
+@pytest.mark.parametrize(
+    ("lower", "higher"),
+    [
+        ("0.2.0a1", "0.2.0b1"),
+        ("0.2.0b2", "0.2.0rc1"),
+        ("0.2.0rc9", "0.2.0rc10"),  # numeric, not string, comparison
+        ("0.2.0rc10", "0.2.0"),  # a final release sorts after its rcs
+        ("0.2.0", "0.2.1rc1"),
+        ("0.9.9", "0.10.0"),
+    ],
+)
+def test_version_order(lower: str, higher: str) -> None:
+    assert set_version.version_key(lower) < set_version.version_key(higher)
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [
+        ("0.2.0rc4", "0.2.0rc5"),
+        ("0.2.0rc9", "0.2.0rc10"),
+        ("0.2.0a1", "0.2.0a2"),
+        ("0.2.0", "0.2.1"),
+        ("1.9.9", "1.9.10"),
+    ],
+)
+def test_bump_stays_on_its_track(version: str, expected: str) -> None:
+    assert set_version.bump(version) == expected
+
+
+def test_next_version_bumps_the_newest_published_spelling() -> None:
+    """npm's `0.2.0-rc.4` and a tag's `v0.2.0rc3` are versions; `0.0.0-stage` is not."""
+    published = ["0.0.0-stage", "0.2.0-rc.4", "v0.2.0rc3", "0.2.0rc1"]
+    assert set_version.next_version("0.2.0rc4", published) == "0.2.0rc5"
+
+
+def test_next_version_never_goes_below_what_is_published() -> None:
+    """Files behind the registry (a release that never committed its bump)."""
+    assert set_version.next_version("0.2.0rc2", ["0.2.0rc4"]) == "0.2.0rc5"
+
+
+def test_next_version_keeps_files_that_are_ahead() -> None:
+    """`set-version.py 0.3.0rc1` on purpose is the next release, not 0.2.0rc5."""
+    assert set_version.next_version("0.3.0rc1", ["0.2.0rc4"]) == "0.3.0rc1"
+    assert set_version.next_version("0.2.0", ["0.2.0rc4"]) == "0.2.0"
+
+
+def test_next_version_with_nothing_published_is_the_files() -> None:
+    assert set_version.next_version("0.1.0", []) == "0.1.0"
+    assert set_version.next_version("0.1.0", ["0.0.0-stage"]) == "0.1.0"

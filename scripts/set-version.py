@@ -13,6 +13,7 @@ rather than a resolver error at install time.
     python scripts/set-version.py 0.2.0
     python scripts/set-version.py --check 0.2.0        # verify without writing
     python scripts/set-version.py --canonical v0.2.0-rc.4   # -> 0.2.0rc4
+    python scripts/set-version.py --next      # next unused version, from the registries
 
 Any reasonable spelling of a version is accepted on input (`v0.2.0rc.4`,
 `0.2.0-rc.4`, `0.2.0-alpha.1`) and normalised to PEP 440 before anything is
@@ -25,7 +26,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -144,6 +150,120 @@ def npm_version(version: str) -> str:
         raise ValueError(f"not a release version: {version}")
     base, kind, number = match.groups()
     return base if kind is None else f"{base}-{_NPM_LABELS[kind]}.{number}"
+
+
+#: Prerelease markers in release order; a final release sorts after all of them.
+_PRERELEASE_ORDER = {"a": 0, "b": 1, "rc": 2}
+
+
+def version_key(version: str) -> tuple[int, int, int, int, int]:
+    """Sort key for a canonical version: `0.2.0a1 < 0.2.0rc4 < 0.2.0 < 0.2.1rc1`."""
+    match = VERSION_RE.match(version)
+    if not match:
+        raise ValueError(f"not a release version: {version}")
+    base, kind, number = match.groups()
+    major, minor, patch = (int(part) for part in base.split("."))
+    if kind is None:
+        return (major, minor, patch, len(_PRERELEASE_ORDER), 0)
+    return (major, minor, patch, _PRERELEASE_ORDER[kind], int(number))
+
+
+def bump(version: str) -> str:
+    """The version after this one, staying on the same track.
+
+    A prerelease advances its own number (`0.2.0rc4 -> 0.2.0rc5`), a final
+    release its patch (`0.2.0 -> 0.2.1`). Leaving the rc track -- cutting
+    `0.2.0` from `0.2.0rc5`, or starting `0.3.0` -- is a decision, not an
+    increment, so it is made by setting the version in the files or by
+    tagging, never guessed here.
+    """
+    match = VERSION_RE.match(version)
+    if not match:
+        raise ValueError(f"not a release version: {version}")
+    base, kind, number = match.groups()
+    if kind is not None:
+        return f"{base}{kind}{int(number) + 1}"
+    major, minor, patch = base.split(".")
+    return f"{major}.{minor}.{int(patch) + 1}"
+
+
+def next_version(current: str, published: Iterable[str]) -> str:
+    """The version a release without an explicit one should use.
+
+    The files win when they are already ahead of everything published: that
+    is someone having run `set-version.py 0.3.0rc1` on purpose. Otherwise the
+    newest version that went out anywhere is bumped, so a release never asks
+    a registry for a number it already holds -- npm and PyPI both refuse that
+    for ever, and a manual run that defaulted to the files' version tried to
+    republish 0.2.0-rc.4 on 2026-10-16.
+
+    `published` may hold any spelling (`0.2.0-rc.4`, `v0.2.0rc4`); anything
+    that is not a release version, like npm's `0.0.0-stage`, is ignored.
+    """
+    seen = set()
+    for raw in published:
+        try:
+            seen.add(canonical(raw))
+        except ValueError:
+            continue
+    if not seen:
+        return current
+    latest = max(seen, key=version_key)
+    if version_key(current) > version_key(latest):
+        return current
+    return bump(latest)
+
+
+#: Package indexes the Python distributions may be on. Both, always: an rc goes
+#: to TestPyPI and a final to PyPI, and a number used on either is used.
+PY_INDEXES = ["https://pypi.org/pypi", "https://test.pypi.org/pypi"]
+
+NPM_REGISTRY = "https://registry.npmjs.org"
+
+
+def _fetch_json(url: str) -> dict | None:
+    """GET a registry document; None when the package does not exist there.
+
+    Any other failure raises. Guessing a version because a registry was
+    unreachable is how a number gets reused, so this fails closed.
+    """
+    # S310: every URL is built from the https constants above, never from input.
+    request = urllib.request.Request(url, headers={"Accept": "application/json"})  # noqa: S310
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise
+
+
+def published_versions() -> list[str]:
+    """Every version any of this repo's packages has on any channel.
+
+    The npm registry, PyPI and TestPyPI, plus the `v*` tags on origin -- a tag
+    can exist for a release whose publishing failed, and `gh release create`
+    would attach to the old tag rather than mint a new one.
+    """
+    found: list[str] = []
+    for rel in NPM_PACKAGES:
+        name = json.loads((ROOT / rel).read_text(encoding="utf-8"))["name"]
+        doc = _fetch_json(f"{NPM_REGISTRY}/{urllib.parse.quote(name, safe='@')}")
+        found.extend((doc or {}).get("versions", {}))
+    for index in PY_INDEXES:
+        for name in DIST_NAMES.values():
+            doc = _fetch_json(f"{index}/{name}/json")
+            found.extend((doc or {}).get("releases", {}))
+    # git from PATH, as every workflow step runs it; the arguments are constants.
+    tags = subprocess.run(
+        ["git", "ls-remote", "--tags", "--refs", "origin", "v*"],  # noqa: S607
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    found.extend(line.rsplit("refs/tags/", 1)[-1] for line in tags.splitlines() if line)
+    return found
 
 
 _SIBLINGS = set(DIST_NAMES.values())
@@ -285,7 +405,21 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="print the PEP 440 spelling of VERSION (accepts v0.2.0-rc.4 etc.) and exit",
     )
+    parser.add_argument(
+        "--next",
+        action="store_true",
+        help="print the next unused version: the files' own if they are ahead of "
+        "everything published, else the newest published version bumped",
+    )
     args = parser.parse_args(argv)
+
+    if args.next:
+        current = read_versions()
+        if not _in_lockstep(current):
+            print("versions disagree in a lockstep repo; run --show", file=sys.stderr)
+            return 1
+        print(next_version(canonical(current["py:jef"]), published_versions()))
+        return 0
 
     if args.show or not args.version:
         current = read_versions()

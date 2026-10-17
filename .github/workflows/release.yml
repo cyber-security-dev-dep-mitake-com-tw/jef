@@ -11,11 +11,13 @@ on:
     inputs:
       version:
         description: >-
-          Version to release. A manual run performs the full release for it,
+          Version to release. Leave blank for the next unused one: the newest
+          version on npm, PyPI, TestPyPI or a v* tag, bumped (0.2.0rc4 ->
+          0.2.0rc5, 0.2.0 -> 0.2.1). A manual run performs the full release,
           exactly like a tag push (TestPyPI/PyPI, npm, GHCR, weights, GitHub
-          release), so the files must already be at this version. Leave blank
-          to use the version the packages carry. Any spelling works: 0.2.0rc4,
-          0.2.0rc.4, v0.2.0-rc.4.
+          release), and stamps the version into the build itself, so the
+          files need not be at it. Any spelling works: 0.2.0rc4, 0.2.0rc.4,
+          v0.2.0-rc.4.
         required: false
         default: ""
 
@@ -44,10 +46,13 @@ jobs:
       # have published correctly. Only the *spelling* was wrong; the script
       # fixes that and still refuses anything that is not a release version.
       #
-      # A manual run may leave the version blank: six "Run workflow" attempts
-      # in a row typed `0.2.0rc.4` by hand, and the only version a rehearsal
-      # can verify is the one the packages carry anyway, so that is the
-      # default -- read from packages/jef/pyproject.toml, nothing to type.
+      # A manual run may leave the version blank, and then releases the next
+      # version nobody has used. It used to default to the files' own version,
+      # which is the one the *previous* release already published: the
+      # 2026-10-16 16:42 dispatch tried to republish 0.2.0-rc.4 and npm refused
+      # it for ever. `set-version.py --next` asks npm, PyPI, TestPyPI and the
+      # v* tags for the newest version any of them holds and bumps it -- or
+      # keeps the files' version when someone has already set it ahead.
       - name: Resolve version
         id: resolve
         env:
@@ -59,8 +64,11 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             raw="$REQUESTED"
             if [ -z "$raw" ]; then
-              raw="$(python scripts/set-version.py --show | awk '$1 == "py:jef" { print $2 }')"
-              echo "::notice::no version given; verifying the packages' own: $raw"
+              raw="$(python scripts/set-version.py --next)" || {
+                echo "::error::could not work out the next version: a registry or origin was unreachable, or the packages are not in lockstep (python scripts/set-version.py --show). Type a version to release instead."
+                exit 1
+              }
+              echo "::notice::no version given; releasing the next unused version: $raw"
             fi
           else
             raw="$GITHUB_REF_NAME"
@@ -95,8 +103,15 @@ jobs:
       # undone after publishing, so it stops everything before anything is built.
       # stdlib only, so it runs before any dependency is installed -- a tag
       # that disagrees with the files should fail in seconds, not after a sync.
+      # A tag names a commit whose files must already say that version. A
+      # manual run has no such commit -- its version may be one nobody has
+      # committed -- so it writes the version into this checkout instead, and
+      # every job that builds from source does the same ("Stamp the version").
       - name: Tag matches the packages
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python scripts/set-version.py "${{ steps.resolve.outputs.version }}"
+          fi
           python scripts/set-version.py --check "${{ steps.resolve.outputs.version }}" || {
             echo "::error::tag and pyproject versions disagree. Run: python scripts/set-version.py ${{ steps.resolve.outputs.version }}"
             exit 1
@@ -122,6 +137,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+
+      # Writes the release version into this job's checkout. A no-op on a tag
+      # push (verify has already proved the files carry it); on a manual run
+      # it is what makes the build carry the version verify resolved.
+      - name: Stamp the version
+        run: python scripts/set-version.py "${{ needs.verify.outputs.version }}"
 
       # One directory per distribution, so each publish job can point at its
       # own without globbing: PyPI requires a separate trusted publisher per
@@ -239,6 +260,12 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
+
+      # Writes the release version into this job's checkout. A no-op on a tag
+      # push (verify has already proved the files carry it); on a manual run
+      # it is what makes the build carry the version verify resolved.
+      - name: Stamp the version
+        run: python scripts/set-version.py "${{ needs.verify.outputs.version }}"
 
       # NPM_TOKEN is a granular access token -- classic tokens were removed in
       # November 2025 -- and it needs TWO things that are both easy to get
@@ -394,6 +421,14 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      # Writes the release version into this job's checkout. A no-op on a tag
+      # push (verify has already proved the files carry it); on a manual run
+      # it is what makes the image carry the version verify resolved -- the
+      # Dockerfile installs from ./packages.
+      - name: Stamp the version
+        run: python scripts/set-version.py "${{ needs.verify.outputs.version }}"
+
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -566,6 +601,31 @@ jobs:
         with:
           path: artifacts
         continue-on-error: true
+
+      # A manual run's version may exist in no commit, and `gh release create`
+      # given a tag that does not exist mints it on the default branch -- a
+      # v0.2.0rc5 whose files say 0.2.0rc4. So the stamped files are committed
+      # (on no branch; main is untouched) and that commit is tagged. A push
+      # made with GITHUB_TOKEN does not trigger workflows, so this tag does not
+      # start a second release. A tag that already exists is released as is.
+      - name: Tag the stamped version
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -e
+          tag="${{ needs.verify.outputs.tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::notice::$tag already exists; releasing on it"
+            exit 0
+          fi
+          python scripts/set-version.py "${{ needs.verify.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git commit -q -am "release: ${{ needs.verify.outputs.version }}"
+          fi
+          git tag -a "$tag" -m "$tag"
+          git push origin "refs/tags/$tag"
+          echo "::notice::tagged $(git rev-parse --short HEAD) as $tag"
 
       # The notes lead with what each channel actually did. v0.2.0rc3 shipped
       # with no weights attached and nothing on npm, and said neither -- the
