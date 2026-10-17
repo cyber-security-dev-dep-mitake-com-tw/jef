@@ -43,10 +43,20 @@ Or `pip install "jef[server]"` to get it with the CLI.
 | `JEF_DECISIONS_ENABLED` | Serve `/v1/decisions` (authorize, complete, receipt). Off by default; requires `JEF_API_KEYS`. JEF authorizes and records; it executes nothing. |
 | `JEF_GRANT_SECRET` | Verifies `AuthorizationGrant`s, shared with your approval service. Empty: every grant is refused. |
 | `JEF_PROPOSAL_SECRET` `JEF_PROPOSAL_TTL_SECONDS` | Seals `proposal_token`s (default: random per process) and how long they stay redeemable (3600). |
+| `JEF_REQUIRED_TASK_IDS` | Comma-separated tasks this deployment must be calibrated for before `/v1/readiness` reports `automation_ready`: `task_id` (every bucket fitted for the task must be `validated`) or `task_id:kind:n` (one exact bucket). Empty is itself a blocking reason. |
+| `JEF_TRUSTED_INGRESS` | The operator asserts that an ingress (mTLS, OIDC gateway) authenticates every caller, so empty `JEF_API_KEYS` does not block readiness. Reported as `auth: trusted-ingress`, never silently. |
 
 ### Readiness
 
-`GET /healthz` always answers `status: ok` when the process is up, and adds what a deployer needs to decide whether it is *fit to serve*: `test_backbone`, `calibrated`, `calibration_scope`, `auth`, `model_manifest`, and `production_safe`, which is true only with a real backbone, a fitted calibrator, app-level authentication and a verified model manifest. Gate a production rollout on `production_safe`, not on `status`.
+Three endpoints, three strengths, so no probe is mistaken for permission:
+
+| Endpoint | Answers | Auth |
+|---|---|---|
+| `GET /healthz` | The process answers. Descriptive fields stay for dashboards; `production_safe` is deprecated and now equals `automation_ready` below. | open |
+| `GET /readyz` | The model is loaded and its files match the manifest. **503** on a mismatch, with the manifest's problems. | open |
+| `GET /v1/readiness` | `decision_support_ready` (a real backbone, no manifest mismatch, authenticated), `automation_ready` (all of it), `validated_tasks[]`, `blocking_reasons[]`, `checks{}`. | as other `/v1` routes |
+
+`automation_ready` is decided per task in `JEF_REQUIRED_TASK_IDS` from that task's own calibration buckets and fails closed. Each of these blocks it and is named in `blocking_reasons`: `backbone:test`, `model_manifest:<status>`, `auth:none`, `calibration:legacy|incompatible|absent`, `<task>:missing|insufficient|legacy|incompatible_calibration`, `required_tasks:none_configured`, `decisions:disabled`, `policy_store:not_persistent`. A validated bucket for another task, or for the same shape without a task id, never counts. Even `automation_ready: true` authorises no T2+ action; every response says so.
 
 ## The metric worth alerting on
 
