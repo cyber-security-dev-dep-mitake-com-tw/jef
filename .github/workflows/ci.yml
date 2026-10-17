@@ -63,6 +63,20 @@ jobs:
       - name: Connector tests
         run: uv run pytest connectors/tests -q
 
+      # The Safety Evidence Pack (S01-S16, production profile) for exactly this
+      # SHA, archived so a reviewer never has to trust a green tick from
+      # another commit.
+      - name: Safety evidence pack
+        if: matrix.python == '3.12'
+        run: uv run python scripts/safety-evidence.py --out evidence/safety/${{ github.sha }}
+      - name: Archive safety evidence
+        if: always() && matrix.python == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-evidence-${{ github.sha }}
+          path: evidence/safety/${{ github.sha }}
+          if-no-files-found: warn
+
   contract:
     name: /v1/systemone conformance
     runs-on: ubuntu-latest
