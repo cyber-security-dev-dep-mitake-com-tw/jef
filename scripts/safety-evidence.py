@@ -12,8 +12,13 @@ and writes to ``evidence/safety/mainline-integration-<sha>/`` (or ``--out``):
   platform, uv.lock SHA-256, and the shipped model manifest's calibration
   facts, so the pack can be tied to exactly what was tested.
 
-S14 (egress) is a property of the lab network, not of this code; it is listed
-as manual with the command that produces its evidence. The exit status is
+S14 (egress) is a property of the lab network, not of this code. Without
+``--egress-log`` it is listed as manual with the command that produces its
+evidence; with the log of ``deploy/lab/egress_check.sh`` run inside the lab, the
+log is copied into the pack, its SHA-256 recorded, and S14 passes only if the
+log ends in ``PASS``. ``--operator``, ``--lab-host`` and ``--port-group`` record
+who ran it and where, beside the compose file's digest, so a lab pack cannot be
+mistaken for a laptop run. The exit status is
 non-zero if any automated case failed, so CI can gate on it.
 """
 
@@ -208,11 +213,39 @@ def _attribute(junit: Path) -> dict[str, list[dict[str, str]]]:
     return by_node
 
 
+def _egress(log: Path, out: Path) -> dict[str, object]:
+    """S14 from a real egress_check.sh log: pass only on its own PASS line."""
+    text = log.read_text(errors="replace")
+    copy = out / "egress-check.log"
+    copy.write_text(text)
+    leaks = [ln for ln in text.splitlines() if ln.startswith("LEAK")]
+    passed = "PASS: no egress from this segment" in text and not leaks
+    return {
+        "result": "pass" if passed else "FAIL",
+        "log_sha256": _sha256(copy),
+        "leaks": leaks,
+        "source": "deploy/lab/egress_check.sh output supplied with --egress-log",
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--out", type=Path)
+    p.add_argument("--operator", help="who ran this pack (recorded, not verified)")
+    p.add_argument("--lab-host", help="lab VM or host name")
+    p.add_argument("--port-group", help="ESXi port group / network segment, e.g. JEF-LAB-CORE")
+    p.add_argument(
+        "--egress-log", type=Path, help="output of deploy/lab/egress_check.sh from the lab"
+    )
     args = p.parse_args(argv)
     env = environment()
+    env["lab"] = {
+        "operator": args.operator,
+        "host": args.lab_host,
+        "port_group": args.port_group,
+        "compose_sha256": _sha256(ROOT / "deploy" / "lab" / "docker-compose.yml"),
+        "kind": "lab run" if args.egress_log else "code-level run (no lab evidence supplied)",
+    }
     out = (
         args.out
         or ROOT / "evidence" / "safety" / f"mainline-integration-{str(env['git_sha'])[:12]}"
@@ -247,6 +280,10 @@ def main(argv: list[str] | None = None) -> int:
         f"Generated {env['generated_at']} on {env['platform']} (Python {env['python']}). "
         f"Tree dirty: **{env['git_dirty']}**. uv.lock `{env['uv_lock_sha256']}`.",
         "",
+        f"Kind: **{env['lab']['kind']}**. Operator: {args.operator or 'not recorded'}; host: "  # type: ignore[index]
+        f"{args.lab_host or 'not recorded'}; port group: {args.port_group or 'not recorded'}; "
+        f"compose `{env['lab']['compose_sha256']}`.",  # type: ignore[index]
+        "",
         "| Case | What it proves | Tests | Result |",
         "|---|---|---|---|",
     ]
@@ -266,6 +303,13 @@ def main(argv: list[str] | None = None) -> int:
         }  # type: ignore[index]
         lines.append(f"| {cid} | {what} | {len(outcomes)} | {'pass' if ok else '**FAIL**'} |")
     for cid, (what, how) in MANUAL.items():
+        if cid == "S14" and args.egress_log:
+            eg = _egress(args.egress_log, out)
+            failed += 0 if eg["result"] == "pass" else 1
+            summary["cases"][cid] = {"what": what, **eg}  # type: ignore[index]
+            mark = "pass (lab log)" if eg["result"] == "pass" else "**FAIL**"
+            lines.append(f"| {cid} | {what} | log `{str(eg['log_sha256'])[:19]}…` | {mark} |")
+            continue
         summary["cases"][cid] = {"what": what, "result": "manual", "how": how}  # type: ignore[index]
         lines.append(f"| {cid} | {what} | manual | `{how}` |")
     cal = env.get("shipped_model_calibration") or {}
@@ -277,7 +321,8 @@ def main(argv: list[str] | None = None) -> int:
         f"- That the shipped model is calibrated for SOC tasks: its calibration is schema "
         f"{cal.get('schema')} with {len(cal.get('tasks') or [])} task-scoped buckets, so "
         "`automation_ready` stays false by design.",
-        "- Egress isolation (S14), which is a property of the lab network and is checked there.",
+        "- Egress isolation (S14) unless an `egress_check.sh` log from the lab was supplied; "
+        "even then, keep the vSwitch / port-group configuration and a packet capture beside it.",
         "",
         f"Automated cases failed: **{failed}**.",
     ]
