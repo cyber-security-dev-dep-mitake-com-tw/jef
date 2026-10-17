@@ -28,6 +28,7 @@ from jef_core.types import (
 )
 
 from .expr import ExpressionError, compile_condition, evaluate_condition
+from .policy import PolicyVerdict, authorize, referenced_questions
 from .schema import NEXT, Scene
 from .trace import GateTrace, LayerTrace, QuestionTrace, SceneTrace
 
@@ -136,6 +137,7 @@ class SceneEngine:
 
         layer_traces: list[LayerTrace] = []
         decided: str | None = None
+        deciding_condition: str | None = None
         questions_asked = 0
         available: dict[str, AnswerView] = {}
 
@@ -182,6 +184,9 @@ class SceneEngine:
 
             if outcome != NEXT:
                 decided = outcome
+                # The gate that fired is the last one recorded; its condition is
+                # what the policy checks the evidence of. None for an else gate.
+                deciding_condition = gate_traces[-1].condition if gate_traces else None
                 skipped = [layer.id for layer in scene.layers[position + 1 :]]
                 break
         else:
@@ -198,13 +203,20 @@ class SceneEngine:
         if action is None and decided is not None:  # pragma: no cover -- schema-checked
             raise SceneError(f"scene {scene.scene!r} selected unknown action {decided!r}")
 
+        # The policy sits between what the scene selected and what anything
+        # downstream may do with it. It can only make the outcome safer.
+        policy: PolicyVerdict | None = None
+        if action is not None and decided is not None:
+            referenced = referenced_questions(deciding_condition, available)
+            policy = authorize(decided, action, referenced=referenced, views=available)
+
         return SceneTrace(
             scene=scene.scene,
             version=scene.version,
             model=engine.model_name,
             verdict=verdict,
             action=decided,
-            human_review=bool(action and action.human_review),
+            human_review=bool(action and (action.human_review or (policy and policy.human_review))),
             action_params=dict(action.params) if action else {},
             layers=layer_traces,
             layers_skipped=skipped,
@@ -212,6 +224,10 @@ class SceneEngine:
             questions_asked=questions_asked,
             calibrated=engine.calibrator.is_fitted(),
             warnings=warnings,
+            proposed_action=decided,
+            policy_verdict=policy.verdict if policy else "review_required",
+            action_tier=policy.tier if policy else None,
+            reason_codes=list(policy.reason_codes) if policy else [],
         )
 
     # -- internals ---------------------------------------------------------- #

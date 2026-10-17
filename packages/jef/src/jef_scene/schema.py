@@ -84,6 +84,12 @@ class Action(_Base):
     #: explicit rather than inferred from the name so the trace can be filtered
     #: on it and so a scene cannot quietly stop escalating.
     human_review: bool = False
+    #: Action tier, T0 (read-only) to T4 (destructive or wide-blast). When unset
+    #: the runtime policy infers it from the name (``close`` is T2, ``isolate``
+    #: T3, anything else T1). Only T0 and T1 may run without a human, so a
+    #: scene that wants to automate an action whose name sounds disruptive
+    #: must say so here, in the YAML, where a reviewer sees it.
+    tier: int | None = Field(default=None, ge=0, le=4)
     #: Arbitrary payload for the caller's own dispatcher (queue names, severities).
     params: dict[str, Any] = Field(default_factory=dict)
 

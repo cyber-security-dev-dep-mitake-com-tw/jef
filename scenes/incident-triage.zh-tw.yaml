@@ -29,9 +29,14 @@ layers:
           true: 含主機、帳號、時間或行為等可據以判斷的細節
           false: 僅有結論性描述，缺乏可驗證的細節
     gates:
+      # 關閉告警是改變狀態的動作（T2）。這裡的 0.90 是模型對 noul 問題的輸出機率，
+      # 不是經此任務校準驗證過的 P(correct)；就算是，關單也不該由機率單獨決定——
+      # 一個被錯關的攻擊不會因為模型更準而復原。所以命中時只是「建議關閉」，
+      # 排進待覆核佇列並附上理由，由人確認。runtime policy 會對任何
+      # human_review: false 且 tier >= 2 的動作強制同樣結果，不只靠這份 YAML。
       - when: 'is_false_positive.probability > 0.90'
-        then: close
-        because: 高度確信為已知良性樣態，直接關閉
+        then: close_pending_review
+        because: 高度疑似已知良性樣態，建議關閉，交由人確認
       # 證據不足時不猜。猜出來的答案會帶著同樣的信心分數往下傳，
       # 而下游閘門無從分辨「有把握」與「沒東西可看」。
       - when: 'has_evidence.probability < 0.40'
@@ -89,10 +94,11 @@ layers:
         then: queue_for_review
 
 actions:
-  close:
-    description: 判定為誤報，關閉並記錄
-    human_review: false
-    params: { queue: closed, reason: known_benign }
+  close_pending_review:
+    description: 疑似誤報，建議關閉；待分析師確認後才真正關閉
+    human_review: true
+    tier: 2
+    params: { queue: closed-pending-review, reason: known_benign_candidate, expires_days: 7 }
   request_context:
     description: 證據不足，向來源系統索取更多脈絡
     human_review: false

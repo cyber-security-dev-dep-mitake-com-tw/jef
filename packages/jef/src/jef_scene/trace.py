@@ -76,6 +76,22 @@ class SceneTrace:
     questions_asked: int
     calibrated: bool
     warnings: list[str] = field(default_factory=list)
+    #: What the scene selected. Always equal to ``action``; named separately so
+    #: a reader never confuses "the model proposed close" with "close happened".
+    proposed_action: str | None = None
+    #: ``allow`` or ``review_required``, from :mod:`jef_scene.policy`. When
+    #: ``review_required``, ``human_review`` is true regardless of what the
+    #: action declared. Nothing downstream may flip it back.
+    policy_verdict: str = "review_required"
+    #: Tier the policy applied (explicit on the action, or inferred from its name).
+    action_tier: int | None = None
+    #: Why the verdict is what it is; empty when allowed.
+    reason_codes: list[str] = field(default_factory=list)
+    #: The scene engine executes nothing. These exist so the trace shape already
+    #: has the slot a connector's receipt will fill, and so no reader mistakes
+    #: a proposal for an outcome.
+    executed_action: str | None = None
+    execution_status: str = "not_dispatched"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
