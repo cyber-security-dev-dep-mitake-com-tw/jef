@@ -312,12 +312,36 @@ jobs:
           # npm falls back to the job's id-token.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          # npm never accepts the same version twice, so a version that is
+          # already on the registry has nothing left to do here. The 0.2.0-rc.4
+          # dispatch at 16:42 on 2026-10-16 republished what the 16:04 run had
+          # already shipped, got "You cannot publish over the previously
+          # published versions", and the E403 in that message matched the token
+          # diagnosis below -- so a complete release was reported as a bad
+          # NPM_TOKEN. Skipping makes a re-run (or a re-dispatch after another
+          # channel failed) finish green, like github-release already does.
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+            echo "::notice::$name@$version is already on npm; nothing to publish"
+            exit 0
+          fi
           npm install
           npm run typecheck && npm test && npm run build
           npm publish --provenance --access public \
             --tag ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }} \
             2>&1 | tee publish.log
           status=${PIPESTATUS[0]}
+          # Checked first: the registry answers a version conflict with a 403
+          # too, and it has nothing to do with how this job authenticated.
+          # Reachable only if another run published between the check above
+          # and this publish.
+          if [ "$status" -ne 0 ] && grep -qE 'EPUBLISHCONFLICT|cannot publish over' publish.log; then
+            echo "::error::$name@$version is already on npm (published by another run \
+          after this one checked). npm never reuses a version: bump it with \
+          scripts/set-version.py to publish new code, or re-run to skip it."
+            exit "$status"
+          fi
           if [ "$status" -ne 0 ] && [ "${{ steps.auth.outputs.mode }}" = "oidc" ]; then
             echo "::error::npm refused the OIDC publish. Trusted publishing needs the \
           package to exist on npmjs.com with this repository (cyber-security-dev-dep-mitake-com-tw/jef), \
@@ -345,6 +369,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          # Same as @jef-ai/sdk: an already-published version is done, not failed.
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if [ "$(npm view "$name@$version" version 2>/dev/null)" = "$version" ]; then
+            echo "::notice::$name@$version is already on npm; nothing to publish"
+            exit 0
+          fi
           npm install
           npm run typecheck && npm run build
           npm publish --provenance --access public \
