@@ -52,14 +52,15 @@ def corpus() -> tuple[list[dict], list[dict]]:
     return cases, golds
 
 
-def test_rare_classes_get_their_minimum_and_weights_undo_it() -> None:
+def test_rare_classes_are_taken_first_and_weights_undo_it() -> None:
     cases, golds = corpus()
-    chosen, m = sample_cases(cases, golds, per_family=30, min_per_stratum=5)
-    assert m["families"] == 3 and m["sampled"] == len(chosen)
+    chosen, m = sample_cases(cases, golds, per_family=30)
+    assert m["families"] == 3 and m["sampled"] == len(chosen) == 90
     for fam in m["by_family"].values():
         strata = fam["strata"]
-        assert strata["c2"]["sampled"] == 6, "all rare positives kept (fewer than the floor allows)"
-        assert strata["unknown"]["sampled"] >= 5
+        assert fam["sampled"] == 30, "per_family is a hard cap"
+        assert strata["c2"]["sampled"] == 6, "the rare class is taken in full"
+        assert strata["unknown"]["sampled"] == strata["benign"]["sampled"] == 12
     w = m["inverse_inclusion_weights"]
     c2_ids = {g["case_id"] for g in golds if g["gold"]["verdict"] == "c2"}
     assert all(w[cid] == 1.0 for cid in c2_ids if cid in w), "every c2 was taken: weight 1"
@@ -89,6 +90,15 @@ def test_exclude_makes_a_second_batch_disjoint_and_task_filters() -> None:
     assert all(c["task_id"] == TASK for c in first + second)
     with pytest.raises(SampleError):
         sample_cases(cases, golds, task="soc.identity.abuse.v1")
+
+
+def test_a_small_cap_spreads_one_per_stratum_before_any_second() -> None:
+    cases, golds = corpus()
+    _, m = sample_cases(cases, golds, per_family=2)
+    for fam in m["by_family"].values():
+        assert fam["sampled"] == 2
+        assert sorted(v["sampled"] for v in fam["strata"].values()) == [0, 1, 1]
+        assert fam["strata"]["c2"]["sampled"] == 1, "the rarest stratum is served first"
 
 
 def test_too_few_families_is_said_out_loud() -> None:

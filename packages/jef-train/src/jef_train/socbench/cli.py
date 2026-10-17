@@ -298,7 +298,6 @@ def cmd_sample(repo: SocbenchRepo, args: argparse.Namespace) -> int:
             weak,
             task=args.task,
             per_family=args.per_family,
-            min_per_stratum=args.min_per_stratum,
             seed=args.seed,
             families=args.family or None,
             exclude=exclude,
@@ -429,8 +428,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--weak-gold", type=Path, help="gold.jsonl from build: used to stratify, never written out"
     )
     sm.add_argument("--task", help="restrict to one task_id, e.g. soc.ndr.technique.v1")
-    sm.add_argument("--per-family", type=int, default=60)
-    sm.add_argument("--min-per-stratum", type=int, default=5)
+    sm.add_argument(
+        "--per-family", type=int, default=60, help="hard cap on cases drawn from each family"
+    )
     sm.add_argument("--seed", default="socbench-sample")
     sm.add_argument("--family", action="append", help="only these family_ids (repeatable)")
     sm.add_argument(

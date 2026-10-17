@@ -10,10 +10,11 @@ picks it by rule instead:
 * **Within families, never across them.** Cases are sampled per family, and
   the lock later assigns whole families to splits, so a sampled family never
   straddles the train/test line.
-* **Stratified on the weak label, blind to it in the output.** Rare weak
-  classes (a C2 conversation among thousands of benign flows) get a minimum
-  share so the gold set has positives at all; the weak verdict is used only to
-  choose, and the written cases carry no label, so reviewers stay blind.
+* **Stratified on the weak label, blind to it in the output.** Draws are
+  water-filled across weak-label strata, rarest first, so a rare class (a C2
+  conversation among thousands of benign flows) is taken in full before common
+  ones grow, and ``per_family`` is a hard cap. The weak verdict is used only to
+  choose; the written cases carry no label, so reviewers stay blind.
 * **Weights to undo the oversampling.** Every sampled case carries its inverse
   inclusion probability within its family and stratum, recorded in the
   manifest, so metrics can be re-weighted back to the source's base rate.
@@ -55,21 +56,27 @@ def _rng(seed: str, family: str) -> random.Random:
     return random.Random(int(digest[:16], 16))  # noqa: S311 - sampling, not security
 
 
-def _allocate(sizes: Mapping[str, int], target: int, min_per_stratum: int) -> dict[str, int]:
-    """Cases to draw per stratum: an even floor with a minimum, then fill to target."""
-    k = len(sizes)
-    floor = max(min_per_stratum, target // k) if k else 0
-    take = {s: min(n, floor) for s, n in sizes.items()}
-    remaining = target - sum(take.values())
-    if remaining > 0:
-        leftover = {s: sizes[s] - take[s] for s in sizes if sizes[s] > take[s]}
-        total = sum(leftover.values())
-        for s in sorted(leftover, key=lambda s: -leftover[s]):
-            if remaining <= 0 or total == 0:
+def _allocate(sizes: Mapping[str, int], target: int) -> dict[str, int]:
+    """Water-fill ``target`` draws across strata, rarest first, never past a stratum's size.
+
+    Every stratum gets one draw before any gets a second, so a rare class is
+    taken in full before common ones grow, and the total is exactly
+    ``min(target, available)``: ``per_family`` is a hard cap.
+    """
+    take = dict.fromkeys(sizes, 0)
+    remaining = min(target, sum(sizes.values()))
+    order = sorted(sizes, key=lambda s: (sizes[s], s))
+    while remaining > 0:
+        progressed = False
+        for stratum in order:
+            if remaining == 0:
                 break
-            extra = min(leftover[s], max(1, round(remaining * leftover[s] / total)))
-            take[s] += extra
-            remaining -= extra
+            if take[stratum] < sizes[stratum]:
+                take[stratum] += 1
+                remaining -= 1
+                progressed = True
+        if not progressed:
+            break
     return take
 
 
@@ -79,7 +86,6 @@ def sample_cases(
     *,
     task: str | None = None,
     per_family: int = 60,
-    min_per_stratum: int = 5,
     seed: str = "socbench-sample",
     families: Iterable[str] | None = None,
     exclude: Iterable[str] = (),
@@ -109,8 +115,7 @@ def sample_cases(
     for fam in sorted(pool):
         strata = pool[fam]
         sizes = {s: len(v) for s, v in strata.items()}
-        target = min(per_family, sum(sizes.values()))
-        take = _allocate(sizes, target, min_per_stratum)
+        take = _allocate(sizes, per_family)
         rng = _rng(seed, fam)
         fam_rows: dict[str, list[int]] = {}
         for stratum in sorted(strata):
@@ -148,7 +153,7 @@ def sample_cases(
         "seed": seed,
         "task": task,
         "per_family": per_family,
-        "min_per_stratum": min_per_stratum,
+        "allocation": "water-filled across weak-label strata, rarest first; per_family is a cap",
         "input_cases_digest": digest_records(cases),
         "weak_labels_used_for_stratification_only": bool(weak),
         "excluded": len(skip),
