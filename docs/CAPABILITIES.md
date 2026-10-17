@@ -52,6 +52,7 @@ production automation system.
 | Case and gold schemas | shipped | `benchmark/socbench/schema/case.schema.json`, `benchmark/socbench/schema/gold.schema.json` | |
 | AIT-ADS and CTU-13 adapters | shipped | `packages/jef-train/src/jef_train/socbench/ait_ads.py`, `packages/jef-train/src/jef_train/socbench/ctu13.py` | weak gold, tiers D and C; validated on the published archives (2,655,821 alerts; 19,976,700 flows) |
 | Two-reviewer annotation and the gold lock | shipped | `packages/jef-train/src/jef_train/socbench/annotate.py`, `packages/jef-train/src/jef_train/socbench/splits.py` | |
+| Duplicate-state removal before locking | shipped | `packages/jef-train/src/jef_train/socbench/splits.py` (`dedupe_states`) | `jef-bench dedupe` drops byte-identical states that would otherwise reach two splits: same label keeps the lowest `case_id`, conflicting labels drop every copy; the report names every dropped id. Needed for CTU-13, which repeats flows across scenarios. |
 | Baselines and SOC metrics report | shipped | `packages/jef-train/src/jef_train/socbench/report.py`, `packages/jef-train/src/jef_train/socbench/metrics.py`, `packages/jef-train/src/jef_train/socbench/baselines.py` | B0, B1, B2/B3 and B4; B5 needs a schema-2 calibration |
 | zh-TW seed cases and bilingual track | shipped | `benchmark/socbench/seeds/zh-TW/cases.jsonl`, `packages/jef-train/src/jef_train/socbench/bilingual.py` | LLM-authored seeds, tier E, awaiting review |
 | BOTS v3 investigation cases | planned | | the Q&A is not in the public repository |

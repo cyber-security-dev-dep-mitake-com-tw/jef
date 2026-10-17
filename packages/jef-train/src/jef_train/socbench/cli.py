@@ -195,6 +195,25 @@ def cmd_annotate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_dedupe(repo: SocbenchRepo, args: argparse.Namespace) -> int:
+    import json
+
+    from .records import read_jsonl, write_jsonl
+    from .splits import dedupe_states
+
+    cases, golds, report = dedupe_states(read_jsonl(args.cases), read_jsonl(args.gold))
+    write_jsonl(args.out_cases, cases)
+    write_jsonl(args.out_gold, golds)
+    report_path = args.report or args.out_cases.with_suffix(".dedupe.json")
+    report_path.write_text(json.dumps(report, indent=2) + "\n", "utf-8")
+    print(
+        f"kept {report['kept_cases']} of {report['input_cases']} cases; dropped "
+        f"{len(report['dropped_same_label'])} same-label and "
+        f"{len(report['dropped_conflicting_labels'])} conflicting-label duplicates -> {report_path}"
+    )
+    return 0
+
+
 def cmd_lock(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     import json
 
@@ -410,6 +429,15 @@ def build_parser() -> argparse.ArgumentParser:
         else:
             ap.add_argument("--decisions", type=Path, help="adjudicator decisions for the queue")
 
+    dd = sub.add_parser(
+        "dedupe", help="drop byte-identical states before locking (same label: keep one)"
+    )
+    dd.add_argument("--cases", type=Path, required=True)
+    dd.add_argument("--gold", type=Path, required=True)
+    dd.add_argument("--out-cases", type=Path, required=True)
+    dd.add_argument("--out-gold", type=Path, required=True)
+    dd.add_argument("--report", type=Path, help="default: <out-cases>.dedupe.json")
+
     lk = sub.add_parser("lock", help="family-grouped splits and the gold lock")
     lk.add_argument("--cases", type=Path, required=True)
     lk.add_argument("--gold", type=Path, required=True)
@@ -498,6 +526,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_sample(repo, args)
     if args.command == "export-corpus":
         return cmd_export_corpus(repo, args)
+    if args.command == "dedupe":
+        return cmd_dedupe(repo, args)
     if args.command == "evaluate":
         return cmd_evaluate(repo, args)
     if args.command == "lock":
