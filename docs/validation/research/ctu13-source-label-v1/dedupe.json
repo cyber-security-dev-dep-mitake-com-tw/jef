@@ -1,0 +1,31 @@
+{
+  "rule": "identical state: keep lowest case_id if labels agree; drop all if they conflict",
+  "input_cases": 9932,
+  "kept_cases": 9911,
+  "dropped_same_label": [
+    "socb-ctu13-001196",
+    "socb-ctu13-003210",
+    "socb-ctu13-003963",
+    "socb-ctu13-003964",
+    "socb-ctu13-003966",
+    "socb-ctu13-003973",
+    "socb-ctu13-003974",
+    "socb-ctu13-004770",
+    "socb-ctu13-004788",
+    "socb-ctu13-006651",
+    "socb-ctu13-007117",
+    "socb-ctu13-007119",
+    "socb-ctu13-007120",
+    "socb-ctu13-007170",
+    "socb-ctu13-007178",
+    "socb-ctu13-007826",
+    "socb-ctu13-007891",
+    "socb-ctu13-008393",
+    "socb-ctu13-009010",
+    "socb-ctu13-009049",
+    "socb-ctu13-009089"
+  ],
+  "dropped_conflicting_labels": [],
+  "input_cases_digest": "sha256:b6b8fb2d04c7a11955cfeda0ba2bc90ab3a54e38553d9f5c4bc892ef08e576a5",
+  "kept_cases_digest": "sha256:e5f0dbdd3e93cebc01473f10d03b394d44ae4102a8adcbaa2a28ce25968cc198"
+}

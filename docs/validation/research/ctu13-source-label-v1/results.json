@@ -1,0 +1,1123 @@
+{
+  "evidence_class": "SOURCE-LABEL RESEARCH",
+  "task": "soc.ndr.technique.v1",
+  "source": "ctu-13 (CC-BY), archive sha256 1f8daeca146131a368b432b2d8625de5e4429bce833f3e4cf4bea8312344ab7f",
+  "label_origin": "flow-label (Tier C); Background = unknown",
+  "design": "leave-one-scenario-out, 13 folds; rules untrained, logreg refitted per fold",
+  "cases": 9911,
+  "gold_digest": "sha256:7d0d7d8ff233feb4c91289f1e1562f3603a7c86385576e60db323aa86ec90eaf",
+  "gold_distribution": {
+    "unknown": 2738,
+    "benign": 3326,
+    "botnet": 3498,
+    "c2": 349
+  },
+  "families": 13,
+  "variants": {
+    "as_built": {
+      "cases_digest": "sha256:e5f0dbdd3e93cebc01473f10d03b394d44ae4102a8adcbaa2a28ce25968cc198",
+      "median_over_folds": {
+        "rules": {
+          "macro_f1": 0.1269,
+          "accuracy": 0.3181,
+          "ece": 0.2793,
+          "pr_auc": 0.4475,
+          "fnr_at_fpr_1pct": 1.0
+        },
+        "logreg": {
+          "macro_f1": 0.95,
+          "accuracy": 0.959,
+          "ece": 0.0875,
+          "pr_auc": 1.0,
+          "fnr_at_fpr_1pct": 0.0
+        }
+      },
+      "folds_with_pr_auc": {
+        "rules": 13,
+        "logreg": 13
+      },
+      "mistaken_closures_total": {
+        "rules": 0,
+        "logreg": 0
+      },
+      "pooled_confusion": {
+        "rules": {
+          "benign": {
+            "unknown": 3295,
+            "c2": 20,
+            "benign": 11
+          },
+          "botnet": {
+            "unknown": 3134,
+            "benign": 165,
+            "botnet": 196,
+            "c2": 3
+          },
+          "c2": {
+            "unknown": 338,
+            "c2": 11
+          },
+          "unknown": {
+            "unknown": 2736,
+            "botnet": 1,
+            "benign": 1
+          }
+        },
+        "logreg": {
+          "benign": {
+            "benign": 3101,
+            "unknown": 147,
+            "botnet": 77,
+            "c2": 1
+          },
+          "botnet": {
+            "botnet": 3123,
+            "benign": 57,
+            "c2": 76,
+            "unknown": 242
+          },
+          "c2": {
+            "c2": 318,
+            "botnet": 8,
+            "benign": 10,
+            "unknown": 13
+          },
+          "unknown": {
+            "unknown": 2597,
+            "c2": 5,
+            "benign": 81,
+            "botnet": 55
+          }
+        }
+      },
+      "folds": [
+        {
+          "held_out": "ctu13-scenario-1",
+          "n": 922,
+          "rules": {
+            "macro_f1": 0.2135,
+            "accuracy": 0.3612,
+            "ece": 0.2028,
+            "pr_auc": 0.8191,
+            "positives": 322,
+            "n_known": 622,
+            "fnr_at_fpr_1pct": 0.413,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 300,
+              "botnet": 300,
+              "c2": 22
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9635,
+            "accuracy": 0.9859,
+            "ece": 0.1152,
+            "pr_auc": 0.9999,
+            "positives": 322,
+            "n_known": 622,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 300,
+              "botnet": 300,
+              "c2": 22
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-2",
+          "n": 795,
+          "rules": {
+            "macro_f1": 0.1861,
+            "accuracy": 0.4113,
+            "ece": 0.1874,
+            "pr_auc": 0.7896,
+            "positives": 324,
+            "n_known": 495,
+            "fnr_at_fpr_1pct": 0.9167,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 171,
+              "botnet": 300,
+              "c2": 24
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9271,
+            "accuracy": 0.9648,
+            "ece": 0.0636,
+            "pr_auc": 1.0,
+            "positives": 324,
+            "n_known": 495,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 171,
+              "botnet": 300,
+              "c2": 24
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-3",
+          "n": 899,
+          "rules": {
+            "macro_f1": 0.1269,
+            "accuracy": 0.3348,
+            "ece": 0.2637,
+            "pr_auc": 0.3773,
+            "positives": 301,
+            "n_known": 599,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 298,
+              "botnet": 300,
+              "c2": 1
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9578,
+            "accuracy": 0.9444,
+            "ece": 0.0817,
+            "pr_auc": 1.0,
+            "positives": 301,
+            "n_known": 599,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 298,
+              "botnet": 300,
+              "c2": 1
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-4",
+          "n": 855,
+          "rules": {
+            "macro_f1": 0.1497,
+            "accuracy": 0.3181,
+            "ece": 0.2793,
+            "pr_auc": 0.4468,
+            "positives": 305,
+            "n_known": 605,
+            "fnr_at_fpr_1pct": 0.9279,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 250,
+              "benign": 300,
+              "botnet": 300,
+              "c2": 5
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9572,
+            "accuracy": 0.9743,
+            "ece": 0.0667,
+            "pr_auc": 1.0,
+            "positives": 305,
+            "n_known": 605,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 250,
+              "benign": 300,
+              "botnet": 300,
+              "c2": 5
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-5",
+          "n": 546,
+          "rules": {
+            "macro_f1": 0.0617,
+            "accuracy": 0.1117,
+            "ece": 0.4839,
+            "pr_auc": 0.3226,
+            "positives": 192,
+            "n_known": 491,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 55,
+              "benign": 299,
+              "botnet": 185,
+              "c2": 7
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.7902,
+            "accuracy": 0.9322,
+            "ece": 0.0636,
+            "pr_auc": 1.0,
+            "positives": 192,
+            "n_known": 491,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 55,
+              "benign": 299,
+              "botnet": 185,
+              "c2": 7
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-6",
+          "n": 744,
+          "rules": {
+            "macro_f1": 0.1572,
+            "accuracy": 0.2634,
+            "ece": 0.3353,
+            "pr_auc": 0.5599,
+            "positives": 301,
+            "n_known": 596,
+            "fnr_at_fpr_1pct": 0.8439,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 148,
+              "benign": 295,
+              "botnet": 300,
+              "c2": 1
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9836,
+            "accuracy": 0.9825,
+            "ece": 0.0583,
+            "pr_auc": 1.0,
+            "positives": 301,
+            "n_known": 596,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 148,
+              "benign": 295,
+              "botnet": 300,
+              "c2": 1
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-7",
+          "n": 167,
+          "rules": {
+            "macro_f1": 0.0943,
+            "accuracy": 0.2216,
+            "ece": 0.3759,
+            "pr_auc": 0.1241,
+            "positives": 16,
+            "n_known": 131,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 36,
+              "benign": 115,
+              "botnet": 14,
+              "c2": 2
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.7808,
+            "accuracy": 0.9581,
+            "ece": 0.1164,
+            "pr_auc": 1.0,
+            "positives": 16,
+            "n_known": 131,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 36,
+              "benign": 115,
+              "botnet": 14,
+              "c2": 2
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-8",
+          "n": 902,
+          "rules": {
+            "macro_f1": 0.1248,
+            "accuracy": 0.3326,
+            "ece": 0.2648,
+            "pr_auc": 0.4475,
+            "positives": 302,
+            "n_known": 602,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 300,
+              "botnet": 299,
+              "c2": 3
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.7118,
+            "accuracy": 0.7849,
+            "ece": 0.1079,
+            "pr_auc": 0.9996,
+            "positives": 302,
+            "n_known": 602,
+            "fnr_at_fpr_1pct": 0.0166,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 300,
+              "botnet": 299,
+              "c2": 3
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-9",
+          "n": 1118,
+          "rules": {
+            "macro_f1": 0.1774,
+            "accuracy": 0.305,
+            "ece": 0.2922,
+            "pr_auc": 0.493,
+            "positives": 521,
+            "n_known": 818,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 297,
+              "botnet": 300,
+              "c2": 221
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9013,
+            "accuracy": 0.8998,
+            "ece": 0.1148,
+            "pr_auc": 0.9981,
+            "positives": 521,
+            "n_known": 818,
+            "fnr_at_fpr_1pct": 0.094,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 297,
+              "botnet": 300,
+              "c2": 221
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-10",
+          "n": 926,
+          "rules": {
+            "macro_f1": 0.1226,
+            "accuracy": 0.324,
+            "ece": 0.273,
+            "pr_auc": 0.3369,
+            "positives": 327,
+            "n_known": 626,
+            "fnr_at_fpr_1pct": 0.9939,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 299,
+              "botnet": 300,
+              "c2": 27
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9563,
+            "accuracy": 0.959,
+            "ece": 0.1399,
+            "pr_auc": 0.9999,
+            "positives": 327,
+            "n_known": 626,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 299,
+              "botnet": 300,
+              "c2": 27
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-11",
+          "n": 398,
+          "rules": {
+            "macro_f1": 0.0844,
+            "accuracy": 0.1181,
+            "ece": 0.4894,
+            "pr_auc": 0.7646,
+            "positives": 302,
+            "n_known": 355,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 43,
+              "benign": 53,
+              "botnet": 300,
+              "c2": 2
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9894,
+            "accuracy": 0.995,
+            "ece": 0.0875,
+            "pr_auc": 1.0,
+            "positives": 302,
+            "n_known": 355,
+            "fnr_at_fpr_1pct": 0.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 43,
+              "benign": 53,
+              "botnet": 300,
+              "c2": 2
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-12",
+          "n": 712,
+          "rules": {
+            "macro_f1": 0.0652,
+            "accuracy": 0.1489,
+            "ece": 0.4485,
+            "pr_auc": 0.3416,
+            "positives": 306,
+            "n_known": 606,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 106,
+              "benign": 300,
+              "botnet": 300,
+              "c2": 6
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.4791,
+            "accuracy": 0.6826,
+            "ece": 0.1215,
+            "pr_auc": 0.9733,
+            "positives": 306,
+            "n_known": 606,
+            "fnr_at_fpr_1pct": 0.3856,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 106,
+              "benign": 300,
+              "botnet": 300,
+              "c2": 6
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-13",
+          "n": 927,
+          "rules": {
+            "macro_f1": 0.1768,
+            "accuracy": 0.3592,
+            "ece": 0.2375,
+            "pr_auc": 0.4772,
+            "positives": 328,
+            "n_known": 627,
+            "fnr_at_fpr_1pct": 0.8963,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 299,
+              "botnet": 300,
+              "c2": 28
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.95,
+            "accuracy": 0.9676,
+            "ece": 0.0611,
+            "pr_auc": 0.9999,
+            "positives": 328,
+            "n_known": 627,
+            "fnr_at_fpr_1pct": 0.003,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 300,
+              "benign": 299,
+              "botnet": 300,
+              "c2": 28
+            }
+          }
+        }
+      ]
+    },
+    "ips_masked": {
+      "dedupe_after_masking": {
+        "kept": 8174,
+        "dropped_same_label": 1635,
+        "dropped_conflicting_labels": 102,
+        "gold_distribution_kept": {
+          "unknown": 2305,
+          "benign": 3218,
+          "botnet": 2304,
+          "c2": 347
+        }
+      },
+      "cases_digest": "sha256:786310740ed75fc0b844de0e16a28ab7f8fd9f724d330804f20cdc87e78ae5dc",
+      "median_over_folds": {
+        "rules": {
+          "macro_f1": 0.1553,
+          "accuracy": 0.3311,
+          "ece": 0.2661,
+          "pr_auc": 0.3845,
+          "fnr_at_fpr_1pct": 1.0
+        },
+        "logreg": {
+          "macro_f1": 0.8537,
+          "accuracy": 0.8884,
+          "ece": 0.1145,
+          "pr_auc": 0.9907,
+          "fnr_at_fpr_1pct": 0.0769
+        }
+      },
+      "folds_with_pr_auc": {
+        "rules": 13,
+        "logreg": 13
+      },
+      "mistaken_closures_total": {
+        "rules": 0,
+        "logreg": 0
+      },
+      "pooled_confusion": {
+        "rules": {
+          "benign": {
+            "unknown": 3187,
+            "c2": 20,
+            "benign": 11
+          },
+          "botnet": {
+            "unknown": 1941,
+            "benign": 165,
+            "botnet": 195,
+            "c2": 3
+          },
+          "c2": {
+            "unknown": 336,
+            "c2": 11
+          },
+          "unknown": {
+            "unknown": 2303,
+            "botnet": 1,
+            "benign": 1
+          }
+        },
+        "logreg": {
+          "benign": {
+            "benign": 2810,
+            "botnet": 35,
+            "unknown": 364,
+            "c2": 9
+          },
+          "botnet": {
+            "botnet": 1601,
+            "benign": 229,
+            "unknown": 415,
+            "c2": 59
+          },
+          "c2": {
+            "c2": 328,
+            "benign": 11,
+            "unknown": 7,
+            "botnet": 1
+          },
+          "unknown": {
+            "unknown": 1964,
+            "benign": 196,
+            "botnet": 129,
+            "c2": 16
+          }
+        }
+      },
+      "folds": [
+        {
+          "held_out": "ctu13-scenario-1",
+          "n": 821,
+          "rules": {
+            "macro_f1": 0.2183,
+            "accuracy": 0.3496,
+            "ece": 0.2103,
+            "pr_auc": 0.8525,
+            "positives": 282,
+            "n_known": 567,
+            "fnr_at_fpr_1pct": 0.3298,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 254,
+              "benign": 285,
+              "botnet": 260,
+              "c2": 22
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.7786,
+            "accuracy": 0.7649,
+            "ece": 0.1145,
+            "pr_auc": 0.8645,
+            "positives": 282,
+            "n_known": 567,
+            "fnr_at_fpr_1pct": 0.5887,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 254,
+              "benign": 285,
+              "botnet": 260,
+              "c2": 22
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-2",
+          "n": 654,
+          "rules": {
+            "macro_f1": 0.2039,
+            "accuracy": 0.4297,
+            "ece": 0.1693,
+            "pr_auc": 0.813,
+            "positives": 241,
+            "n_known": 400,
+            "fnr_at_fpr_1pct": 0.888,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 254,
+              "benign": 159,
+              "botnet": 217,
+              "c2": 24
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.8628,
+            "accuracy": 0.8884,
+            "ece": 0.0713,
+            "pr_auc": 0.9931,
+            "positives": 241,
+            "n_known": 400,
+            "fnr_at_fpr_1pct": 0.0705,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 254,
+              "benign": 159,
+              "botnet": 217,
+              "c2": 24
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-3",
+          "n": 589,
+          "rules": {
+            "macro_f1": 0.1553,
+            "accuracy": 0.4431,
+            "ece": 0.156,
+            "pr_auc": 0.1752,
+            "positives": 76,
+            "n_known": 329,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 260,
+              "benign": 253,
+              "botnet": 75,
+              "c2": 1
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.6782,
+            "accuracy": 0.7895,
+            "ece": 0.0781,
+            "pr_auc": 0.9765,
+            "positives": 76,
+            "n_known": 329,
+            "fnr_at_fpr_1pct": 0.0658,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 260,
+              "benign": 253,
+              "botnet": 75,
+              "c2": 1
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-4",
+          "n": 663,
+          "rules": {
+            "macro_f1": 0.1766,
+            "accuracy": 0.3318,
+            "ece": 0.2656,
+            "pr_auc": 0.3845,
+            "positives": 171,
+            "n_known": 465,
+            "fnr_at_fpr_1pct": 0.8713,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 198,
+              "benign": 294,
+              "botnet": 166,
+              "c2": 5
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.8588,
+            "accuracy": 0.9246,
+            "ece": 0.1087,
+            "pr_auc": 0.9949,
+            "positives": 171,
+            "n_known": 465,
+            "fnr_at_fpr_1pct": 0.0351,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 198,
+              "benign": 294,
+              "botnet": 166,
+              "c2": 5
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-5",
+          "n": 469,
+          "rules": {
+            "macro_f1": 0.0606,
+            "accuracy": 0.0959,
+            "ece": 0.4993,
+            "pr_auc": 0.2685,
+            "positives": 131,
+            "n_known": 430,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 39,
+              "benign": 299,
+              "botnet": 124,
+              "c2": 7
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.7264,
+            "accuracy": 0.8849,
+            "ece": 0.1153,
+            "pr_auc": 0.9854,
+            "positives": 131,
+            "n_known": 430,
+            "fnr_at_fpr_1pct": 0.1069,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 39,
+              "benign": 299,
+              "botnet": 124,
+              "c2": 7
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-6",
+          "n": 519,
+          "rules": {
+            "macro_f1": 0.2542,
+            "accuracy": 0.3237,
+            "ece": 0.2757,
+            "pr_auc": 0.58,
+            "positives": 108,
+            "n_known": 398,
+            "fnr_at_fpr_1pct": 0.5741,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 121,
+              "benign": 290,
+              "botnet": 107,
+              "c2": 1
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.8537,
+            "accuracy": 0.9287,
+            "ece": 0.1014,
+            "pr_auc": 0.9965,
+            "positives": 108,
+            "n_known": 398,
+            "fnr_at_fpr_1pct": 0.0278,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 121,
+              "benign": 290,
+              "botnet": 107,
+              "c2": 1
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-7",
+          "n": 162,
+          "rules": {
+            "macro_f1": 0.0859,
+            "accuracy": 0.1975,
+            "ece": 0.3999,
+            "pr_auc": 0.1241,
+            "positives": 16,
+            "n_known": 131,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 31,
+              "benign": 115,
+              "botnet": 14,
+              "c2": 2
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.8345,
+            "accuracy": 0.9074,
+            "ece": 0.1596,
+            "pr_auc": 0.8677,
+            "positives": 16,
+            "n_known": 131,
+            "fnr_at_fpr_1pct": 0.5,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 31,
+              "benign": 115,
+              "botnet": 14,
+              "c2": 2
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-8",
+          "n": 710,
+          "rules": {
+            "macro_f1": 0.1302,
+            "accuracy": 0.3521,
+            "ece": 0.2453,
+            "pr_auc": 0.3159,
+            "positives": 160,
+            "n_known": 460,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 250,
+              "benign": 300,
+              "botnet": 157,
+              "c2": 3
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.4383,
+            "accuracy": 0.4634,
+            "ece": 0.275,
+            "pr_auc": 0.4899,
+            "positives": 160,
+            "n_known": 460,
+            "fnr_at_fpr_1pct": 0.8,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 250,
+              "benign": 300,
+              "botnet": 157,
+              "c2": 3
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-9",
+          "n": 879,
+          "rules": {
+            "macro_f1": 0.2416,
+            "accuracy": 0.3311,
+            "ece": 0.2661,
+            "pr_auc": 0.4382,
+            "positives": 336,
+            "n_known": 629,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 250,
+              "benign": 293,
+              "botnet": 117,
+              "c2": 219
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9241,
+            "accuracy": 0.9306,
+            "ece": 0.1329,
+            "pr_auc": 0.9961,
+            "positives": 336,
+            "n_known": 629,
+            "fnr_at_fpr_1pct": 0.0625,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 250,
+              "benign": 293,
+              "botnet": 117,
+              "c2": 219
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-10",
+          "n": 892,
+          "rules": {
+            "macro_f1": 0.1158,
+            "accuracy": 0.3004,
+            "ece": 0.2965,
+            "pr_auc": 0.3384,
+            "positives": 327,
+            "n_known": 624,
+            "fnr_at_fpr_1pct": 0.9939,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 268,
+              "benign": 297,
+              "botnet": 300,
+              "c2": 27
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.893,
+            "accuracy": 0.88,
+            "ece": 0.1015,
+            "pr_auc": 0.9991,
+            "positives": 327,
+            "n_known": 624,
+            "fnr_at_fpr_1pct": 0.0214,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 268,
+              "benign": 297,
+              "botnet": 300,
+              "c2": 27
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-11",
+          "n": 386,
+          "rules": {
+            "macro_f1": 0.0727,
+            "accuracy": 0.0907,
+            "ece": 0.5171,
+            "pr_auc": 0.7646,
+            "positives": 302,
+            "n_known": 355,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 31,
+              "benign": 53,
+              "botnet": 300,
+              "c2": 2
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9022,
+            "accuracy": 0.9741,
+            "ece": 0.1891,
+            "pr_auc": 0.9973,
+            "positives": 302,
+            "n_known": 355,
+            "fnr_at_fpr_1pct": 0.5298,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 31,
+              "benign": 53,
+              "botnet": 300,
+              "c2": 2
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-12",
+          "n": 680,
+          "rules": {
+            "macro_f1": 0.0594,
+            "accuracy": 0.1338,
+            "ece": 0.4636,
+            "pr_auc": 0.3377,
+            "positives": 293,
+            "n_known": 589,
+            "fnr_at_fpr_1pct": 1.0,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 91,
+              "benign": 296,
+              "botnet": 287,
+              "c2": 6
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.3373,
+            "accuracy": 0.5559,
+            "ece": 0.2039,
+            "pr_auc": 0.6606,
+            "positives": 293,
+            "n_known": 589,
+            "fnr_at_fpr_1pct": 0.9147,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 91,
+              "benign": 296,
+              "botnet": 287,
+              "c2": 6
+            }
+          }
+        },
+        {
+          "held_out": "ctu13-scenario-13",
+          "n": 750,
+          "rules": {
+            "macro_f1": 0.2115,
+            "accuracy": 0.388,
+            "ece": 0.2086,
+            "pr_auc": 0.4466,
+            "positives": 208,
+            "n_known": 492,
+            "fnr_at_fpr_1pct": 0.8365,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 258,
+              "benign": 284,
+              "botnet": 180,
+              "c2": 28
+            }
+          },
+          "logreg": {
+            "macro_f1": 0.9053,
+            "accuracy": 0.9147,
+            "ece": 0.0845,
+            "pr_auc": 0.9907,
+            "positives": 208,
+            "n_known": 492,
+            "fnr_at_fpr_1pct": 0.0769,
+            "mistaken_closures": 0,
+            "gold": {
+              "unknown": 258,
+              "benign": 284,
+              "botnet": 180,
+              "c2": 28
+            }
+          }
+        }
+      ]
+    }
+  }
+}

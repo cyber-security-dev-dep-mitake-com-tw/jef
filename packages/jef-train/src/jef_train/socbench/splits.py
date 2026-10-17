@@ -31,6 +31,7 @@ __all__ = [
     "LockError",
     "assign_splits",
     "check_leakage",
+    "dedupe_states",
     "digest_records",
     "make_lock",
     "verify_lock",
@@ -82,6 +83,51 @@ def _state_key(case: Mapping[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(case["state"], sort_keys=True, ensure_ascii=False).encode()
     ).hexdigest()
+
+
+def dedupe_states(
+    cases: Sequence[Mapping[str, Any]], golds: Sequence[Mapping[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Drop cases whose state is byte-identical to another case's, before locking.
+
+    ``check_leakage`` refuses a lock where one state lands in two splits, which
+    real sources do produce (CTU-13 repeats a single ICMP packet from one host
+    across scenarios). Deterministic and conservative:
+
+    * identical states with the **same** label: keep the lowest ``case_id``,
+      drop the rest;
+    * identical states with **different** labels: drop every copy, because no
+      rule can say which label is right and keeping one would be a choice.
+
+    Returns the kept cases, the kept gold, and a report naming every dropped id.
+    """
+    verdict = {g["case_id"]: g["gold"]["verdict"] for g in golds}
+    groups: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for c in cases:
+        groups[_state_key(c)].append(c)
+    dropped_same: list[str] = []
+    dropped_conflict: list[str] = []
+    for members in groups.values():
+        if len(members) < 2:
+            continue
+        ids = sorted(m["case_id"] for m in members)
+        if len({verdict.get(i) for i in ids}) > 1:
+            dropped_conflict += ids
+        else:
+            dropped_same += ids[1:]
+    drop = set(dropped_same) | set(dropped_conflict)
+    kept_cases = [dict(c) for c in cases if c["case_id"] not in drop]
+    kept_golds = [dict(g) for g in golds if g["case_id"] not in drop]
+    report = {
+        "rule": "identical state: keep lowest case_id if labels agree; drop all if they conflict",
+        "input_cases": len(cases),
+        "kept_cases": len(kept_cases),
+        "dropped_same_label": sorted(dropped_same),
+        "dropped_conflicting_labels": sorted(dropped_conflict),
+        "input_cases_digest": digest_records(cases),
+        "kept_cases_digest": digest_records(kept_cases),
+    }
+    return kept_cases, kept_golds, report
 
 
 def check_leakage(cases: Sequence[Mapping[str, Any]], family_split: Mapping[str, str]) -> list[str]:
