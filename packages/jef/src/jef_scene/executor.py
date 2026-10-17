@@ -38,7 +38,11 @@ from .authz import (
     ProposedDecision,
 )
 
-__all__ = ["Executor", "Transport", "TransportResult"]
+__all__ = ["Executor", "OutcomeConflict", "Transport", "TransportResult"]
+
+
+class OutcomeConflict(ValueError):
+    """``complete`` was called for a key that cannot take that outcome."""
 
 
 @dataclass(frozen=True)
@@ -95,7 +99,159 @@ class Executor:
             self.receipts[idempotency_key] = receipt
             return receipt
 
+    # -- two-phase: for connectors whose platform performs the action ----------
+    #
+    # A SOAR platform usually performs the isolation itself (CrowdStrike app,
+    # Defender app, ...), and JEF must not hold those credentials. So instead of
+    # handing JEF a Transport, the connector asks `authorize` first, performs
+    # the action only on `authorized`, and reports what the platform said with
+    # `complete`. Same checks, same idempotency, same receipts.
+
+    def authorize(
+        self,
+        proposal: ProposedDecision,
+        *,
+        idempotency_key: str,
+        grant: Any = None,
+        dry_run: bool = False,
+    ) -> ExecutionReceipt:
+        """Every dispatch check, no call. ``authorized`` means "go ahead, once"."""
+        with self._lock:
+            seen = self.receipts.get(idempotency_key)
+            if seen is not None:
+                return seen
+            refused = self._check(proposal, idempotency_key, grant)
+            if isinstance(refused, ExecutionReceipt):
+                self.receipts[idempotency_key] = refused
+                return refused
+            receipt = ExecutionReceipt(
+                case_id=proposal.case_id,
+                trace_id=proposal.trace_id,
+                action=proposal.action,
+                asset_id=proposal.asset_id,
+                connector=self.connector,
+                idempotency_key=idempotency_key,
+                status="dry_run" if dry_run else "authorized",
+                detail="all checks passed; nothing was sent"
+                if dry_run
+                else "the connector may perform this action once",
+                grant_nonce=refused,
+                started_at=_iso(self.clock()),
+            )
+            if not dry_run:
+                self.receipts[idempotency_key] = receipt
+            return receipt
+
+    def complete(
+        self,
+        idempotency_key: str,
+        outcome: str,
+        *,
+        detail: str = "",
+        external_ref: str | None = None,
+    ) -> ExecutionReceipt:
+        """Record what the platform reported for an ``authorized`` key.
+
+        ``success`` and ``failed`` need the platform's answer; ``timeout`` and
+        ``unknown`` are both stored as ``unknown`` (the action may have landed).
+        A repeat with the same outcome returns the stored receipt; a different
+        outcome for a finished key, or any outcome for a key that was never
+        authorized, raises :class:`OutcomeConflict`.
+        """
+        normalized = {
+            "success": "success",
+            "failed": "failed",
+            "timeout": "unknown",
+            "unknown": "unknown",
+        }.get(outcome)
+        if normalized is None:
+            raise OutcomeConflict(
+                f"outcome must be success, failed, timeout or unknown, not {outcome!r}"
+            )
+        with self._lock:
+            current = self.receipts.get(idempotency_key)
+            if current is None:
+                raise OutcomeConflict(f"{idempotency_key!r} was never authorized")
+            if current.status == "authorized":
+                done = ExecutionReceipt(
+                    **{
+                        **current.to_dict(),
+                        "status": normalized,
+                        "detail": detail or current.detail,
+                        "external_ref": external_ref,
+                        "reason_codes": ("OUTCOME_UNOBSERVED",) if normalized == "unknown" else (),
+                        "finished_at": _iso(self.clock()),
+                    }
+                )
+                self.receipts[idempotency_key] = done
+                self.dispatch_count += 1
+                self.audit.append(
+                    AuditEntry.of("receipt", done.case_id, done.trace_id, done.to_dict())
+                )
+                return done
+            if current.status == normalized:
+                return current
+            raise OutcomeConflict(
+                f"{idempotency_key!r} is {current.status}; it cannot become {normalized}"
+            )
+
+    def receipt(self, idempotency_key: str) -> ExecutionReceipt | None:
+        return self.receipts.get(idempotency_key)
+
     # -- internals ------------------------------------------------------------
+
+    def _check(
+        self, proposal: ProposedDecision, key: str, grant: Any
+    ) -> ExecutionReceipt | str | None:
+        """The shared checks: a refusal receipt, or the grant nonce (None if no grant needed)."""
+        self.audit.append(
+            AuditEntry.of("proposed", proposal.case_id, proposal.trace_id, proposal.to_dict())
+        )
+        decision = PolicyDecision.for_proposal(proposal)
+        self.audit.append(
+            AuditEntry.of("decided", proposal.case_id, proposal.trace_id, decision.__dict__)
+        )
+        if self.allowed_actions and proposal.action not in self.allowed_actions:
+            return self._refuse(
+                proposal,
+                key,
+                ["ACTION_NOT_ALLOWLISTED"],
+                f"{self.connector} does not perform {proposal.action!r}",
+            )
+        if proposal.automatable:
+            return None
+        if grant is None:
+            return self._refuse(
+                proposal,
+                key,
+                [*proposal.reason_codes, "NO_GRANT"],
+                f"{proposal.action} is T{proposal.action_tier} with verdict "
+                f"{proposal.policy_verdict}; a signed AuthorizationGrant is required",
+            )
+        if not self.grant_secret:
+            return self._refuse(
+                proposal,
+                key,
+                ["NO_GRANT_SECRET"],
+                "this executor has no grant secret configured and refuses every grant",
+            )
+        try:
+            parsed = AuthorizationGrant.parse(grant, secret=self.grant_secret)
+        except GrantError as exc:
+            return self._refuse(proposal, key, ["INVALID_GRANT"], str(exc))
+        ok, why = parsed.is_valid_for(
+            proposal.case_id,
+            proposal.action,
+            proposal.asset_id,
+            now=self.clock(),
+            tier=proposal.action_tier,
+        )
+        if not ok:
+            return self._refuse(proposal, key, [why], f"grant {parsed.nonce[:8]}… rejected: {why}")
+        self.audit.append(
+            AuditEntry.of("granted", proposal.case_id, proposal.trace_id, parsed.to_dict())
+        )
+        return parsed.nonce
 
     def _refuse(
         self, proposal: ProposedDecision, key: str, reasons: list[str], detail: str
@@ -121,58 +277,10 @@ class Executor:
     def _dispatch(
         self, proposal: ProposedDecision, key: str, grant: Any, dry_run: bool
     ) -> ExecutionReceipt:
-        self.audit.append(
-            AuditEntry.of("proposed", proposal.case_id, proposal.trace_id, proposal.to_dict())
-        )
-        decision = PolicyDecision.for_proposal(proposal)
-        self.audit.append(
-            AuditEntry.of("decided", proposal.case_id, proposal.trace_id, decision.__dict__)
-        )
-
-        if self.allowed_actions and proposal.action not in self.allowed_actions:
-            return self._refuse(
-                proposal,
-                key,
-                ["ACTION_NOT_ALLOWLISTED"],
-                f"{self.connector} does not perform {proposal.action!r}",
-            )
-
-        grant_nonce: str | None = None
-        if not proposal.automatable:
-            if grant is None:
-                return self._refuse(
-                    proposal,
-                    key,
-                    [*proposal.reason_codes, "NO_GRANT"],
-                    f"{proposal.action} is T{proposal.action_tier} with verdict "
-                    f"{proposal.policy_verdict}; a signed AuthorizationGrant is required",
-                )
-            if not self.grant_secret:
-                return self._refuse(
-                    proposal,
-                    key,
-                    ["NO_GRANT_SECRET"],
-                    "this executor has no grant secret configured and refuses every grant",
-                )
-            try:
-                parsed = AuthorizationGrant.parse(grant, secret=self.grant_secret)
-            except GrantError as exc:
-                return self._refuse(proposal, key, ["INVALID_GRANT"], str(exc))
-            ok, why = parsed.is_valid_for(
-                proposal.case_id,
-                proposal.action,
-                proposal.asset_id,
-                now=self.clock(),
-                tier=proposal.action_tier,
-            )
-            if not ok:
-                return self._refuse(
-                    proposal, key, [why], f"grant {parsed.nonce[:8]}… rejected: {why}"
-                )
-            grant_nonce = parsed.nonce
-            self.audit.append(
-                AuditEntry.of("granted", proposal.case_id, proposal.trace_id, parsed.to_dict())
-            )
+        checked = self._check(proposal, key, grant)
+        if isinstance(checked, ExecutionReceipt):
+            return checked
+        grant_nonce = checked
 
         started = self.clock()
         if dry_run:

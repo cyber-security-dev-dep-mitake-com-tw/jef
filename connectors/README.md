@@ -73,3 +73,37 @@ platform operation to a result, wrap it in a `Transport` and go through
 refuses without a valid grant, and returns an `ExecutionReceipt` whose
 `status` is `success` only when the platform confirmed it. A timeout is
 `unknown`, never `success`. See `docs/modules/jef_scene.md`.
+
+
+## Authorize, act, record
+
+When a workflow does act on a scene result, it goes through the server, not
+around it. The server never performs the action and never holds EDR, IAM or
+firewall credentials; the platform does, with its own.
+
+1. **Run the scene with a case.** Pass `case_id` (and the `asset_id` the
+   action would touch). With `JEF_DECISIONS_ENABLED=1` on the server, the
+   trace carries a `proposal_token`: the proposal sealed with a server-only
+   secret, so the action, tier, verdict, case and asset cannot be edited on
+   the way back.
+2. **Authorize.** `POST /v1/decisions:authorize` with the token, an
+   `idempotency_key` (stable per intended action, e.g.
+   `<case>:<action>:<asset>`), and for anything beyond an allowed T0/T1
+   action a signed `AuthorizationGrant` from your approval service.
+   `dry_run: true` runs every check and records nothing. Branch on
+   `status == "authorized"`; anything else is `not_dispatched` with
+   `reason_codes`. A retried step with the same key gets the same answer.
+3. **Act** with the platform's own app.
+4. **Record.** `POST /v1/decisions/{key}:complete` with `outcome`:
+   `success` or `failed` only on the platform's own answer, `timeout` (stored
+   as `unknown`) when it did not answer. A finished key cannot change its
+   outcome. `GET /v1/decisions/{key}` returns the receipt.
+
+| Connector | How |
+|---|---|
+| Shuffle | `run_scene` takes `case_id`/`asset_id`; actions `authorize_action`, `record_outcome`, `get_decision` |
+| n8n | Run Scene takes Case ID / Asset ID; operations Authorize Action, Record Outcome, Get Decision |
+| Cortex | the responder sends the TheHive case id and puts `proposal_token` in its report (not in a tag) |
+
+Receipts live in the server's memory: run one replica (`JEF_WORKERS=1`)
+until a shared store exists.

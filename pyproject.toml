@@ -49,6 +49,8 @@ ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 "**/tests/*" = [
   "S101",  # asserts are the point of a test
   "S311",  # test fixtures use random for reproducible synthetic data, not crypto
+  "S105",  # fixture tokens and secrets are fake by construction
+  "S106",
 ]
 # Robot support libraries: the asserts are importlib loader guards, and these
 # files never run in production.

@@ -162,3 +162,19 @@ person's permission apart with types:
 
 `POLICY_VERSION` is recorded on every proposal, decision and receipt so a
 replayed trace is judged by the rules that produced it.
+
+
+### Two-phase dispatch and sealed proposals
+
+When the platform performs the action itself (the usual SOAR case),
+`Executor.authorize(proposal, idempotency_key=…, grant=…)` runs every check
+and returns `authorized` (or `not_dispatched`), and
+`Executor.complete(key, outcome)` records `success`, `failed` or `unknown`
+(a `timeout` is stored as `unknown`). Both are idempotent per key; a finished
+key cannot change its outcome (`OutcomeConflict`).
+
+`ProposedDecision.seal(secret)` and `ProposedDecision.unseal(token, secret)`
+carry a proposal from a scene run to authorization as an HMAC-sealed token
+with an issue time, so a caller cannot edit the action, tier, verdict, case
+or asset in between. `jef-server` exposes both as `/v1/decisions` when
+`JEF_DECISIONS_ENABLED=1`.

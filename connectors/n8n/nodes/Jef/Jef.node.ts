@@ -100,6 +100,26 @@ export class Jef implements INodeType {
             action: 'Ask several questions',
           },
           {
+            name: 'Authorize Action',
+            value: 'authorizeAction',
+            description:
+              'Ask whether the action a scene proposed may run, once. Perform it only when status is "authorized". JEF performs nothing itself.',
+            action: 'Authorize a proposed action',
+          },
+          {
+            name: 'Record Outcome',
+            value: 'recordOutcome',
+            description:
+              "Report what the platform did for an authorized key. A timeout is not a success.",
+            action: 'Record an action outcome',
+          },
+          {
+            name: 'Get Decision',
+            value: 'getDecision',
+            description: 'The stored receipt for an idempotency key',
+            action: 'Get a decision receipt',
+          },
+          {
             name: 'Health',
             value: 'health',
             description:
@@ -118,6 +138,89 @@ export class Jef implements INodeType {
         displayOptions: { show: { operation: ['runScene'] } },
         description: 'Scene id as registered on the server',
       },
+      {
+        displayName: 'Case ID',
+        name: 'caseId',
+        type: 'string',
+        default: '',
+        displayOptions: { show: { operation: ['runScene'] } },
+        description:
+          'Optional. With decisions enabled on the server, the trace then carries a proposal_token for Authorize Action.',
+      },
+      {
+        displayName: 'Asset ID',
+        name: 'assetId',
+        type: 'string',
+        default: '',
+        displayOptions: { show: { operation: ['runScene'] } },
+        description: 'Optional. The host, account or address an action on this case would touch.',
+      },
+
+      {
+        displayName: 'Proposal Token',
+        name: 'proposalToken',
+        type: 'string',
+        default: '={{ $json.proposal_token }}',
+        required: true,
+        displayOptions: { show: { operation: ['authorizeAction'] } },
+        description: 'From Run Scene with a Case ID',
+      },
+      {
+        displayName: 'Idempotency Key',
+        name: 'idempotencyKey',
+        type: 'string',
+        default: '',
+        required: true,
+        displayOptions: { show: { operation: ['authorizeAction', 'recordOutcome', 'getDecision'] } },
+        description:
+          'Stable per intended action, e.g. "<case>:<action>:<asset>". A retry with the same key never authorizes twice.',
+      },
+      {
+        displayName: 'Grant (JSON)',
+        name: 'grant',
+        type: 'json',
+        default: '',
+        displayOptions: { show: { operation: ['authorizeAction'] } },
+        description:
+          'AuthorizationGrant from your approval service. Required for anything beyond an allowed T0/T1 action; "approved: true" is not a grant.',
+      },
+      {
+        displayName: 'Dry Run',
+        name: 'dryRun',
+        type: 'boolean',
+        default: false,
+        displayOptions: { show: { operation: ['authorizeAction'] } },
+        description: 'Whether to run every check without recording an authorization',
+      },
+      {
+        displayName: 'Outcome',
+        name: 'outcome',
+        type: 'options',
+        default: 'unknown',
+        displayOptions: { show: { operation: ['recordOutcome'] } },
+        options: [
+          { name: 'Success', value: 'success', description: 'The platform confirmed the change' },
+          { name: 'Failed', value: 'failed', description: 'The platform refused or errored' },
+          { name: 'Timeout', value: 'timeout', description: 'No answer; stored as unknown' },
+          { name: 'Unknown', value: 'unknown', description: 'The outcome was not observed' },
+        ],
+      },
+      {
+        displayName: 'Detail',
+        name: 'detail',
+        type: 'string',
+        default: '',
+        displayOptions: { show: { operation: ['recordOutcome'] } },
+        description: 'What the platform reported',
+      },
+      {
+        displayName: 'External Reference',
+        name: 'externalRef',
+        type: 'string',
+        default: '',
+        displayOptions: { show: { operation: ['recordOutcome'] } },
+        description: "The platform's own id for the operation",
+      },
 
       {
         displayName: 'State',
@@ -126,7 +229,9 @@ export class Jef implements INodeType {
         typeOptions: { rows: 6 },
         default: '',
         required: true,
-        displayOptions: { hide: { operation: ['health'] } },
+        displayOptions: {
+          hide: { operation: ['health', 'authorizeAction', 'recordOutcome', 'getDecision'] },
+        },
         description:
           'The evidence to judge. Plain text, or JSON for an object or array. An array is one shared state, never a batch.',
       },
@@ -212,13 +317,45 @@ export class Jef implements INodeType {
         if (operation === 'health') {
           path = '/healthz';
           method = 'GET';
+        } else if (operation === 'authorizeAction') {
+          const key = String(this.getNodeParameter('idempotencyKey', i));
+          const rawGrant: unknown = this.getNodeParameter('grant', i, '');
+          let grant: unknown = undefined;
+          if (typeof rawGrant === 'string' && rawGrant.trim()) grant = JSON.parse(rawGrant);
+          else if (rawGrant && typeof rawGrant === 'object') grant = rawGrant;
+          path = '/v1/decisions:authorize';
+          body = {
+            proposal_token: String(this.getNodeParameter('proposalToken', i)),
+            idempotency_key: key,
+            dry_run: Boolean(this.getNodeParameter('dryRun', i, false)),
+            ...(grant !== undefined ? { grant } : {}),
+          } as IDataObject;
+        } else if (operation === 'recordOutcome') {
+          const key = String(this.getNodeParameter('idempotencyKey', i));
+          path = `/v1/decisions/${encodeURIComponent(key)}:complete`;
+          const externalRef = String(this.getNodeParameter('externalRef', i, ''));
+          body = {
+            outcome: String(this.getNodeParameter('outcome', i)),
+            detail: String(this.getNodeParameter('detail', i, '')),
+            ...(externalRef ? { external_ref: externalRef } : {}),
+          } as IDataObject;
+        } else if (operation === 'getDecision') {
+          const key = String(this.getNodeParameter('idempotencyKey', i));
+          path = `/v1/decisions/${encodeURIComponent(key)}`;
+          method = 'GET';
         } else {
           const state = parseState(String(this.getNodeParameter('state', i)));
 
           if (operation === 'runScene') {
             const scene = String(this.getNodeParameter('scene', i));
             path = `/v1/scenes/${encodeURIComponent(scene)}:evaluate`;
-            body = { state } as IDataObject;
+            const caseId = String(this.getNodeParameter('caseId', i, ''));
+            const assetId = String(this.getNodeParameter('assetId', i, ''));
+            body = {
+              state,
+              ...(caseId ? { case_id: caseId } : {}),
+              ...(assetId ? { asset_id: assetId } : {}),
+            } as IDataObject;
           } else {
             path = '/v1/systemone';
             let questions: IDataObject;

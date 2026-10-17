@@ -24,6 +24,7 @@ the one place that turns a proposal and a grant into a call.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -44,6 +45,7 @@ __all__ = [
     "ExecutionStatus",
     "GrantError",
     "PolicyDecision",
+    "ProposalError",
     "ProposedDecision",
 ]
 
@@ -55,6 +57,7 @@ POLICY_VERSION = "2026.10-p0"
 ExecutionStatus = Literal[
     "not_dispatched",  # refused before any call: no grant, wrong grant, verdict
     "dry_run",  # validated end to end, nothing sent
+    "authorized",  # two-phase: checks passed, the connector may now perform the action
     "success",  # the target confirmed the change
     "failed",  # the target refused or errored; state is as before
     "timeout",  # reserved: never emitted, see `unknown`
@@ -136,6 +139,63 @@ class ProposedDecision:
         data = asdict(self)
         data["params"] = dict(self.params)
         return data
+
+    # -- sealing --------------------------------------------------------------
+
+    def seal(self, secret: bytes, *, now: datetime | None = None) -> str:
+        """An opaque token a connector carries from the scene run to authorization.
+
+        HMAC-SHA256 over the canonical proposal and its issue time, with a
+        secret only the server holds. The connector cannot edit the action,
+        the tier, the verdict, the case or the asset without the token failing
+        to verify -- which is the point: authorization must judge what the
+        scene actually proposed, not what the caller says it proposed.
+        """
+        if not secret:
+            raise ProposalError("a proposal cannot be sealed without a secret")
+        body = {"proposal": self.to_dict(), "issued_at": _iso(now or _now())}
+        raw = json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+        mac = hmac.new(secret, raw, hashlib.sha256).hexdigest()
+        return base64.urlsafe_b64encode(raw).decode().rstrip("=") + "." + mac
+
+    @classmethod
+    def unseal(
+        cls,
+        token: str,
+        secret: bytes,
+        *,
+        max_age_seconds: int = 3600,
+        now: datetime | None = None,
+    ) -> ProposedDecision:
+        """Verify and decode a sealed proposal, or raise :class:`ProposalError`."""
+        if not secret:
+            raise ProposalError("no proposal secret configured")
+        if not isinstance(token, str) or token.count(".") != 1:
+            raise ProposalError("not a proposal token")
+        encoded, mac = token.split(".")
+        try:
+            raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+        except (ValueError, TypeError) as exc:
+            raise ProposalError("not a proposal token") from exc
+        if not hmac.compare_digest(hmac.new(secret, raw, hashlib.sha256).hexdigest(), mac):
+            raise ProposalError("proposal token signature does not verify")
+        body = json.loads(raw)
+        issued = datetime.fromisoformat(body["issued_at"])
+        if (now or _now()) - issued > timedelta(seconds=max_age_seconds):
+            raise ProposalError("proposal token has expired; run the scene again")
+        data = body["proposal"]
+        return cls(
+            **{
+                **data,
+                "reason_codes": tuple(data["reason_codes"]),
+                "evidence_refs": tuple(data.get("evidence_refs", ())),
+                "params": dict(data.get("params", {})),
+            }
+        )
+
+
+class ProposalError(ValueError):
+    """A token that claimed to be a sealed proposal and was not one."""
 
 
 @dataclass(frozen=True)

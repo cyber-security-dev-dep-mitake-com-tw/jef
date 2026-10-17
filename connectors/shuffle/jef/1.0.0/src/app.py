@@ -83,10 +83,73 @@ class JEF(AppBase):
 
     # -- actions ------------------------------------------------------------ #
 
-    def run_scene(self, url: str, apikey: str, scene: str, state: str) -> str:
-        return self._request(
-            url, apikey, f"/v1/scenes/{scene}:evaluate", {"state": self._parse_state(state)}
-        )
+    def run_scene(
+        self, url: str, apikey: str, scene: str, state: str, case_id: str = "", asset_id: str = ""
+    ) -> str:
+        """Run a scene. With ``case_id`` (and the ``asset_id`` an action would
+        touch) a server with decisions enabled returns a ``proposal_token`` to
+        redeem with ``authorize_action``."""
+        payload: dict[str, Any] = {"state": self._parse_state(state)}
+        if case_id:
+            payload["case_id"] = case_id
+        if asset_id:
+            payload["asset_id"] = asset_id
+        return self._request(url, apikey, f"/v1/scenes/{scene}:evaluate", payload)
+
+    # -- authorize / record: the platform performs the action, JEF decides -- #
+    #
+    # This app never performs an action itself and never holds EDR, IAM or
+    # firewall credentials. A workflow runs `authorize_action`, branches on
+    # `status == "authorized"`, performs the action with its own app, then
+    # reports the result with `record_outcome`. The idempotency key is what
+    # makes a retried step execute once.
+
+    def authorize_action(
+        self,
+        url: str,
+        apikey: str,
+        proposal_token: str,
+        idempotency_key: str,
+        grant: str = "",
+        dry_run: str = "false",
+    ) -> str:
+        if not proposal_token:
+            return self._fail("proposal_token is required; run_scene with a case_id returns one")
+        if not idempotency_key:
+            return self._fail("idempotency_key is required, e.g. the case id plus the action")
+        payload: dict[str, Any] = {
+            "proposal_token": proposal_token,
+            "idempotency_key": idempotency_key,
+            "dry_run": str(dry_run).strip().lower() in {"1", "true", "yes"},
+        }
+        if grant and grant.strip():
+            try:
+                payload["grant"] = json.loads(grant)
+            except json.JSONDecodeError as exc:
+                return self._fail(f"grant must be the AuthorizationGrant JSON: {exc}")
+        return self._request(url, apikey, "/v1/decisions:authorize", payload)
+
+    def record_outcome(
+        self,
+        url: str,
+        apikey: str,
+        idempotency_key: str,
+        outcome: str,
+        detail: str = "",
+        external_ref: str = "",
+    ) -> str:
+        """``success`` or ``failed`` only on the platform's answer; a timeout is
+        ``timeout`` (stored as unknown) -- never ``success``."""
+        normalized = (outcome or "").strip().lower()
+        if normalized not in {"success", "failed", "timeout", "unknown"}:
+            return self._fail("outcome must be success, failed, timeout or unknown")
+        payload: dict[str, Any] = {"outcome": normalized, "detail": detail}
+        if external_ref:
+            payload["external_ref"] = external_ref
+        return self._request(url, apikey, f"/v1/decisions/{idempotency_key}:complete", payload)
+
+    def get_decision(self, url: str, apikey: str, idempotency_key: str) -> str:
+        return self._request(url, apikey, f"/v1/decisions/{idempotency_key}", None)
 
     def ask_choice(self, url: str, apikey: str, state: str, instructions: str, options: str) -> str:
         criteria: dict[str, str | None] = {}
