@@ -54,6 +54,7 @@ class FeatureCache:
         backbone: str,
         uids: list[str] | None = None,
         groups: list[str] | None = None,
+        tasks: list[str] | None = None,
     ) -> None:
         self.ctx = ctx
         self.queries = queries
@@ -65,6 +66,9 @@ class FeatureCache:
         self.backbone = backbone
         self.uids = uids or []
         self.groups = groups or []
+        #: Each sample's task id (``Sample.task_id``). Empty for caches written
+        #: before tasks were stored; those fall back to the source-derived id.
+        self.tasks = tasks or []
 
     def __len__(self) -> int:
         return int(self.labels.shape[0])
@@ -77,8 +81,16 @@ class FeatureCache:
         lo, hi = int(self.offsets[i]), int(self.offsets[i + 1])
         return self.ctx[lo:hi], self.queries[lo:hi], int(self.labels[i])
 
+    def task_of(self, i: int) -> str:
+        """The sample's own task id; the source-derived one only for old caches."""
+        return self.tasks[i] if self.tasks else task_id_for(self.sources[i])
+
     def bucket_of(self, i: int) -> str:
-        return f"{task_id_for(self.sources[i])}|{self.kinds[i]}:{int(self.n_options[i])}"
+        # Must equal Sample.bucket. Deriving the task from the source alone put
+        # an exported SOCBench sample (task soc.ndr.technique.v1, source
+        # socbench.ctu-13) in a bucket named socbench.ctu-13.v1, which no scene
+        # asks for: the fitted calibration was never found at inference.
+        return f"{self.task_of(i)}|{self.kinds[i]}:{int(self.n_options[i])}"
 
     def buckets(self) -> dict[str, list[int]]:
         """Sample indices grouped by calibration bucket.
@@ -128,6 +140,7 @@ class FeatureCache:
             backbone=self.backbone,
             uids=[self.uids[i] for i in picked],
             groups=[self.groups[i] for i in picked] if self.groups else [],
+            tasks=[self.tasks[i] for i in picked] if self.tasks else [],
         )
 
     def save(self, path: str | Path) -> None:
@@ -145,6 +158,7 @@ class FeatureCache:
             backbone=np.array(self.backbone),
             uids=np.array(self.uids),
             groups=np.array(self.groups),
+            tasks=np.array(self.tasks),
         )
 
     @classmethod
@@ -161,6 +175,7 @@ class FeatureCache:
             backbone=str(z["backbone"]),
             uids=[str(x) for x in z["uids"]] if "uids" in z else [],
             groups=[str(g) for g in z["groups"]] if "groups" in z else [],
+            tasks=[str(t) for t in z["tasks"]] if "tasks" in z else [],
         )
 
 
@@ -170,7 +185,17 @@ def build_feature_cache(
     *,
     log_every: int = 200,
 ) -> FeatureCache:
-    """Run the frozen backbone over every sample once."""
+    """Run the frozen backbone over every sample once.
+
+    Two memos, both exact (same input, same output): query encodings are kept
+    per distinct question (a corpus asks a handful of questions thousands of
+    times), and the last state's encoding is reused when the next sample has
+    the same state text, so a corpus that asks several questions of one case
+    should keep those samples adjacent and pays for one state encode.
+    """
+    query_memo: dict[tuple[str, ...], NDArray[np.float32]] = {}
+    last_state: str | None = None
+    last_encoding = None
     ctx_rows: list[NDArray[np.float32]] = []
     query_rows: list[NDArray[np.float32]] = []
     offsets: list[int] = [0]
@@ -180,6 +205,7 @@ def build_feature_cache(
     sources: list[str] = []
     uids: list[str] = []
     groups: list[str] = []
+    tasks: list[str] = []
 
     for i, s in enumerate(samples):
         question = NormalizedQuestion(
@@ -189,8 +215,13 @@ def build_feature_cache(
             option_keys=s.option_keys,
             option_labels=s.option_labels,
         )
-        encoding = backbone.encode_state(s.state)
-        queries = backbone.encode_queries(build_query_texts(question))
+        if last_encoding is None or s.state != last_state:
+            last_state, last_encoding = s.state, backbone.encode_state(s.state)
+        encoding = last_encoding
+        texts = tuple(build_query_texts(question))
+        queries = query_memo.get(texts)
+        if queries is None:
+            queries = query_memo[texts] = backbone.encode_queries(list(texts))
         ctx = attention_pool(encoding.hidden, encoding.mask, queries)
 
         ctx_rows.append(ctx)
@@ -202,6 +233,7 @@ def build_feature_cache(
         sources.append(s.source)
         uids.append(s.uid)
         groups.append(s.group_key)
+        tasks.append(s.task_id)
 
         if log_every and (i + 1) % log_every == 0:
             log.info("encoded %d/%d", i + 1, len(samples))
@@ -217,4 +249,5 @@ def build_feature_cache(
         backbone=backbone.name,
         uids=uids,
         groups=groups,
+        tasks=tasks,
     )

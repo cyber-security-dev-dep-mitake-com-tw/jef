@@ -30,7 +30,7 @@ from typing import Any
 from ..build_corpus import summarise
 from ..schema import Sample, assert_no_group_leakage, write_samples
 from .annotate import TASK_LABELS
-from .baselines import LABEL_TEXT, case_text
+from .baselines import LABEL_TEXT, TASK_QUESTIONS, case_text
 from .records import trust_tier
 from .splits import LockError, verify_lock
 
@@ -38,34 +38,6 @@ __all__ = ["TASK_QUESTIONS", "ExportError", "export_corpus", "samples_from_gold"
 
 TIER_ORDER = "ABCDE"
 
-#: The question each task asks, as the scene would ask it. Two languages so a
-#: zh-TW corpus is not a translated English corpus by accident.
-TASK_QUESTIONS: Mapping[str, Mapping[str, str]] = {
-    "soc.alert.verdict.v1": {
-        "en": "Given this alert and its context, what is the verdict?",
-        "zh-TW": "根據此告警與其脈絡，判定結果為何？",
-    },
-    "soc.ndr.technique.v1": {
-        "en": "Which network behaviour does this evidence show?",
-        "zh-TW": "此證據顯示何種網路行為？",
-    },
-    "soc.edr.execution.v1": {
-        "en": "Is this process execution malicious?",
-        "zh-TW": "此程序執行是否為惡意？",
-    },
-    "soc.identity.abuse.v1": {
-        "en": "Is this identity activity compromised, suspicious or legitimate?",
-        "zh-TW": "此身分活動屬於已遭入侵、可疑或合法？",
-    },
-    "soc.phishing.verdict.v1": {
-        "en": "What is the verdict on this e-mail?",
-        "zh-TW": "此郵件的判定結果為何？",
-    },
-    "soc.response.authority.v1": {
-        "en": "May this response action proceed under policy?",
-        "zh-TW": "此處置動作依政策是否可以執行？",
-    },
-}
 
 _LANG = {"n/a": "en", "zh": "zh-TW"}
 

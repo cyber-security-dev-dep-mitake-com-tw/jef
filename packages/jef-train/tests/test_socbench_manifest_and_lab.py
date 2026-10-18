@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from jef_train.socbench import cli
-from jef_train.socbench.baselines import HttpScorer, RuleScorer, prompt_digest
+from jef_train.socbench.baselines import HttpScorer, RuleScorer, questions_digest
 from jef_train.socbench.records import write_jsonl
 from jef_train.socbench.report import evaluate, evaluation_manifest
 from jef_train.socbench.splits import make_lock
@@ -75,9 +75,10 @@ def test_http_scorer_discloses_host_egress_and_prompt() -> None:
     assert (
         remote.describe()["egress"] == "external" and remote.describe()["host"] == "api.example.com"
     )
-    assert remote.describe()["prompt_digest"] == prompt_digest(
-        "Which verdict does this evidence support?"
-    )
+    # The digest covers every task's instructions, which change only with the
+    # questions JEF heads are trained on.
+    assert remote.describe()["prompt_digest"] == questions_digest()
+    assert questions_digest().startswith("sha256:")
     m = evaluation_manifest([local, remote], {"cases_digest": "x", "gold_digest": "y"}, "test")
     assert m["egress"] == ["external", "loopback"]
 
