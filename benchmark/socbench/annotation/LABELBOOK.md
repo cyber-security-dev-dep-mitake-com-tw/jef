@@ -50,6 +50,19 @@ The label sets are fixed in code (`annotate.TASK_LABELS`); the definitions below
 | `benign` | Ordinary legitimate traffic with nothing pointing elsewhere. | You simply saw nothing malicious in a capture that was never labelled. |
 | `unknown` | See §3. Includes all unlabelled background. | |
 
+### `soc.ndr.host.v1` (one host, one time window)
+
+The case is everything one source host sent in a window (300 seconds by default), with addresses masked. The question is about the **host**, not about any single flow.
+
+| Label | Use when the evidence shows | Not when |
+|---|---|---|
+| `c2` | The host is compromised and, in this window, talks to its command-and-control: periodic check-ins, tasking and response, a known C2 channel. | The host is merely busy or talks to rare destinations. |
+| `botnet` | The host is compromised: spam relay, scanning fan-out, click fraud or DDoS participation in this window, or a confirmed infection from another source. Its ordinary DNS and web traffic in the same window does not make the label wrong. | One odd flow with nothing else pointing to infection. |
+| `benign` | A host you can verify as a normal workstation or server, with nothing pointing elsewhere. | You saw nothing malicious in a host nobody verified. |
+| `unknown` | See §3. All unverified hosts. | |
+
+CTU-13's own labels for this task are host-level (`label_origin: host-label`, Tier C): every window of an infected host is `botnet` or `c2`, every window of one of the authors' verified normal hosts is `benign`. A reviewer label can say more, for example that a window of an infected host shows nothing but routine traffic (`unknown`).
+
 ### `soc.alert.verdict.v1`
 
 | Label | Use when |

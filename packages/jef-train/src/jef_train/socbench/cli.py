@@ -131,6 +131,12 @@ def cmd_build(repo: SocbenchRepo, args: argparse.Namespace) -> int:
             options["background_rate"] = args.background_rate
         if args.max_cases_per_class is not None:
             options["max_cases_per_class"] = args.max_cases_per_class
+        options["flow_labels"] = args.flow_labels
+        if args.unit == "host-window":
+            options["unit"] = "host-window"
+            options["window_s"] = args.window_seconds
+            if args.background_host_rate is not None:
+                options["background_host_rate"] = args.background_host_rate
     try:
         summary = build_source(
             repo,
@@ -519,6 +525,28 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--background-rate", type=float, help="CTU-13: Background sampling (0.001)")
     b.add_argument(
         "--max-cases-per-class", type=int, help="CTU-13: cap per verdict per scenario (300)"
+    )
+    b.add_argument(
+        "--unit",
+        choices=["conversation", "host-window"],
+        default="conversation",
+        help="CTU-13: one conversation per case, or one source host per time window "
+        "(task soc.ndr.host.v1, host-level labels)",
+    )
+    b.add_argument(
+        "--window-seconds", type=int, default=300, help="CTU-13 host-window: window (300)"
+    )
+    b.add_argument(
+        "--flow-labels",
+        choices=["behaviour", "host"],
+        default="behaviour",
+        help="CTU-13 conversations: label a bot's flows by behaviour (default; DNS and plain "
+        "sessions become unknown) or by host (every bot flow is botnet; the G1/NDR v1-v2 mapping)",
+    )
+    b.add_argument(
+        "--background-host-rate",
+        type=float,
+        help="CTU-13 host-window: Background hosts kept (0.002)",
     )
 
     a = sub.add_parser("annotate", help="blind two-reviewer annotation and adjudication")

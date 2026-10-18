@@ -60,6 +60,9 @@ TASK_LABELS: Mapping[str, tuple[str, ...]] = {
         "benign",
         "unknown",
     ),
+    # One source host over a time window; labels are host-level (ctu13_hosts):
+    # botnet = the host is infected, c2 = a C&C-tagged flow in the window.
+    "soc.ndr.host.v1": ("c2", "botnet", "benign", "unknown"),
     "soc.edr.execution.v1": ("malicious", "benign", "unknown"),
     "soc.identity.abuse.v1": ("compromised", "suspicious", "legitimate", "unknown"),
     "soc.phishing.verdict.v1": (

@@ -332,10 +332,37 @@ def ctu_archive(tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize(
+    ("label", "behaviour", "host"),
+    [
+        ("flow=From-Botnet-V43-UDP-DNS", "unknown", "botnet"),
+        ("flow=From-Botnet-V42-UDP-Attempt-DNS", "unknown", "botnet"),
+        ("flow=From-Botnet-V42-1-UDP-DNS", "unknown", "botnet"),
+        ("flow=From-Botnet-V42-TCP-Established", "unknown", "botnet"),
+        ("flow=From-Botnet-V42-TCP-WEB-Established", "unknown", "botnet"),
+        ("flow=From-Botnet-V42-TCP-Attempt", "botnet", "botnet"),
+        ("flow=From-Botnet-V42-TCP-Established-HTTP-Ad", "botnet", "botnet"),
+        ("flow=From-Botnet-V45-TCP-Not-Encrypted-SMTP-Private-Proxy", "botnet", "botnet"),
+        ("flow=From-Botnet-V51-2-ICMP", "botnet", "botnet"),
+        ("flow=From-Botnet-V42-TCP-CC74-HTTP-Custom-Port-Not-Encrypted", "c2", "c2"),
+        ("flow=From-Normal-V42-Stribrek", "benign", "benign"),
+    ],
+)
+def test_ctu_flow_label_semantics(label: str, behaviour: str, host: str) -> None:
+    """Behaviour labels follow the labelbook; host labels mark every bot flow."""
+    assert ctu13.map_label(label)[0] == behaviour, "behaviour is the default"
+    assert ctu13.map_label(label, "behaviour")[0] == behaviour
+    assert ctu13.map_label(label, "host")[0] == host
+
+
+def test_ctu_unknown_semantics_is_refused() -> None:
+    with pytest.raises(ValueError, match="semantics"):
+        ctu13.map_label("flow=From-Botnet-V42-UDP-DNS", "flow")
+
+
+@pytest.mark.parametrize(
     ("label", "expected"),
     [
         ("flow=From-Botnet-V42-TCP-CC6-Plain-HTTP-Encrypted-Data", "c2"),
-        ("flow=From-Botnet-V43-UDP-DNS", "botnet"),
         ("flow=To-Botnet-V42-TCP-Attempt", "unknown"),
         ("flow=From-Normal-V42-Stribrek", "benign"),
         ("flow=To-Normal-V45-UDP-NTP-server", "unknown"),
@@ -409,3 +436,27 @@ def test_ctu_build_writes_validated_files(
     assert summary["trust_tier"] == "C"
     assert {g["label_origin"] for g in golds} == {"flow-label"}
     assert all(c.startswith("socb-ctu13-") for c in (g["case_id"] for g in golds))
+
+
+def test_ctu_build_honours_the_flow_label_option(
+    repo: SocbenchRepo, ctu_archive: Path, tmp_path: Path
+) -> None:
+    """The CLI option reaches the adapter: host and behaviour builds differ on bot DNS."""
+    host = build_source(
+        repo,
+        "ctu-13",
+        base=tmp_path / "h",
+        input_path=ctu_archive,
+        options={"background_rate": 1.0, "flow_labels": "host"},
+    )
+    behaviour = build_source(
+        repo,
+        "ctu-13",
+        base=tmp_path / "b",
+        input_path=ctu_archive,
+        options={"background_rate": 1.0, "flow_labels": "behaviour"},
+    )
+    assert host["flow_labels"] == "host" and behaviour["flow_labels"] == "behaviour"
+    assert host["flows_seen_by_class"].get("botnet", 0) > behaviour["flows_seen_by_class"].get(
+        "botnet", 0
+    )

@@ -1,0 +1,1372 @@
+{
+  "evidence_class": "SOURCE-LABEL RESEARCH",
+  "arm": "flow-behaviour",
+  "task": "soc.ndr.technique.v1",
+  "backbone": {
+    "id": "jhu-clsp/mmBERT-base",
+    "revision": "c5955035435e2bf121cde7f3c8863ef52ff35d82"
+  },
+  "inputs": {
+    "cases_before_dedupe": 9889,
+    "cases": 7976,
+    "dedupe_dropped_same_label": 1795,
+    "dedupe_dropped_conflicting": 118,
+    "cases_digest": "sha256:083c807605e32fa4e88998ac70035b80cb1aa476f0974a72643a59e38a24cf2e",
+    "gold_digest": "sha256:ef85db3c54a8a1bd8300c8130c1ca775c70f5535e1e0356180d0a3cae8b7ea17",
+    "gold_distribution": {
+      "unknown": 2308,
+      "benign": 3218,
+      "botnet": 2103,
+      "c2": 347
+    },
+    "attack_windows": 2450,
+    "build_summary": {
+      "source": "ctu-13",
+      "task_id": "soc.ndr.technique.v1",
+      "label_origin": "flow-label",
+      "trust_tier": "C",
+      "cases": 9889,
+      "by_verdict": {
+        "unknown": 2741,
+        "benign": 3345,
+        "botnet": 3454,
+        "c2": 349
+      },
+      "known_label_cases": 7148,
+      "unknown_label_cases": 2741,
+      "flows_seen_by_class": {
+        "unknown": 19334349,
+        "benign": 355165,
+        "botnet": 281165,
+        "c2": 6021
+      },
+      "families": [
+        "ctu13-scenario-1",
+        "ctu13-scenario-10",
+        "ctu13-scenario-11",
+        "ctu13-scenario-12",
+        "ctu13-scenario-13",
+        "ctu13-scenario-2",
+        "ctu13-scenario-3",
+        "ctu13-scenario-4",
+        "ctu13-scenario-5",
+        "ctu13-scenario-6",
+        "ctu13-scenario-7",
+        "ctu13-scenario-8",
+        "ctu13-scenario-9"
+      ],
+      "background_rate": 0.001,
+      "max_cases_per_class": 300,
+      "flow_labels": "behaviour",
+      "caveat": "unknown is Background or To-Botnet traffic: unverified, never benign. Report known-label metrics and actions taken on unknown traffic separately. 2011 traffic.",
+      "inputs": {
+        "archive": ".cache/socbench/ctu-13/CTU-13-Dataset.tar.bz2"
+      },
+      "source_hash": "sha256:1f8daeca146131a368b432b2d8625de5e4429bce833f3e4cf4bea8312344ab7f",
+      "written": {
+        "cases": 9889,
+        "gold": 9889
+      }
+    }
+  },
+  "summary": {
+    "rules": {
+      "median_macro_f1": 0.1562,
+      "median_pr_auc": 0.389,
+      "median_fnr_at_fpr_1pct": 1.0,
+      "median_ece": 0.2636,
+      "mistaken_closures": 0,
+      "mistaken_closures_per_1000_attacks": 0.0,
+      "worst_fold_macro_f1": 0.0623
+    },
+    "logreg": {
+      "median_macro_f1": 0.8696,
+      "median_pr_auc": 0.9954,
+      "median_fnr_at_fpr_1pct": 0.0294,
+      "median_ece": 0.1116,
+      "mistaken_closures": 0,
+      "mistaken_closures_per_1000_attacks": 0.0,
+      "worst_fold_macro_f1": 0.3362,
+      "gate": {
+        "closed": 1792,
+        "closed_attacks": 43,
+        "closed_benign": 1645,
+        "folds_with_an_attack_closed": 4
+      }
+    },
+    "jef": {
+      "median_macro_f1": 0.7662,
+      "median_pr_auc": 0.9903,
+      "median_fnr_at_fpr_1pct": 0.0942,
+      "median_ece": 0.0475,
+      "mistaken_closures": 16,
+      "mistaken_closures_per_1000_attacks": 6.53,
+      "worst_fold_macro_f1": 0.3468,
+      "gate": {
+        "closed": 47,
+        "closed_attacks": 0,
+        "closed_benign": 41,
+        "folds_with_an_attack_closed": 0
+      },
+      "coverage_check": {
+        "holds": 10,
+        "violated": 3
+      },
+      "median_coverage": 0.9290030211480362
+    },
+    "jef_cost": {
+      "median_macro_f1": 0.7806,
+      "median_pr_auc": 0.9908,
+      "median_fnr_at_fpr_1pct": 0.0984,
+      "median_ece": 0.0503,
+      "mistaken_closures": 12,
+      "mistaken_closures_per_1000_attacks": 4.9,
+      "worst_fold_macro_f1": 0.3422,
+      "gate": {
+        "closed": 18,
+        "closed_attacks": 0,
+        "closed_benign": 18,
+        "folds_with_an_attack_closed": 0
+      },
+      "coverage_check": {
+        "holds": 10,
+        "violated": 3
+      },
+      "median_coverage": 0.9332443257676902
+    }
+  },
+  "verdict": {
+    "better_than_single_flow_v1": {
+      "fnr_below_0.374": true,
+      "mistaken_closure_rate_below_v1": true,
+      "macro_f1_at_least_0.768": true,
+      "v1_mistaken_closures_per_1000_attacks": 13.58,
+      "met": true
+    },
+    "close_to_logreg": {
+      "macro_f1_within_0.03": false,
+      "fnr_within_0.05": false,
+      "no_more_mistaken_closures": false,
+      "met": false
+    },
+    "gate_safe": {
+      "logreg": false,
+      "jef": true,
+      "jef_cost": true
+    }
+  },
+  "folds": [
+    {
+      "held_out": "ctu13-scenario-1",
+      "n_test": 749,
+      "test_gold": {
+        "unknown": 254,
+        "benign": 285,
+        "botnet": 188,
+        "c2": 22
+      },
+      "lambda": 4.0,
+      "rules": {
+        "macro_f1": 0.2689,
+        "pr_auc": 0.5853,
+        "fnr_at_fpr_1pct": 0.7238,
+        "ece": 0.1833,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.9398,
+        "pr_auc": 0.9984,
+        "fnr_at_fpr_1pct": 0.019,
+        "ece": 0.122,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 749,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 749
+        }
+      },
+      "jef": {
+        "macro_f1": 0.9296,
+        "pr_auc": 0.9943,
+        "fnr_at_fpr_1pct": 0.0667,
+        "ece": 0.0369,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-000353",
+          "socb-ctu13-000390"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 749,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 749
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9586114819759679,
+          "wilson_95": [
+            0.9418517628463338,
+            0.970690967034891
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.8644,
+        "pr_auc": 0.9908,
+        "fnr_at_fpr_1pct": 0.0905,
+        "ece": 0.0383,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 749,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 749
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9332443257676902,
+          "wilson_95": [
+            0.9130676627173491,
+            0.9489996323232841
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-2",
+      "n_test": 639,
+      "test_gold": {
+        "unknown": 254,
+        "benign": 159,
+        "botnet": 202,
+        "c2": 24
+      },
+      "lambda": 1.0,
+      "rules": {
+        "macro_f1": 0.218,
+        "pr_auc": 0.8135,
+        "fnr_at_fpr_1pct": 0.8628,
+        "ece": 0.1545,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.884,
+        "pr_auc": 0.9987,
+        "fnr_at_fpr_1pct": 0.0133,
+        "ece": 0.0835,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.4048139955277415,
+          "cases": 639,
+          "closed": 172,
+          "closed_attacks": 7,
+          "closed_benign": 144,
+          "attack_rate_among_closed": 0.040697674418604654,
+          "benign_yield": 0.9056603773584906,
+          "abstained": 467
+        }
+      },
+      "jef": {
+        "macro_f1": 0.8573,
+        "pr_auc": 0.9924,
+        "fnr_at_fpr_1pct": 0.1327,
+        "ece": 0.0223,
+        "mistaken_closures": 4,
+        "mistaken_closure_ids": [
+          "socb-ctu13-004042",
+          "socb-ctu13-004176",
+          "socb-ctu13-004219",
+          "socb-ctu13-004254"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 639,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 639
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9154929577464789,
+          "wilson_95": [
+            0.8913656296693506,
+            0.9346545230664896
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.8969,
+        "pr_auc": 0.9934,
+        "fnr_at_fpr_1pct": 0.1195,
+        "ece": 0.0237,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-004219",
+          "socb-ctu13-004254"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 639,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 639
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9154929577464789,
+          "wilson_95": [
+            0.8913656296693506,
+            0.9346545230664896
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-3",
+      "n_test": 584,
+      "test_gold": {
+        "unknown": 260,
+        "benign": 253,
+        "botnet": 70,
+        "c2": 1
+      },
+      "lambda": 1.0,
+      "rules": {
+        "macro_f1": 0.1562,
+        "pr_auc": 0.1661,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.1522,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.667,
+        "pr_auc": 0.9911,
+        "fnr_at_fpr_1pct": 0.0282,
+        "ece": 0.0802,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.5425643491400287,
+          "cases": 584,
+          "closed": 234,
+          "closed_attacks": 0,
+          "closed_benign": 217,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.857707509881423,
+          "abstained": 350
+        }
+      },
+      "jef": {
+        "macro_f1": 0.5935,
+        "pr_auc": 0.9954,
+        "fnr_at_fpr_1pct": 0.0141,
+        "ece": 0.0475,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 584,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 584
+        },
+        "coverage": {
+          "status": "violated",
+          "empirical": 0.851027397260274,
+          "wilson_95": [
+            0.8198587640481508,
+            0.8776082040396852
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.7108,
+        "pr_auc": 0.9963,
+        "fnr_at_fpr_1pct": 0.0141,
+        "ece": 0.0503,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 584,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 584
+        },
+        "coverage": {
+          "status": "violated",
+          "empirical": 0.8424657534246576,
+          "wilson_95": [
+            0.8106931279796079,
+            0.8697624506426711
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-4",
+      "n_test": 662,
+      "test_gold": {
+        "unknown": 198,
+        "benign": 294,
+        "botnet": 165,
+        "c2": 5
+      },
+      "lambda": 2.0,
+      "rules": {
+        "macro_f1": 0.1796,
+        "pr_auc": 0.389,
+        "fnr_at_fpr_1pct": 0.8647,
+        "ece": 0.2636,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.8696,
+        "pr_auc": 0.9954,
+        "fnr_at_fpr_1pct": 0.0294,
+        "ece": 0.0962,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.5466259532905783,
+          "cases": 662,
+          "closed": 285,
+          "closed_attacks": 0,
+          "closed_benign": 275,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.935374149659864,
+          "abstained": 377
+        }
+      },
+      "jef": {
+        "macro_f1": 0.8439,
+        "pr_auc": 0.9842,
+        "fnr_at_fpr_1pct": 0.0529,
+        "ece": 0.0177,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-005959"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 662,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 662
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9290030211480362,
+          "wilson_95": [
+            0.9068645390556305,
+            0.9461913836050189
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.8409,
+        "pr_auc": 0.9901,
+        "fnr_at_fpr_1pct": 0.0412,
+        "ece": 0.0246,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-005950",
+          "socb-ctu13-005959"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 662,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 662
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.93202416918429,
+          "wilson_95": [
+            0.910251402992392,
+            0.9488119557433323
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-5",
+      "n_test": 432,
+      "test_gold": {
+        "unknown": 39,
+        "benign": 299,
+        "botnet": 87,
+        "c2": 7
+      },
+      "lambda": 4.0,
+      "rules": {
+        "macro_f1": 0.0712,
+        "pr_auc": 0.2078,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.4956,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.8686,
+        "pr_auc": 0.992,
+        "fnr_at_fpr_1pct": 0.0426,
+        "ece": 0.133,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.5160297134252044,
+          "cases": 432,
+          "closed": 292,
+          "closed_attacks": 2,
+          "closed_benign": 284,
+          "attack_rate_among_closed": 0.00684931506849315,
+          "benign_yield": 0.9498327759197325,
+          "abstained": 140
+        }
+      },
+      "jef": {
+        "macro_f1": 0.837,
+        "pr_auc": 0.9903,
+        "fnr_at_fpr_1pct": 0.0638,
+        "ece": 0.0334,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-006712",
+          "socb-ctu13-006809"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 432,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 432
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9583333333333334,
+          "wilson_95": [
+            0.9351034613321373,
+            0.9734838058624574
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.8713,
+        "pr_auc": 0.988,
+        "fnr_at_fpr_1pct": 0.0319,
+        "ece": 0.0316,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-006712",
+          "socb-ctu13-006809"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 432,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 432
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9560185185185185,
+          "wilson_95": [
+            0.9323331751044667,
+            0.9716652675083371
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-6",
+      "n_test": 518,
+      "test_gold": {
+        "unknown": 121,
+        "benign": 290,
+        "botnet": 106,
+        "c2": 1
+      },
+      "lambda": 2.0,
+      "rules": {
+        "macro_f1": 0.2554,
+        "pr_auc": 0.5816,
+        "fnr_at_fpr_1pct": 0.5701,
+        "ece": 0.275,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.854,
+        "pr_auc": 0.9944,
+        "fnr_at_fpr_1pct": 0.028,
+        "ece": 0.0833,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 518,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 518
+        }
+      },
+      "jef": {
+        "macro_f1": 0.6615,
+        "pr_auc": 0.9739,
+        "fnr_at_fpr_1pct": 0.0841,
+        "ece": 0.1214,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-007212"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 518,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 518
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9324324324324325,
+          "wilson_95": [
+            0.9074795642200285,
+            0.951018725686703
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.6716,
+        "pr_auc": 0.9387,
+        "fnr_at_fpr_1pct": 0.4019,
+        "ece": 0.14,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-007212"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 518,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 518
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9613899613899614,
+          "wilson_95": [
+            0.941117957855603,
+            0.9748690568216685
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-7",
+      "n_test": 152,
+      "test_gold": {
+        "unknown": 31,
+        "benign": 115,
+        "botnet": 4,
+        "c2": 2
+      },
+      "lambda": 2.0,
+      "rules": {
+        "macro_f1": 0.0899,
+        "pr_auc": 0.0415,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.3935,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.8447,
+        "pr_auc": 1.0,
+        "fnr_at_fpr_1pct": 0.0,
+        "ece": 0.1393,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.5656107395993972,
+          "cases": 152,
+          "closed": 101,
+          "closed_attacks": 0,
+          "closed_benign": 98,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.8521739130434782,
+          "abstained": 51
+        }
+      },
+      "jef": {
+        "macro_f1": 0.6872,
+        "pr_auc": 0.5842,
+        "fnr_at_fpr_1pct": 0.5,
+        "ece": 0.101,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 152,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 152
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9605263157894737,
+          "wilson_95": [
+            0.9165634847775233,
+            0.9817853952921842
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.6615,
+        "pr_auc": 0.8258,
+        "fnr_at_fpr_1pct": 0.3333,
+        "ece": 0.0849,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 152,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 152
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9605263157894737,
+          "wilson_95": [
+            0.9165634847775233,
+            0.9817853952921842
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-8",
+      "n_test": 689,
+      "test_gold": {
+        "unknown": 250,
+        "benign": 300,
+        "botnet": 136,
+        "c2": 3
+      },
+      "lambda": 2.0,
+      "rules": {
+        "macro_f1": 0.1331,
+        "pr_auc": 0.2891,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.2346,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.3964,
+        "pr_auc": 0.9081,
+        "fnr_at_fpr_1pct": 0.9209,
+        "ece": 0.3692,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.565472724315044,
+          "cases": 689,
+          "closed": 66,
+          "closed_attacks": 0,
+          "closed_benign": 54,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.18,
+          "abstained": 623
+        }
+      },
+      "jef": {
+        "macro_f1": 0.5483,
+        "pr_auc": 0.9771,
+        "fnr_at_fpr_1pct": 0.1079,
+        "ece": 0.3279,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.9501884780567361,
+          "cases": 689,
+          "closed": 47,
+          "closed_attacks": 0,
+          "closed_benign": 41,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.13666666666666666,
+          "abstained": 642
+        },
+        "coverage": {
+          "status": "violated",
+          "empirical": 0.5863570391872278,
+          "wilson_95": [
+            0.5492039131982678,
+            0.622552552130111
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.5182,
+        "pr_auc": 0.9718,
+        "fnr_at_fpr_1pct": 0.1079,
+        "ece": 0.3393,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 689,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 689
+        },
+        "coverage": {
+          "status": "violated",
+          "empirical": 0.6081277213352685,
+          "wilson_95": [
+            0.5711735639058977,
+            0.6438828506649297
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-9",
+      "n_test": 872,
+      "test_gold": {
+        "unknown": 250,
+        "benign": 293,
+        "botnet": 110,
+        "c2": 219
+      },
+      "lambda": 4.0,
+      "rules": {
+        "macro_f1": 0.2503,
+        "pr_auc": 0.4359,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.2626,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.9184,
+        "pr_auc": 0.9979,
+        "fnr_at_fpr_1pct": 0.0395,
+        "ece": 0.1116,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.21986247925522892,
+          "cases": 872,
+          "closed": 341,
+          "closed_attacks": 26,
+          "closed_benign": 284,
+          "attack_rate_among_closed": 0.07624633431085044,
+          "benign_yield": 0.9692832764505119,
+          "abstained": 531
+        }
+      },
+      "jef": {
+        "macro_f1": 0.9001,
+        "pr_auc": 0.9949,
+        "fnr_at_fpr_1pct": 0.0942,
+        "ece": 0.0383,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-009620"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 872,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 872
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9243119266055045,
+          "wilson_95": [
+            0.9048353582879888,
+            0.9400664130855626
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.8878,
+        "pr_auc": 0.9954,
+        "fnr_at_fpr_1pct": 0.0729,
+        "ece": 0.0289,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-009620"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 872,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 872
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9334862385321101,
+          "wilson_95": [
+            0.914973472078217,
+            0.9481964457034113
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-10",
+      "n_test": 892,
+      "test_gold": {
+        "unknown": 268,
+        "benign": 297,
+        "botnet": 300,
+        "c2": 27
+      },
+      "lambda": 1.0,
+      "rules": {
+        "macro_f1": 0.1156,
+        "pr_auc": 0.3347,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.297,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.8998,
+        "pr_auc": 0.9978,
+        "fnr_at_fpr_1pct": 0.0153,
+        "ece": 0.0966,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        }
+      },
+      "jef": {
+        "macro_f1": 0.6188,
+        "pr_auc": 0.9413,
+        "fnr_at_fpr_1pct": 0.6789,
+        "ece": 0.1598,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9641255605381166,
+          "wilson_95": [
+            0.949795346788609,
+            0.9744753395558229
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.6272,
+        "pr_auc": 0.9943,
+        "fnr_at_fpr_1pct": 0.1621,
+        "ece": 0.1946,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.9887892376681614,
+          "wilson_95": [
+            0.9794872158208914,
+            0.9938993040973991
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-11",
+      "n_test": 386,
+      "test_gold": {
+        "unknown": 31,
+        "benign": 53,
+        "botnet": 300,
+        "c2": 2
+      },
+      "lambda": 1.0,
+      "rules": {
+        "macro_f1": 0.0727,
+        "pr_auc": 0.7642,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.5171,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.9079,
+        "pr_auc": 0.9898,
+        "fnr_at_fpr_1pct": 0.8675,
+        "ece": 0.1813,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.7290145879332567,
+          "cases": 386,
+          "closed": 26,
+          "closed_attacks": 0,
+          "closed_benign": 25,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.4716981132075472,
+          "abstained": 360
+        }
+      },
+      "jef": {
+        "macro_f1": 0.7662,
+        "pr_auc": 0.9986,
+        "fnr_at_fpr_1pct": 0.1854,
+        "ece": 0.1732,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 1.0,
+          "wilson_95": [
+            0.9901460998214123,
+            1.0
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.7806,
+        "pr_auc": 0.9994,
+        "fnr_at_fpr_1pct": 0.0828,
+        "ece": 0.1308,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.6723112335087673,
+          "cases": 386,
+          "closed": 18,
+          "closed_attacks": 0,
+          "closed_benign": 18,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.33962264150943394,
+          "abstained": 368
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 1.0,
+          "wilson_95": [
+            0.9901460998214123,
+            1.0
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-12",
+      "n_test": 666,
+      "test_gold": {
+        "unknown": 94,
+        "benign": 296,
+        "botnet": 270,
+        "c2": 6
+      },
+      "lambda": 1.0,
+      "rules": {
+        "macro_f1": 0.0623,
+        "pr_auc": 0.3253,
+        "fnr_at_fpr_1pct": 1.0,
+        "ece": 0.4563,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.3362,
+        "pr_auc": 0.4471,
+        "fnr_at_fpr_1pct": 0.9855,
+        "ece": 0.2399,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": 0.6506126382369426,
+          "cases": 666,
+          "closed": 275,
+          "closed_attacks": 8,
+          "closed_benign": 264,
+          "attack_rate_among_closed": 0.02909090909090909,
+          "benign_yield": 0.8918918918918919,
+          "abstained": 391
+        }
+      },
+      "jef": {
+        "macro_f1": 0.3468,
+        "pr_auc": 0.6009,
+        "fnr_at_fpr_1pct": 0.9493,
+        "ece": 0.2917,
+        "mistaken_closures": 4,
+        "mistaken_closure_ids": [
+          "socb-ctu13-002456",
+          "socb-ctu13-002734",
+          "socb-ctu13-002742",
+          "socb-ctu13-002817"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 666,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 666
+        },
+        "coverage": {
+          "status": "violated",
+          "empirical": 0.7402402402402403,
+          "wilson_95": [
+            0.7056265624539871,
+            0.7720984212509391
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.3422,
+        "pr_auc": 0.6158,
+        "fnr_at_fpr_1pct": 0.9529,
+        "ece": 0.2881,
+        "mistaken_closures": 4,
+        "mistaken_closure_ids": [
+          "socb-ctu13-002456",
+          "socb-ctu13-002734",
+          "socb-ctu13-002742",
+          "socb-ctu13-002817"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 666,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 666
+        },
+        "coverage": {
+          "status": "violated",
+          "empirical": 0.7507507507507507,
+          "wilson_95": [
+            0.7165224603430846,
+            0.7821029913989319
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-13",
+      "n_test": 735,
+      "test_gold": {
+        "unknown": 258,
+        "benign": 284,
+        "botnet": 165,
+        "c2": 28
+      },
+      "lambda": 4.0,
+      "rules": {
+        "macro_f1": 0.2194,
+        "pr_auc": 0.4386,
+        "fnr_at_fpr_1pct": 0.829,
+        "ece": 0.2015,
+        "mistaken_closures": 0
+      },
+      "logreg": {
+        "macro_f1": 0.9224,
+        "pr_auc": 0.9983,
+        "fnr_at_fpr_1pct": 0.0311,
+        "ece": 0.0938,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 735,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 735
+        }
+      },
+      "jef": {
+        "macro_f1": 0.915,
+        "pr_auc": 0.994,
+        "fnr_at_fpr_1pct": 0.0674,
+        "ece": 0.0219,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-003270"
+        ],
+        "gate": {
+          "threshold": null,
+          "cases": 735,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 735
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.927891156462585,
+          "wilson_95": [
+            0.9068826449674492,
+            0.9444501984871965
+          ]
+        },
+        "calibration_status": "validated"
+      },
+      "jef_cost": {
+        "macro_f1": 0.8895,
+        "pr_auc": 0.9939,
+        "fnr_at_fpr_1pct": 0.0984,
+        "ece": 0.0281,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "gate": {
+          "threshold": null,
+          "cases": 735,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 735
+        },
+        "coverage": {
+          "status": "holds",
+          "empirical": 0.8965986394557823,
+          "wilson_95": [
+            0.8724849226527209,
+            0.916588285191569
+          ]
+        },
+        "calibration_status": "validated"
+      }
+    }
+  ]
+}

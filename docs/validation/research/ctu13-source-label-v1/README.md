@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | Source | CTU-13 (CC-BY), archive `sha256:1f8daeca146131a368b432b2d8625de5e4429bce833f3e4cf4bea8312344ab7f`, verified against the pin |
-| Build | `jef-bench build --source ctu-13 --background-rate 0.001`: 9,932 cases, 13 scenario families |
+| Build | `jef-bench build --source ctu-13 --background-rate 0.001 --flow-labels host`: 9,932 cases, 13 scenario families |
 | Dedupe | `jef-bench dedupe`: 21 same-label duplicate states dropped, 0 conflicts → **9,911 cases** ([`dedupe.json`](dedupe.json)) |
 | Labels | unknown 2,738 · benign 3,326 · botnet 3,498 · c2 349. Background is `unknown`, excluded from binary metrics, never benign |
 | Design | **leave-one-scenario-out**, 13 folds. Rules do not train; logistic regression refitted per fold on the other 12 scenarios |

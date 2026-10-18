@@ -38,6 +38,7 @@ TRUST_TIERS: Mapping[str, str] = {
     "double-human-reviewed": "A",
     "single-human-reviewed": "B",
     "flow-label": "C",
+    "host-label": "C",
     "ctf-answer-key": "C",
     "spam-ham": "C",
     "phishing-vs-benign-website": "C",

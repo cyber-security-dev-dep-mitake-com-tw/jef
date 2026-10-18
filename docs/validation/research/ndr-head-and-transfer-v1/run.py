@@ -38,7 +38,7 @@ seed 1337).
 Reproduce (repository root, ``uv sync --all-packages``, the ``torch`` extra):
 
     uv run jef-bench fetch --source ctu-13 --source ait-ads
-    uv run jef-bench build --source ctu-13 --background-rate 0.001
+    uv run jef-bench build --source ctu-13 --background-rate 0.001 --flow-labels host
     uv run jef-bench build --source ait-ads
     uv run jef-bench dedupe ...   # as in ../ctu13-source-label-v1/run.py
     uv run python docs/validation/research/ndr-head-and-transfer-v1/run.py

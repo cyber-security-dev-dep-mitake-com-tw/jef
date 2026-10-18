@@ -64,11 +64,37 @@ _CC = re.compile(r"(?:^|-)CC\d*(?:-|$)|C&C")
 _TIME_FORMATS = ("%Y/%m/%d %H:%M:%S.%f", "%Y/%m/%d %H:%M:%S")
 
 
-def map_label(raw: str) -> tuple[str, str]:
+#: Behaviour tags in CTU-13 ``From-Botnet`` labels that match the labelbook's
+#: ``botnet`` (spam relay, click fraud, scanning or connection attempts, DDoS).
+_BOT_BEHAVIOUR = re.compile(r"SPAM|SMTP|Proxy|HTTP-Ad|Click|Attempt|ICMP|DDoS|Scan", re.IGNORECASE)
+_DNS = re.compile(r"(?:^|-)(?:UDP-)?(?:Attempt-)?DNS(?:-|$)")
+
+#: How a ``From-Botnet`` flow is labelled.
+#: ``behaviour`` (default): by what the flow does, as the labelbook defines the
+#:   classes. C&C -> ``c2``; spam, click-fraud ads, connection attempts, ICMP
+#:   floods -> ``botnet``; DNS lookups and plain sessions from the infected host
+#:   -> ``unknown`` (from a bot, not shown to be malicious; never benign).
+#: ``host``: every flow from an infected host is ``botnet`` (or ``c2``), the
+#:   mapping the G1 and NDR v1/v2 research used. CTU-13 labels hosts, so this
+#:   calls a bot's ordinary DNS lookup "botnet traffic".
+FLOW_LABEL_SEMANTICS = ("behaviour", "host")
+
+
+def map_label(raw: str, semantics: str = "behaviour") -> tuple[str, str]:
     """``(class, confidence)`` for a CTU-13 flow label."""
+    if semantics not in FLOW_LABEL_SEMANTICS:
+        raise ValueError(f"semantics must be one of {FLOW_LABEL_SEMANTICS}, not {semantics!r}")
     label = raw.strip().removeprefix("flow=")
     if "From-Botnet" in label:
-        return ("c2" if _CC.search(label) else "botnet"), "high"
+        if _CC.search(label):
+            return "c2", "high"
+        if semantics == "host":
+            return "botnet", "high"
+        if _DNS.search(label):
+            return "unknown", "low"
+        if _BOT_BEHAVIOUR.search(label):
+            return "botnet", "high"
+        return "unknown", "low"
     if "To-Botnet" in label or "To-Normal" in label:
         # The destination was verified; the source was not. Seen on the
         # published data as e.g. To-Normal-V45-UDP-NTP-server.
@@ -92,6 +118,10 @@ class Flow:
     packets: int
     bytes: int
     label: str
+    #: Where the flow came from: the archive member and its 1-based data row,
+    #: so a case built from it can be traced back to the exact source line.
+    source_file: str = ""
+    row: int = 0
 
 
 def _time(value: str) -> float | None:
@@ -110,9 +140,9 @@ def _num(value: str, cast: type = float) -> Any:
         return cast(0)
 
 
-def parse_binetflow(text: Iterable[str], scenario: str) -> Iterator[Flow]:
+def parse_binetflow(text: Iterable[str], scenario: str, source_file: str = "") -> Iterator[Flow]:
     reader = csv.DictReader(text)
-    for row in reader:
+    for n, row in enumerate(reader, start=1):
         start = _time(row.get("StartTime", ""))
         if start is None:
             continue
@@ -129,6 +159,8 @@ def parse_binetflow(text: Iterable[str], scenario: str) -> Iterator[Flow]:
             packets=_num(row.get("TotPkts", "0"), int),
             bytes=_num(row.get("TotBytes", "0"), int),
             label=row.get("Label") or "",
+            source_file=source_file,
+            row=n,
         )
 
 
@@ -146,7 +178,8 @@ def iter_flows(path: Path) -> Iterator[Flow]:
     if path.is_dir():
         for f in sorted(path.rglob("*.binetflow")):
             with f.open(encoding="utf-8", errors="replace", newline="") as fh:
-                yield from parse_binetflow(fh, _scenario_of(str(f.relative_to(path))))
+                rel = str(f.relative_to(path))
+                yield from parse_binetflow(fh, _scenario_of(rel), rel)
         return
     if tarfile.is_tarfile(path):
         with tarfile.open(path) as tf:
@@ -157,10 +190,10 @@ def iter_flows(path: Path) -> Iterator[Flow]:
                 if raw is None:
                     continue
                 text = io.TextIOWrapper(raw, encoding="utf-8", errors="replace", newline="")
-                yield from parse_binetflow(text, _scenario_of(member.name))
+                yield from parse_binetflow(text, _scenario_of(member.name), member.name)
         return
     with path.open(encoding="utf-8", errors="replace", newline="") as fh:
-        yield from parse_binetflow(fh, path.stem.split(".")[0])
+        yield from parse_binetflow(fh, path.stem.split(".")[0], path.name)
 
 
 @dataclass
@@ -176,6 +209,10 @@ class _Conversation:
     classes: Counter[str] = field(default_factory=Counter)
     confidence: dict[str, str] = field(default_factory=dict)
     sample: list[Flow] = field(default_factory=list)
+    #: Any flow labelled From-Botnet, whatever it was mapped to. A conversation
+    #: with one is never benign: under behaviour labels a bot's DNS lookup is
+    #: ``unknown``, and it must not leave a mixed conversation looking clean.
+    from_bot: bool = False
 
 
 def _keep(key: tuple[str, ...], rate: float) -> bool:
@@ -190,12 +227,13 @@ def build_cases(
     background_rate: float = 0.001,
     max_cases_per_class: int = 300,
     max_evidence: int = 10,
+    flow_labels: str = "behaviour",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """Aggregate flows into conversations and attach flow-label gold."""
     convs: dict[tuple[str, str, str, str, str], _Conversation] = {}
     seen_flows: Counter[str] = Counter()
     for f in flows:
-        cls, conf = map_label(f.label)
+        cls, conf = map_label(f.label, flow_labels)
         seen_flows[cls] += 1
         key = (f.scenario, f.src, f.dst, f.dport, f.proto)
         conv = convs.get(key)
@@ -211,6 +249,7 @@ def build_cases(
         if len(conv.starts) < 5000:
             conv.starts.append(f.start)
         conv.states[f.state] += 1
+        conv.from_bot = conv.from_bot or "From-Botnet" in f.label
         if cls != "unknown":
             conv.classes[cls] += 1
             conv.confidence[cls] = conf
@@ -219,6 +258,8 @@ def build_cases(
 
     def verdict(c: _Conversation) -> tuple[str, str]:
         labelled = [k for k in c.classes if c.classes[k]]
+        if labelled == ["benign"] and c.from_bot:
+            return "unknown", "low"
         if len(labelled) == 1:
             return labelled[0], c.confidence[labelled[0]]
         if {"c2", "botnet"} >= set(labelled) and labelled:
@@ -331,6 +372,7 @@ def build_cases(
         "families": sorted({c["family_id"] for c in cases}),
         "background_rate": background_rate,
         "max_cases_per_class": max_cases_per_class,
+        "flow_labels": flow_labels,
         "caveat": (
             "unknown is Background or To-Botnet traffic: unverified, never benign. Report "
             "known-label metrics and actions taken on unknown traffic separately. 2011 traffic."

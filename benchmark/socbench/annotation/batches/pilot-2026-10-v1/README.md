@@ -6,7 +6,7 @@
 
 ```bash
 uv run jef-bench fetch --source ctu-13 --source ait-ads
-uv run jef-bench build --source ctu-13 --background-rate 0.001
+uv run jef-bench build --source ctu-13 --background-rate 0.001 --flow-labels host
 uv run jef-bench build --source ait-ads
 uv run jef-bench dedupe \
   --cases .cache/socbench/derived/ctu-13/cases.jsonl --gold .cache/socbench/derived/ctu-13/gold.jsonl \
