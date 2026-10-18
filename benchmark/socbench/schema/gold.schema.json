@@ -26,6 +26,7 @@
         "attack-phase-window",
         "flow-label",
         "host-label",
+        "host-behaviour-label",
         "ctf-answer-key",
         "partial-red-team-positives",
         "adversary-emulation-semi-labelled",

@@ -105,3 +105,56 @@ def test_records_validate_against_the_schemas() -> None:
     )
     assert validate_records(repo, "case", cases) == len(cases)
     assert validate_records(repo, "gold", golds) == len(golds)
+
+
+def fusion_flows() -> list[Flow]:
+    out = flows()
+    for i in range(6):  # window 2: the bot sends only DNS -> unknown under behaviour gold
+        out.append(flow(BOT, "flow=From-Botnet-V42-UDP-DNS", 620 + i * 30, row=500 + i))
+    for i in range(5):  # window 3: spam attempts -> botnet
+        out.append(
+            flow(BOT, "flow=From-Botnet-V42-TCP-Attempt-SPAM", 920 + i, dport="25", row=600 + i)
+        )
+    return out
+
+
+def test_fusion_gold_follows_behaviour_and_tags_never_leak() -> None:
+    cases, golds, summary = build_host_windows(
+        fusion_flows(),
+        source_hash="sha256:" + "0" * 64,
+        background_host_rate=1.0,
+        gold="behaviour",
+        fusion=True,
+    )
+    by_id = {g["case_id"]: g for g in golds}
+    bot = sorted(
+        (c for c in cases if BOT in by_id[c["case_id"]]["adjudication_note"]),
+        key=lambda c: c["case_id"],
+    )
+    verdicts = [by_id[c["case_id"]]["gold"]["verdict"] for c in bot]
+    assert verdicts == ["unknown", "c2", "unknown", "botnet"], verdicts
+    assert {g["label_origin"] for g in golds} == {"host-behaviour-label"}
+    assert summary["gold"] == "behaviour" and summary["fusion"] is True
+    normal = [c for c in cases if NORMAL in by_id[c["case_id"]]["adjudication_note"]]
+    assert by_id[normal[0]["case_id"]]["gold"]["verdict"] == "benign"
+    for c in cases:
+        text = json.dumps({"state": c["state"], "evidence": c["evidence"]})
+        assert not IP.search(text)
+        assert not re.search(r"Botnet|SPAM|CC\d|Normal|Background", text), text
+        assert c["evidence"][0]["field"] == "conversation"
+        assert len(c["state"]["flows_by_minute"].split(",")) == 5
+    note = by_id[bot[1]["case_id"]]["adjudication_note"]
+    assert "host role: infected" in note and "conversations: e1=" in note
+
+
+def test_host_mode_is_unchanged_by_the_fusion_options() -> None:
+    a = build_host_windows(flows(), source_hash="sha256:" + "0" * 64, background_host_rate=1.0)
+    b = build_host_windows(
+        flows(),
+        source_hash="sha256:" + "0" * 64,
+        background_host_rate=1.0,
+        gold="host",
+        fusion=False,
+    )
+    assert a[0] == b[0] and a[1] == b[1]
+    assert all("flows_by_minute" not in c["state"] for c in a[0])

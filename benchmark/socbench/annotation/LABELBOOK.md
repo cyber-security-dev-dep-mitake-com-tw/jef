@@ -63,6 +63,8 @@ The case is everything one source host sent in a window (300 seconds by default)
 
 CTU-13's own labels for this task are host-level (`label_origin: host-label`, Tier C): every window of an infected host is `botnet` or `c2`, every window of one of the authors' verified normal hosts is `benign`. A reviewer label can say more, for example that a window of an infected host shows nothing but routine traffic (`unknown`).
 
+The fusion build (`--unit host-fusion`, `label_origin: host-behaviour-label`) already applies that reading to the source labels: `c2` and `botnet` need a C&C or attack-tagged flow inside the window, and an infected host's quiet window is `unknown`. IoT-23 cases (`--source iot-23`) use the same rule with IoT-23's per-flow labels.
+
 ### `soc.alert.verdict.v1`
 
 | Label | Use when |

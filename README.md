@@ -194,7 +194,7 @@ See [`docs/RESULTS.md`](docs/RESULTS.md). The short version:
 production SOC decision-quality validation.** The engine, the authorization
 contract, the safety evidence and the benchmark pipeline are built and tested.
 JEF's decisions on unseen network scenarios are not yet good enough to act on.
-On held-out CTU-13 scenarios the NDR head trails logistic regression. Closing
+On held-out CTU-13 scenarios the NDR head trails logistic regression on verdicts. Over host windows it ranks infected hosts better than logistic regression, which makes host compromise prioritisation, not adjudication, its plausible first use. Closing
 or suppressing an alert is never automated (`jef_scene.policy`), and every
 validation gate and its evidence is in
 [`docs/validation/README.md`](docs/validation/README.md). Work that needs a

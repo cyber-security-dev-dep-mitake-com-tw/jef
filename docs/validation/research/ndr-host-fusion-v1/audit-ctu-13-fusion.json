@@ -1,0 +1,244 @@
+{
+  "cases": 2902,
+  "host_reuse": {
+    "per_class": {
+      "benign": {
+        "hosts": 7,
+        "in_more_than_one_scenario": 6,
+        "max_scenarios_per_host": 13
+      },
+      "botnet": {
+        "hosts": 10,
+        "in_more_than_one_scenario": 10,
+        "max_scenarios_per_host": 13
+      },
+      "c2": {
+        "hosts": 10,
+        "in_more_than_one_scenario": 10,
+        "max_scenarios_per_host": 13
+      },
+      "unknown": {
+        "hosts": 123,
+        "in_more_than_one_scenario": 5,
+        "max_scenarios_per_host": 13
+      }
+    },
+    "per_held_out_scenario": {
+      "ctu13-scenario-1": {
+        "cases": 288,
+        "host_also_in_training": 258,
+        "share": 0.8958,
+        "by_class": {
+          "benign": 200,
+          "unknown": 1,
+          "c2": 52,
+          "botnet": 5
+        }
+      },
+      "ctu13-scenario-10": {
+        "cases": 288,
+        "host_also_in_training": 277,
+        "share": 0.9618,
+        "by_class": {
+          "benign": 161,
+          "botnet": 84,
+          "unknown": 6,
+          "c2": 26
+        }
+      },
+      "ctu13-scenario-11": {
+        "cases": 20,
+        "host_also_in_training": 16,
+        "share": 0.8,
+        "by_class": {
+          "benign": 11,
+          "botnet": 3,
+          "c2": 2
+        }
+      },
+      "ctu13-scenario-12": {
+        "cases": 74,
+        "host_also_in_training": 72,
+        "share": 0.973,
+        "by_class": {
+          "benign": 45,
+          "botnet": 27
+        }
+      },
+      "ctu13-scenario-13": {
+        "cases": 427,
+        "host_also_in_training": 390,
+        "share": 0.9133,
+        "by_class": {
+          "benign": 194,
+          "botnet": 9,
+          "c2": 187
+        }
+      },
+      "ctu13-scenario-2": {
+        "cases": 183,
+        "host_also_in_training": 110,
+        "share": 0.6011,
+        "by_class": {
+          "benign": 67,
+          "unknown": 1,
+          "botnet": 2,
+          "c2": 40
+        }
+      },
+      "ctu13-scenario-3": {
+        "cases": 397,
+        "host_also_in_training": 367,
+        "share": 0.9244,
+        "by_class": {
+          "benign": 192,
+          "unknown": 2,
+          "botnet": 173
+        }
+      },
+      "ctu13-scenario-4": {
+        "cases": 193,
+        "host_also_in_training": 178,
+        "share": 0.9223,
+        "by_class": {
+          "benign": 154,
+          "unknown": 3,
+          "botnet": 11,
+          "c2": 10
+        }
+      },
+      "ctu13-scenario-5": {
+        "cases": 29,
+        "host_also_in_training": 26,
+        "share": 0.8966,
+        "by_class": {
+          "benign": 21,
+          "c2": 5
+        }
+      },
+      "ctu13-scenario-6": {
+        "cases": 98,
+        "host_also_in_training": 89,
+        "share": 0.9082,
+        "by_class": {
+          "benign": 64,
+          "c2": 25
+        }
+      },
+      "ctu13-scenario-7": {
+        "cases": 25,
+        "host_also_in_training": 21,
+        "share": 0.84,
+        "by_class": {
+          "benign": 19,
+          "botnet": 1,
+          "c2": 1
+        }
+      },
+      "ctu13-scenario-8": {
+        "cases": 378,
+        "host_also_in_training": 362,
+        "share": 0.9577,
+        "by_class": {
+          "benign": 196,
+          "c2": 164,
+          "botnet": 2
+        }
+      },
+      "ctu13-scenario-9": {
+        "cases": 502,
+        "host_also_in_training": 397,
+        "share": 0.7908,
+        "by_class": {
+          "benign": 184,
+          "botnet": 12,
+          "c2": 200,
+          "unknown": 1
+        }
+      }
+    },
+    "median_share_of_test_cases_whose_host_is_in_training": 0.9082
+  },
+  "near_duplicates": {
+    "bucketing": "log2 of every numeric state value; strings exact; evidence ignored",
+    "per_held_out_scenario": {
+      "ctu13-scenario-1": {
+        "cases": 288,
+        "near_duplicate_same_label_elsewhere": 12,
+        "near_duplicate_other_label_only": 8
+      },
+      "ctu13-scenario-10": {
+        "cases": 288,
+        "near_duplicate_same_label_elsewhere": 16,
+        "near_duplicate_other_label_only": 1
+      },
+      "ctu13-scenario-11": {
+        "cases": 20,
+        "near_duplicate_same_label_elsewhere": 1,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-12": {
+        "cases": 74,
+        "near_duplicate_same_label_elsewhere": 2,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-13": {
+        "cases": 427,
+        "near_duplicate_same_label_elsewhere": 14,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-2": {
+        "cases": 183,
+        "near_duplicate_same_label_elsewhere": 8,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-3": {
+        "cases": 397,
+        "near_duplicate_same_label_elsewhere": 20,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-4": {
+        "cases": 193,
+        "near_duplicate_same_label_elsewhere": 16,
+        "near_duplicate_other_label_only": 1
+      },
+      "ctu13-scenario-5": {
+        "cases": 29,
+        "near_duplicate_same_label_elsewhere": 0,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-6": {
+        "cases": 98,
+        "near_duplicate_same_label_elsewhere": 8,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-7": {
+        "cases": 25,
+        "near_duplicate_same_label_elsewhere": 1,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-8": {
+        "cases": 378,
+        "near_duplicate_same_label_elsewhere": 18,
+        "near_duplicate_other_label_only": 0
+      },
+      "ctu13-scenario-9": {
+        "cases": 502,
+        "near_duplicate_same_label_elsewhere": 13,
+        "near_duplicate_other_label_only": 0
+      }
+    },
+    "share_same_label_elsewhere": 0.0445,
+    "share_other_label_only": 0.0034
+  },
+  "window_label_basis": {
+    "attack_windows": 1041,
+    "decided_by_a_single_flow": 58,
+    "c2_windows": 712,
+    "c2_flows_per_c2_window": {
+      "median": 5,
+      "exactly_one": 58
+    }
+  },
+  "window_overlap": "not a leak by construction: one window per flow, one fold per scenario"
+}

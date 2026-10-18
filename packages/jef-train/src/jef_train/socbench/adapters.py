@@ -95,6 +95,12 @@ ADAPTERS: dict[str, Adapter] = {
             "joined in item 09, never as per-alert verdicts.",
         ),
         Adapter(
+            "iot-23",
+            "Public directory at mcfp.felk.cvut.cz (CC BY 4.0). Only bro/conn.log.labeled of a "
+            "subset of captures (<= 200 MB each on 2026-10-18); malware binaries and pcaps are not "
+            "fetched. Labels are per flow: Benign or Malicious with a behaviour.",
+        ),
+        Adapter(
             "ctu-13",
             "Public directory at mcfp.felk.cvut.cz (CC-BY). The full archive is ~1.9 GB. "
             "only-exes-of-ctu-13.zip holds the botnet binaries and is deliberately not an "

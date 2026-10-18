@@ -31,6 +31,19 @@ sources:
     priority: 2
     caveat: Background is unknown/unverified traffic and must be labelled unknown, never benign
 
+  - id: iot-23
+    name: Stratosphere IoT-23
+    url: https://www.stratosphereips.org/datasets-iot23
+    language: n/a
+    ground_truth_level: flow-label                  # per-flow Benign / Malicious with a behaviour (C&C, DDoS, PartOfAHorizontalPortScan, ...)
+    realism: medium
+    hard_negatives: medium
+    jef_use: [soc.ndr.host.v1]
+    access: public-download                         # subset of 10 captures, ~180 MB (manifests/iot-23.json)
+    license: CC-BY-4.0
+    priority: 2
+    caveat: 2018-2019 IoT devices on a lab network; flow labels come from the authors' analysis of known infections; one infected device per malware capture
+
   - id: bots-v3
     name: Splunk Boss of the SOC v3
     url: https://github.com/splunk/botsv3
