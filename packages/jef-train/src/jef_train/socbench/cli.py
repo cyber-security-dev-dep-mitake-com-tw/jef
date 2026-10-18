@@ -126,14 +126,19 @@ def cmd_build(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     options: dict[str, object] = {}
     if args.source == "ait-ads" and args.bucket_seconds:
         options["bucket_seconds"] = args.bucket_seconds
+    if args.source == "iot-23":
+        options["unit"] = "host-fusion"
+        options["window_s"] = args.window_seconds
+        if args.max_cases_per_class is not None:
+            options["max_cases_per_class"] = args.max_cases_per_class
     if args.source == "ctu-13":
         if args.background_rate is not None:
             options["background_rate"] = args.background_rate
         if args.max_cases_per_class is not None:
             options["max_cases_per_class"] = args.max_cases_per_class
         options["flow_labels"] = args.flow_labels
-        if args.unit == "host-window":
-            options["unit"] = "host-window"
+        if args.unit in {"host-window", "host-fusion"}:
+            options["unit"] = args.unit
             options["window_s"] = args.window_seconds
             if args.background_host_rate is not None:
                 options["background_host_rate"] = args.background_host_rate
@@ -517,7 +522,7 @@ def build_parser() -> argparse.ArgumentParser:
     n.add_argument("--local", action="store_true", help="hash files already in the data dir")
 
     b = sub.add_parser("build", help="derive validated cases and weak gold from a fetched source")
-    b.add_argument("--source", required=True, choices=["ait-ads", "ctu-13"])
+    b.add_argument("--source", required=True, choices=["ait-ads", "ctu-13", "iot-23"])
     b.add_argument("--input", type=Path, help="archive (default: the pinned file in the data dir)")
     b.add_argument("--labels", type=Path, help="AIT-ADS labels.csv (default: beside the archive)")
     b.add_argument("--out", type=Path, help="output dir (default: <data-dir>/derived/<source>)")
@@ -528,10 +533,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     b.add_argument(
         "--unit",
-        choices=["conversation", "host-window"],
+        choices=["conversation", "host-window", "host-fusion"],
         default="conversation",
         help="CTU-13: one conversation per case, or one source host per time window "
-        "(task soc.ndr.host.v1, host-level labels)",
+        "(task soc.ndr.host.v1, host-level labels); host-fusion adds behaviour gold, conversation "
+        "evidence and a per-minute series",
     )
     b.add_argument(
         "--window-seconds", type=int, default=300, help="CTU-13 host-window: window (300)"
@@ -594,6 +600,13 @@ def build_parser() -> argparse.ArgumentParser:
     cb.add_argument("--cases", type=Path, help="the case file, for full validation")
     cb.add_argument("--git", action="store_true", help="check reviewer independence from git")
     cb.add_argument("--out", type=Path, help="write the report as JSON")
+
+    au = sub.add_parser(
+        "audit", help="leakage audit: host reuse, near-duplicates, how window labels were decided"
+    )
+    au.add_argument("--cases", type=Path, required=True)
+    au.add_argument("--gold", type=Path, required=True)
+    au.add_argument("--out", type=Path, required=True)
 
     dd = sub.add_parser(
         "dedupe", help="drop byte-identical states before locking (same label: keep one)"
@@ -701,6 +714,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cmd_export_corpus(repo, args)
     if args.command == "dedupe":
         return cmd_dedupe(repo, args)
+    if args.command == "audit":
+        import json
+
+        from .leakage import audit
+        from .records import read_jsonl
+
+        report = audit(read_jsonl(args.cases), read_jsonl(args.gold))
+        args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf-8")
+        hr, nd = report["host_reuse"], report["near_duplicates"]
+        print(
+            f"hosts in more than one scenario, per class: "
+            f"{ {k: v['in_more_than_one_scenario'] for k, v in hr['per_class'].items()} }; "
+            f"median share of held-out cases whose host is in training "
+            f"{hr['median_share_of_test_cases_whose_host_is_in_training']}; near-duplicates "
+            f"same label {nd['share_same_label_elsewhere']}, other label only "
+            f"{nd['share_other_label_only']} -> {args.out}"
+        )
+        return 0
     if args.command == "evaluate":
         return cmd_evaluate(repo, args)
     if args.command == "lock":
