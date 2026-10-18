@@ -23,10 +23,13 @@ Compose's `internal: true` network is a convenience for a developer laptop, not 
 
 ```bash
 docker compose -f deploy/lab/docker-compose.yml up --build -d
-curl -s http://127.0.0.1:8080/readyz
-curl -s -H 'X-API-Key: lab-only-not-a-secret' http://127.0.0.1:8080/v1/readiness | python3 -m json.tool
-curl -s http://127.0.0.1:9009/healthz
+docker compose -f deploy/lab/docker-compose.yml exec jef python -c \
+  "import urllib.request as u; r = u.Request('http://127.0.0.1:8080/v1/readiness', headers={'X-API-Key': 'lab-only-not-a-secret'}); print(u.urlopen(r).read().decode())"
+docker compose -f deploy/lab/docker-compose.yml exec mock-targets python -c \
+  "import urllib.request as u; print(u.urlopen('http://127.0.0.1:9009/healthz').read().decode())"
 ```
+
+Nothing is published to the host: Docker does not publish ports for containers whose only network is `internal`, which is the point. Reach the services with `docker compose exec`, or run the matrix below with the `mock-soar` service.
 
 With the hashing backbone `readiness` reports `backbone:test` and `decision_support_ready: false`; that is correct for a smoke run. Switch `JEF_BACKBONE` and stage weights for the real thing.
 
@@ -45,6 +48,20 @@ With the hashing backbone `readiness` reports `backbone:test` and `decision_supp
 | Restart | `docker compose restart jef` after `authorized` | `GET /v1/decisions/<key>` returns the same receipt |
 | Store down | stop the volume / make the DB path unwritable | `503 store_unavailable`; nothing authorized |
 | Egress | `egress_check.sh` | `PASS` |
+
+### The same matrix, automated
+
+`mock_soar.py` runs the rows above except Egress from inside the lab network, as the SOAR connector and the approval stub, and writes one JSON report per phase:
+
+```bash
+mkdir -p deploy/lab/soar-out
+docker compose -f deploy/lab/docker-compose.yml up --build -d jef mock-targets
+docker compose -f deploy/lab/docker-compose.yml --profile soar run --rm mock-soar matrix
+docker compose -f deploy/lab/docker-compose.yml restart jef
+docker compose -f deploy/lab/docker-compose.yml --profile soar run --rm mock-soar after-restart
+```
+
+CI runs the same steps, plus the store outage, in the `lab-compose` job and archives `lab-compose-<sha>`. It proves the contract on a CI runner; it is **not** evidence that an ESXi segment has no egress (S14), which only `egress_check.sh` on the lab VM can give.
 
 Collect `GET /calls` from the mock, the receipts, the readiness report and the egress output into the Safety Evidence Pack, alongside the automated half. Run it inside the lab VM so the pack is bound to where it ran:
 

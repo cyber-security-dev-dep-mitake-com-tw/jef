@@ -306,3 +306,62 @@ jobs:
       - name: Clean up
         if: always()
         run: docker rm -f jef-ci || true
+
+  lab-compose:
+    name: lab compose, mock SOAR end to end
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      COMPOSE: docker compose -f deploy/lab/docker-compose.yml
+      SOAR_OUT_DIR: ${{ github.workspace }}/soar-out
+    steps:
+      - uses: actions/checkout@v4
+      - name: Report directory the container user can write
+        run: mkdir -p "$SOAR_OUT_DIR" && chmod 777 "$SOAR_OUT_DIR"
+      - name: Build and start JEF and the mock targets
+        run: $COMPOSE up --build -d jef mock-targets
+      - name: Safety matrix (auth, budgets, refusals, double spend, retry storm, timeout)
+        run: $COMPOSE --profile soar run --rm mock-soar matrix
+      - name: Restart JEF
+        run: |
+          $COMPOSE restart jef
+          for _ in $(seq 1 60); do
+            $COMPOSE exec -T jef python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/readyz',timeout=2).status==200 else 1)" 2>/dev/null && break
+            sleep 1
+          done
+      - name: Receipts and spent grants survived; rate limit
+        run: $COMPOSE --profile soar run --rm mock-soar after-restart
+      - name: Decision store unreachable fails closed
+        run: |
+          $COMPOSE --profile soar run --rm mock-soar prepare-store-down
+          $COMPOSE exec -T -u root jef chmod 000 /var/lib/jef
+          status=0
+          $COMPOSE --profile soar run --rm mock-soar store-down || status=$?
+          $COMPOSE exec -T -u root jef chmod 755 /var/lib/jef
+          exit $status
+      - name: Nothing in the lab is reachable from the host
+        run: |
+          for port in 8080 9009; do
+            if curl -s -m 3 "http://127.0.0.1:$port/" >/dev/null; then
+              echo "::error::port $port answers on the host; the lab network must stay internal"
+              exit 1
+            fi
+          done
+          echo "no lab service answers on the host"
+      - name: Mock platform ledger
+        if: always()
+        run: $COMPOSE exec -T mock-targets python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9009/calls').read().decode())" | tee "$SOAR_OUT_DIR/mock-ledger.json" || true
+      - name: Upload the lab report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-compose-${{ github.sha }}
+          path: soar-out/
+          retention-days: 30
+      - name: Logs
+        if: always()
+        run: $COMPOSE logs --no-color 2>&1 | tail -80 || true
+      - name: Clean up
+        if: always()
+        run: $COMPOSE --profile soar down -v || true
