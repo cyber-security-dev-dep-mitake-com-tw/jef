@@ -93,6 +93,8 @@ Kappa is unstable when one class dominates. Always read it next to the per-class
 
 ## 8. The pilot (first 50–65 cases)
 
+Batches live in git as labels only: see [`batches/`](batches/README.md). The prepared pilot is [`batches/pilot-2026-10-v1`](batches/pilot-2026-10-v1/README.md) (63 cases from CTU-13 and AIT-ADS); its README has every command. A pull request that adds labels runs the `annotation batch` check, which refuses case text in the repository, foreign case ids, invalid verdicts, and non-independent reviewer commits.
+
 ### With one reviewer (the usual start)
 
 A single security engineer can run the pilot. The result is **Tier B** (`single-human-reviewed`) and is reported as that, never as agreement.
@@ -111,6 +113,7 @@ Do not run a second "reviewer" yourself, with a second handle, or with an LLM. T
 3. `jef-bench annotate agree`: read kappa per class, the disagreement queue, and `timing.reviewer_hours_per_100_cases_double_reviewed`.
 4. Meet once with the adjudicator: for each disagreement, decide whether the **labelbook** was unclear (fix this file) or a reviewer erred (adjudicate). Do not relabel agreed cases.
 5. Schedule the rest of the gold set from the measured hours, not from an estimate. Sample the next batch with `--exclude sampled-pilot.jsonl`.
+6. For the 300+ case Tier A set, open a **Gold annotation batch** issue per batch, create it with `jef-bench annotate new-batch --purpose gold --reviewer <A> --reviewer <B> --adjudicator <C>`, and have each person commit only their own file. `check-batch` reports `tier_if_merged: A` only when both reviewers are complete, every disagreement has the adjudicator's decision, and git shows three separate authors.
 
 ## 9. Things that are never Tier A
 

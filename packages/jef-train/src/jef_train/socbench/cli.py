@@ -163,6 +163,8 @@ def cmd_annotate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     from .annotate import AnnotationError, adjudicate, agreement, export_tasks, parse_annotations
     from .records import read_jsonl, validate_records, write_jsonl
 
+    if args.annotate_command in {"new-batch", "check-batch"}:
+        return _batch_command(args)
     cases = _cases_by_id(args.cases)
     try:
         if args.annotate_command == "export":
@@ -227,6 +229,66 @@ def cmd_annotate(repo: SocbenchRepo, args: argparse.Namespace) -> int:
     disputed = sum(g["adjudication_status"] == "disputed" for g in golds)
     print(f"wrote {n} gold record(s) -> {args.out} ({disputed} still disputed)")
     return 0
+
+
+def _batch_command(args: argparse.Namespace) -> int:
+    import json
+
+    from .batch import BatchError, check_batch, git_authors, new_batch
+    from .records import read_jsonl
+
+    if args.annotate_command == "new-batch":
+        cases = read_jsonl(args.cases)
+        meta = new_batch(
+            cases,
+            batch_id=args.batch_id,
+            purpose=args.purpose,
+            reviewers=args.reviewer,
+            recipe=args.recipe,
+            adjudicator=args.adjudicator,
+            note=args.note,
+        )
+        out = args.batches_dir / args.batch_id
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "batch.json").write_text(
+            json.dumps(meta, indent=2, ensure_ascii=False) + "\n", "utf-8"
+        )
+        try:
+            check_batch(out)  # refuses a malformed batch before anyone labels it
+        except BatchError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        print(f"{out}/batch.json: {len(meta['cases'])} case(s), {meta['cases_digest']}")
+        return 0
+
+    batch_cases = read_jsonl(args.cases) if args.cases else None
+    reports, failed = [], 0
+    for batch_dir in args.batch:
+        try:
+            report = check_batch(
+                batch_dir, cases=batch_cases, authors=git_authors(batch_dir) if args.git else None
+            )
+        except BatchError as exc:
+            print(f"FAIL  {exc}", file=sys.stderr)
+            failed += 1
+            continue
+        reports.append(report)
+        failed += bool(report["problems"])
+        status = "FAIL" if report["problems"] else "ok  "
+        done = ", ".join(
+            f"{r} {c['labelled']}/{c['of']}" for r, c in report["completeness"].items()
+        )
+        print(
+            f"{status}  {report['batch_id']} ({report['purpose']}): {done}; kappa {report['kappa']}; "
+            f"open disagreements {report['open_disagreements']}; tier if merged {report['tier_if_merged']}"
+        )
+        for p in report["problems"]:
+            print(f"      - {p}")
+        for n in report["notes"]:
+            print(f"      note: {n}")
+    if args.out:
+        args.out.write_text(json.dumps(reports, indent=2, ensure_ascii=False) + "\n", "utf-8")
+    return 1 if failed else 0
 
 
 def cmd_dedupe(repo: SocbenchRepo, args: argparse.Namespace) -> int:
@@ -485,6 +547,25 @@ def build_parser() -> argparse.ArgumentParser:
                 "--weak-gold", type=Path, help="source labels, for a labelled source-label check"
             )
             ap.add_argument("--hourly-rate", type=float, help="reviewer cost per hour")
+
+    nb = asub.add_parser("new-batch", help="batch.json for sampled cases (ids and digest, no text)")
+    nb.add_argument("--cases", type=Path, required=True)
+    nb.add_argument("--batch-id", required=True)
+    nb.add_argument("--purpose", choices=["pilot", "gold"], required=True)
+    nb.add_argument(
+        "--reviewer", action="append", required=True, help="analyst-anon-NN, repeatable"
+    )
+    nb.add_argument("--adjudicator", help="analyst-anon-NN (gold batches)")
+    nb.add_argument("--recipe", required=True, help="commands that regenerate the cases")
+    nb.add_argument("--note", default="")
+    nb.add_argument(
+        "--batches-dir", type=Path, default=Path("benchmark/socbench/annotation/batches")
+    )
+    cb = asub.add_parser("check-batch", help="what CI checks on a batch pull request")
+    cb.add_argument("--batch", type=Path, required=True, action="append")
+    cb.add_argument("--cases", type=Path, help="the case file, for full validation")
+    cb.add_argument("--git", action="store_true", help="check reviewer independence from git")
+    cb.add_argument("--out", type=Path, help="write the report as JSON")
 
     dd = sub.add_parser(
         "dedupe", help="drop byte-identical states before locking (same label: keep one)"

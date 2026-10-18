@@ -1,0 +1,44 @@
+name: Gold annotation batch
+description: Plan a two-reviewer Tier A batch (benchmark/socbench/annotation/batches)
+title: "gold batch: <batch-id>"
+labels: ["annotation"]
+body:
+  - type: input
+    id: batch
+    attributes:
+      label: Batch id
+      description: 3-64 of [a-z0-9.-]; becomes the directory name
+    validations:
+      required: true
+  - type: textarea
+    id: recipe
+    attributes:
+      label: Cases
+      description: Source, task, sampler command and seed. Case text never goes in the repository.
+    validations:
+      required: true
+  - type: input
+    id: reviewers
+    attributes:
+      label: Reviewer handles
+      description: Two distinct analyst-anon-NN handles, held by two different qualified people (never a second handle, never an LLM)
+    validations:
+      required: true
+  - type: input
+    id: adjudicator
+    attributes:
+      label: Adjudicator handle
+      description: A third person, analyst-anon-NN
+    validations:
+      required: true
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Before labelling
+      options:
+        - label: Each reviewer commits only their own labels file, from their own account
+          required: true
+        - label: Reviewers do not see each other's labels until both files are merged
+          required: true
+        - label: Disagreements go to decisions.jsonl, written by the adjudicator only
+          required: true

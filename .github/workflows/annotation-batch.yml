@@ -1,0 +1,42 @@
+name: annotation batch
+
+# Checks every annotation batch a pull request touches: label hygiene (no case
+# text in the repository), membership, allowed verdicts, and reviewer
+# independence from git history. Posts the batch status to the job summary.
+on:
+  pull_request:
+    paths:
+      - "benchmark/socbench/annotation/batches/**"
+      - "packages/jef-train/src/jef_train/socbench/batch.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: annotation batch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # independence is read from the full history of each batch
+      - uses: astral-sh/setup-uv@v5
+      - name: Sync
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+      - name: Check every batch
+        run: |
+          batches=$(find benchmark/socbench/annotation/batches -mindepth 1 -maxdepth 1 -type d | sort)
+          if [ -z "$batches" ]; then echo "no batches"; exit 0; fi
+          args=""
+          for b in $batches; do args="$args --batch $b"; done
+          status=0
+          uv run jef-bench annotate check-batch $args --git --out batch-report.json | tee batch-check.txt || status=$?
+          {
+            echo "## Annotation batches"
+            echo '```'
+            cat batch-check.txt
+            echo '```'
+            echo "Structural checks only: CI has no case data. Run with --cases locally for the full check."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
