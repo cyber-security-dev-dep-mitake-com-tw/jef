@@ -106,14 +106,49 @@ class Executor:
         grant: Any = None,
         dry_run: bool = False,
     ) -> ExecutionReceipt:
+        """Check, claim the key, call the platform once, record the outcome.
+
+        The key is claimed in the store (an ``authorized`` receipt) *before*
+        the platform is called, and only the worker whose claim landed makes
+        the call. Several workers sharing a persistent store therefore cannot
+        all pass the "not seen yet" check and each call the platform: the
+        losers get the claim back. If the process dies after the claim, the
+        key stays ``authorized`` with no outcome, which is the truth: a retry
+        returns it without calling again, and someone must reconcile with the
+        platform rather than act twice.
+        """
         with self._lock:
             seen = self.store.get(idempotency_key)
             if seen is not None:
                 return seen
-            receipt = self._dispatch(proposal, idempotency_key, grant, dry_run)
             if dry_run:
-                return receipt
-            return self.store.put_if_absent(idempotency_key, receipt)
+                return self._dispatch(proposal, idempotency_key, grant, dry_run=True)
+            checked = self._check(proposal, idempotency_key, grant)
+            if isinstance(checked, ExecutionReceipt):
+                return self.store.put_if_absent(idempotency_key, checked)
+            started = self.clock()
+            claim = ExecutionReceipt(
+                case_id=proposal.case_id,
+                trace_id=proposal.trace_id,
+                action=proposal.action,
+                asset_id=proposal.asset_id,
+                connector=self.connector,
+                idempotency_key=idempotency_key,
+                status="authorized",
+                detail="dispatch in progress; no outcome recorded yet",
+                grant_nonce=checked,
+                started_at=_iso(started),
+            )
+            stored = self.store.put_if_absent(idempotency_key, claim)
+            if stored is not claim:
+                # Another worker claimed this key first; it makes the call.
+                return stored
+            final = self._perform(proposal, idempotency_key, checked, started)
+            if self.store.replace(idempotency_key, "authorized", final):
+                return final
+            # Someone recorded an outcome for the claim meanwhile (``complete``);
+            # the store's answer wins, never ours.
+            return self.store.get(idempotency_key) or final
 
     # -- two-phase: for connectors whose platform performs the action ----------
     #
@@ -313,6 +348,8 @@ class Executor:
         grant_nonce = checked
 
         started = self.clock()
+        if not dry_run:
+            return self._perform(proposal, key, grant_nonce, started)
         if dry_run:
             return ExecutionReceipt(
                 case_id=proposal.case_id,
@@ -328,6 +365,10 @@ class Executor:
                 finished_at=_iso(self.clock()),
             )
 
+    def _perform(
+        self, proposal: ProposedDecision, key: str, grant_nonce: str | None, started: datetime
+    ) -> ExecutionReceipt:
+        """Call the platform once and build the receipt. Callers own the claim."""
         self.dispatch_count += 1
         self._log(AuditEntry.of("dispatched", proposal.case_id, proposal.trace_id, {"key": key}))
         status: str
