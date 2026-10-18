@@ -4,7 +4,7 @@
 Reproduce (from the repository root, after `uv sync --all-packages`):
 
     uv run jef-bench fetch --source ctu-13 --pin && uv run jef-bench check --source ctu-13
-    uv run jef-bench build --source ctu-13 --background-rate 0.001
+    uv run jef-bench build --source ctu-13 --background-rate 0.001 --flow-labels host
     uv run jef-bench dedupe --cases .cache/socbench/derived/ctu-13/cases.jsonl \\
         --gold .cache/socbench/derived/ctu-13/gold.jsonl \\
         --out-cases .cache/socbench/research/ctu13-v1/cases.jsonl \\

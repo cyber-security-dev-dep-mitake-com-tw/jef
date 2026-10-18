@@ -13,6 +13,7 @@
       "enum": [
         "soc.alert.verdict.v1",
         "soc.ndr.technique.v1",
+        "soc.ndr.host.v1",
         "soc.edr.execution.v1",
         "soc.identity.abuse.v1",
         "soc.phishing.verdict.v1",
@@ -24,6 +25,7 @@
       "enum": [
         "attack-phase-window",
         "flow-label",
+        "host-label",
         "ctf-answer-key",
         "partial-red-team-positives",
         "adversary-emulation-semi-labelled",

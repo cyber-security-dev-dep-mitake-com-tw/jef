@@ -112,6 +112,18 @@ class RuleScorer:
             if dport == "53" and flows < 50:
                 return _dist(labels, {"benign": 0.4, "unknown": 0.4, "dns_tunnel": 0.2})
             return _dist(labels, {"unknown": 0.6, "benign": 0.3, "botnet": 0.1})
+        if task == "soc.ndr.host.v1":
+            # Classic bot tells in a host's window: mail volume, IRC, wide fan-out
+            # with many unanswered connections.
+            smtp = float(state.get("smtp_flows", 0) or 0)
+            irc = float(state.get("irc_flows", 0) or 0)
+            dsts = float(state.get("distinct_dsts", 0) or 0)
+            unanswered = float(state.get("unanswered_share", 0) or 0)
+            if irc >= 1:
+                return _dist(labels, {"c2": 0.5, "botnet": 0.4, "unknown": 0.1})
+            if smtp >= 10 or (dsts >= 50 and unanswered >= 0.5):
+                return _dist(labels, {"botnet": 0.6, "unknown": 0.3, "c2": 0.1})
+            return _dist(labels, {"unknown": 0.5, "benign": 0.4, "botnet": 0.1})
         if task == "soc.phishing.verdict.v1":
             hits = len(_PHISH_WORDS.findall(text))
             link = "http" in text or "hxxp" in text
@@ -190,6 +202,10 @@ TASK_QUESTIONS: Mapping[str, Mapping[str, str]] = {
     "soc.ndr.technique.v1": {
         "en": "Which network behaviour does this evidence show?",
         "zh-TW": "此證據顯示何種網路行為？",
+    },
+    "soc.ndr.host.v1": {
+        "en": "Is this host infected, judging by its traffic in this window?",
+        "zh-TW": "依此時間窗內的流量判斷，此主機是否已遭感染？",
     },
     "soc.edr.execution.v1": {
         "en": "Is this process execution malicious?",

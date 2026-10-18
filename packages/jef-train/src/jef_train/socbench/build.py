@@ -17,7 +17,7 @@ from typing import Any
 
 from jef_train.corpus.sources import sha256_of
 
-from . import ait_ads, ctu13
+from . import ait_ads, ctu13, ctu13_hosts
 from .manifest import SocbenchRepo
 from .pipeline import data_dir
 from .records import validate_records, write_jsonl
@@ -71,9 +71,19 @@ def build_source(
         alerts = ait_ads.iter_alerts(paths["archive"], windows, stats)
         cases, golds, summary = ait_ads.build_cases(alerts, windows, source_hash=digest, **opts)
         summary["parse"] = asdict(stats)
+    elif opts.get("unit") == "host-window":
+        host_opts = {
+            k: v
+            for k, v in opts.items()
+            if k in {"window_s", "background_host_rate", "max_cases_per_class"}
+        }
+        cases, golds, summary = ctu13_hosts.build_host_windows(
+            ctu13.iter_flows(paths["archive"]), source_hash=digest, **host_opts
+        )
     else:
+        flow_opts = {k: v for k, v in opts.items() if k != "unit"}
         cases, golds, summary = ctu13.build_cases(
-            ctu13.iter_flows(paths["archive"]), source_hash=digest, **opts
+            ctu13.iter_flows(paths["archive"]), source_hash=digest, **flow_opts
         )
 
     validate_records(repo, "case", cases)

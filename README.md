@@ -190,8 +190,19 @@ See [`docs/RESULTS.md`](docs/RESULTS.md). The short version:
 
 ## Status
 
-Under active development. See `docs/` for design notes and `.github/workflows`
-for what CI actually checks.
+**An engineering-complete research platform that has not yet passed
+production SOC decision-quality validation.** The engine, the authorization
+contract, the safety evidence and the benchmark pipeline are built and tested.
+JEF's decisions on unseen network scenarios are not yet good enough to act on.
+On held-out CTU-13 scenarios the NDR head trails logistic regression. Closing
+or suppressing an alert is never automated (`jef_scene.policy`), and every
+validation gate and its evidence is in
+[`docs/validation/README.md`](docs/validation/README.md). Work that needs a
+person, an account or a lab is in
+[`manually_action_need_todos.md`](manually_action_need_todos.md).
+
+See `docs/` for design notes and `.github/workflows` for what CI actually
+checks.
 
 - **Engine, server, CLI, SDKs, connectors:** building and tested on every push
   (`ci.yml`); the Python and Go servers are asserted identical to 1e-9.

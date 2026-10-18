@@ -41,6 +41,7 @@ __all__ = ["POSITIVE_LABELS", "evaluate"]
 POSITIVE_LABELS: Mapping[str, frozenset[str]] = {
     "soc.alert.verdict.v1": frozenset({"confirmed_malicious", "suspicious"}),
     "soc.ndr.technique.v1": frozenset({"c2", "botnet", "dns_tunnel"}),
+    "soc.ndr.host.v1": frozenset({"c2", "botnet"}),
     "soc.edr.execution.v1": frozenset({"malicious"}),
     "soc.identity.abuse.v1": frozenset({"compromised", "suspicious"}),
     "soc.phishing.verdict.v1": frozenset({"phishing", "suspicious"}),
