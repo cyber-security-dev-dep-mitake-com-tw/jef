@@ -87,6 +87,8 @@ CASES: dict[str, tuple[str, list[str]]] = {
         "Same grant, another idempotency key: GRANT_ALREADY_USED",
         [
             f"{SCN}/test_store.py::test_one_grant_cannot_authorise_two_commands",
+            f"{SCN}/test_store_concurrency.py::test_one_grant_many_keys_at_once_authorises_exactly_one",
+            f"{SRV}/test_decisions_concurrency.py::test_one_grant_two_workers_many_keys_one_authorization",
         ],
     ),
     "S08": (
@@ -94,6 +96,9 @@ CASES: dict[str, tuple[str, list[str]]] = {
         [
             f"{SCN}/test_authz.py::test_pol_005_same_key_ten_times_executes_once",
             f"{SCN}/test_store.py::test_ten_workers_authorise_the_same_key_exactly_once",
+            f"{SCN}/test_store_concurrency.py::test_racing_retries_dispatch_once",
+            f"{SCN}/test_store_concurrency.py::test_a_crash_after_the_claim_never_dispatches_twice",
+            f"{SRV}/test_decisions_concurrency.py::test_a_retry_storm_on_one_key_across_workers_gets_one_receipt",
         ],
     ),
     "S09": (
@@ -127,6 +132,7 @@ CASES: dict[str, tuple[str, list[str]]] = {
         [
             f"{SCN}/test_store.py::test_a_tampered_audit_row_breaks_the_chain",
             f"{SCN}/test_store.py::test_an_exported_head_catches_a_recomputed_chain",
+            f"{SCN}/test_store_concurrency.py::test_audit_chain_survives_concurrent_appends",
         ],
     ),
     "S13": (
@@ -149,6 +155,9 @@ CASES: dict[str, tuple[str, list[str]]] = {
         "Separate processes authorise one key: no double spend",
         [
             f"{SCN}/test_store.py::test_four_processes_authorise_the_same_key_once",
+            f"{SCN}/test_store_concurrency.py::test_one_grant_spent_from_four_processes_with_different_keys",
+            f"{SCN}/test_store_concurrency.py::test_racing_completions_record_one_outcome",
+            f"{SRV}/test_decisions_concurrency.py::test_racing_completions_across_workers_record_one_outcome",
         ],
     ),
     "P01": (
