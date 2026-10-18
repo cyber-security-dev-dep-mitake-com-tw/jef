@@ -340,10 +340,15 @@ jobs:
           $COMPOSE --profile soar run --rm mock-soar store-down || status=$?
           $COMPOSE exec -T -u root jef chmod 755 /var/lib/jef
           exit $status
-      - name: Host can reach the published ports on the internal network (informational)
-        if: always()
+      - name: Nothing in the lab is reachable from the host
         run: |
-          curl -s -m 3 http://127.0.0.1:8080/readyz && echo || echo "published port not reachable from the host (internal network)"
+          for port in 8080 9009; do
+            if curl -s -m 3 "http://127.0.0.1:$port/" >/dev/null; then
+              echo "::error::port $port answers on the host; the lab network must stay internal"
+              exit 1
+            fi
+          done
+          echo "no lab service answers on the host"
       - name: Mock platform ledger
         if: always()
         run: $COMPOSE exec -T mock-targets python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9009/calls').read().decode())" | tee "$SOAR_OUT_DIR/mock-ledger.json" || true

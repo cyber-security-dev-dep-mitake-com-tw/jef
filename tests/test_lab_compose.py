@@ -17,6 +17,8 @@ def test_the_lab_network_has_no_egress() -> None:
     c = compose()
     assert c["networks"]["lab"]["internal"] is True
     for name, svc in c["services"].items():
+        assert "ports" not in svc, f"{name}: ports are not published on an internal network"
+    for name, svc in c["services"].items():
         assert svc.get("networks") == ["lab"], f"{name} must sit only on the internal lab network"
 
 
