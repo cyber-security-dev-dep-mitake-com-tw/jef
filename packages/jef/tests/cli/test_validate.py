@@ -268,13 +268,12 @@ def test_automating_a_state_changing_action_is_an_error() -> None:
     assert any("Only T0/T1 actions may run without a human" in p.message for p in found)
 
 
-def test_declaring_a_lower_tier_than_the_name_suggests_is_warned() -> None:
+def test_declaring_a_close_action_t1_does_not_make_it_automatable() -> None:
     scene = GOOD.replace("then: assign", "then: close").replace(
         "actions:\n  assign: {}", "actions:\n  close: {tier: 1}"
     )
-    assert not errors(validate_scene_text(scene, "ok.yaml"))
-    found = warnings(validate_scene_text(scene, "ok.yaml"))
-    assert any("reads as T2" in p.message for p in found)
+    found = errors(validate_scene_text(scene, "bad.yaml"))
+    assert any("cannot lower an action below its name's tier" in p.message for p in found)
 
 
 def test_shipped_scenes_lint_clean() -> None:

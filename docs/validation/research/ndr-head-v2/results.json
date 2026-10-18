@@ -1,0 +1,2439 @@
+{
+  "evidence_class": "SOURCE-LABEL RESEARCH",
+  "design": "see run.py docstring; folds, data and features identical to ndr-head-and-transfer-v1",
+  "v1_reproduction": {
+    "v1_reported": 36,
+    "recomputed": 36,
+    "ok": true
+  },
+  "rca_cases": 36,
+  "summary": {
+    "logreg": {
+      "median_macro_f1": 0.8493,
+      "median_pr_auc": 0.9897,
+      "median_fnr_at_fpr_1pct": 0.0865,
+      "median_ece": 0.1224,
+      "median_aurc": 0.0217,
+      "mistaken_closures_total": 0,
+      "gate_score_only": {
+        "closed": 1369,
+        "closed_attacks": 33,
+        "folds_with_an_attack_closed": 4,
+        "closed_benign": 1272,
+        "folds_closing_anything": 7
+      },
+      "gate_with_set": null
+    },
+    "v1": {
+      "median_macro_f1": 0.768,
+      "median_pr_auc": 0.9677,
+      "median_fnr_at_fpr_1pct": 0.374,
+      "median_ece": 0.0518,
+      "median_aurc": 0.0413,
+      "mistaken_closures_total": 36,
+      "gate_score_only": {
+        "closed": 341,
+        "closed_attacks": 1,
+        "folds_with_an_attack_closed": 1,
+        "closed_benign": 330,
+        "folds_closing_anything": 2
+      },
+      "gate_with_set": {
+        "closed": 341,
+        "closed_attacks": 1,
+        "folds_with_an_attack_closed": 1,
+        "closed_benign": 330,
+        "folds_closing_anything": 2
+      },
+      "coverage": {
+        "median_marginal": 0.896,
+        "median_attack_marginal": 0.9087,
+        "median_attack_mondrian": 0.8688,
+        "coverage_check": {
+          "violated": 5,
+          "holds": 8
+        }
+      }
+    },
+    "cost": {
+      "median_macro_f1": 0.7125,
+      "median_pr_auc": 0.9709,
+      "median_fnr_at_fpr_1pct": 0.2656,
+      "median_ece": 0.0605,
+      "median_aurc": 0.0418,
+      "mistaken_closures_total": 12,
+      "gate_score_only": {
+        "closed": 427,
+        "closed_attacks": 4,
+        "folds_with_an_attack_closed": 1,
+        "closed_benign": 401,
+        "folds_closing_anything": 3
+      },
+      "gate_with_set": {
+        "closed": 417,
+        "closed_attacks": 3,
+        "folds_with_an_attack_closed": 1,
+        "closed_benign": 395,
+        "folds_closing_anything": 3
+      },
+      "coverage": {
+        "median_marginal": 0.9128,
+        "median_attack_marginal": 0.9336,
+        "median_attack_mondrian": 0.8571,
+        "coverage_check": {
+          "violated": 5,
+          "holds": 8
+        }
+      }
+    },
+    "cost_hard": {
+      "median_macro_f1": 0.704,
+      "median_pr_auc": 0.9672,
+      "median_fnr_at_fpr_1pct": 0.2812,
+      "median_ece": 0.0419,
+      "median_aurc": 0.0452,
+      "mistaken_closures_total": 12,
+      "gate_score_only": {
+        "closed": 337,
+        "closed_attacks": 1,
+        "folds_with_an_attack_closed": 1,
+        "closed_benign": 330,
+        "folds_closing_anything": 2
+      },
+      "gate_with_set": {
+        "closed": 337,
+        "closed_attacks": 1,
+        "folds_with_an_attack_closed": 1,
+        "closed_benign": 330,
+        "folds_closing_anything": 2
+      },
+      "coverage": {
+        "median_marginal": 0.898,
+        "median_attack_marginal": 0.9342,
+        "median_attack_mondrian": 0.8423,
+        "coverage_check": {
+          "violated": 4,
+          "holds": 9
+        }
+      }
+    }
+  },
+  "verdict": {
+    "cost": {
+      "fewer_mistaken_closures": true,
+      "lower_median_fnr": true,
+      "macro_f1_within_0.02": false,
+      "improvement": false,
+      "close_to_logreg": false
+    },
+    "cost_hard": {
+      "fewer_mistaken_closures": true,
+      "lower_median_fnr": true,
+      "macro_f1_within_0.02": false,
+      "improvement": false,
+      "close_to_logreg": false
+    }
+  },
+  "gate_safe": {
+    "logreg": {
+      "gate_score_only": false
+    },
+    "v1": {
+      "gate_score_only": false,
+      "gate_with_set": false
+    },
+    "cost": {
+      "gate_score_only": false,
+      "gate_with_set": false
+    },
+    "cost_hard": {
+      "gate_score_only": false,
+      "gate_with_set": false
+    }
+  },
+  "folds": [
+    {
+      "held_out": "ctu13-scenario-1",
+      "n_test": 821,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.11356466876971605
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 2,
+          "cal_fnr_at_fpr_1pct": 0.2208201892744479
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 3,
+          "cal_fnr_at_fpr_1pct": 0.18611987381703465
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.7711,
+        "pr_auc": 0.8526,
+        "fnr_at_fpr_1pct": 0.5887,
+        "ece": 0.1235,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.04826673698113113,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        }
+      },
+      "v1": {
+        "macro_f1": 0.8168,
+        "pr_auc": 0.9585,
+        "fnr_at_fpr_1pct": 0.5284,
+        "ece": 0.0518,
+        "mistaken_closures": 23,
+        "mistaken_closure_ids": [
+          "socb-ctu13-000245",
+          "socb-ctu13-000253",
+          "socb-ctu13-000259",
+          "socb-ctu13-000272",
+          "socb-ctu13-000291",
+          "socb-ctu13-000296",
+          "socb-ctu13-000299",
+          "socb-ctu13-000305",
+          "socb-ctu13-000348",
+          "socb-ctu13-000435",
+          "socb-ctu13-000436",
+          "socb-ctu13-000443",
+          "socb-ctu13-000449",
+          "socb-ctu13-000453",
+          "socb-ctu13-000460",
+          "socb-ctu13-000477",
+          "socb-ctu13-000489",
+          "socb-ctu13-000501",
+          "socb-ctu13-000510",
+          "socb-ctu13-000513",
+          "socb-ctu13-000520",
+          "socb-ctu13-000521",
+          "socb-ctu13-000531"
+        ],
+        "aurc": 0.057420506029692446,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        },
+        "coverage": {
+          "marginal": 0.838,
+          "attack_marginal": 0.5957,
+          "attack_mondrian": 0.6312,
+          "mondrian_mean_set_size": 3.104,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.8380024360535931,
+            "wilson_95": [
+              0.811234751359103,
+              0.8616218249743706
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.8515,
+        "pr_auc": 0.9615,
+        "fnr_at_fpr_1pct": 0.5816,
+        "ece": 0.0267,
+        "mistaken_closures": 7,
+        "mistaken_closure_ids": [
+          "socb-ctu13-000272",
+          "socb-ctu13-000299",
+          "socb-ctu13-000348",
+          "socb-ctu13-000460",
+          "socb-ctu13-000510",
+          "socb-ctu13-000513",
+          "socb-ctu13-000531"
+        ],
+        "aurc": 0.0418298909512953,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        },
+        "coverage": {
+          "marginal": 0.8794,
+          "attack_marginal": 0.7447,
+          "attack_mondrian": 0.5355,
+          "mondrian_mean_set_size": 3.044,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.879415347137637,
+            "wilson_95": [
+              0.8553550276374265,
+              0.8999416337242924
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.8346,
+        "pr_auc": 0.9718,
+        "fnr_at_fpr_1pct": 0.4858,
+        "ece": 0.0419,
+        "mistaken_closures": 8,
+        "mistaken_closure_ids": [
+          "socb-ctu13-000272",
+          "socb-ctu13-000299",
+          "socb-ctu13-000348",
+          "socb-ctu13-000460",
+          "socb-ctu13-000510",
+          "socb-ctu13-000513",
+          "socb-ctu13-000521",
+          "socb-ctu13-000531"
+        ],
+        "aurc": 0.04203079702038471,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 821,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 821
+        },
+        "coverage": {
+          "marginal": 0.8721,
+          "attack_marginal": 0.7057,
+          "attack_mondrian": 0.6064,
+          "mondrian_mean_set_size": 3.057,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.8721071863580999,
+            "wilson_95": [
+              0.8475170233154249,
+              0.8932313877471919
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-2",
+      "n_test": 654,
+      "lambda_choice": [
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.07692307692307687
+        },
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.10121457489878538
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 3,
+          "cal_fnr_at_fpr_1pct": 0.08097165991902833
+        }
+      ],
+      "lambda": 2.0,
+      "logreg": {
+        "macro_f1": 0.8663,
+        "pr_auc": 0.9927,
+        "fnr_at_fpr_1pct": 0.0705,
+        "ece": 0.0761,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.019575467963077946,
+        "gate_score_only": {
+          "threshold": 0.5229956642068496,
+          "cases": 654,
+          "closed": 160,
+          "closed_attacks": 12,
+          "closed_benign": 135,
+          "attack_rate_among_closed": 0.075,
+          "benign_yield": 0.8490566037735849,
+          "abstained": 494
+        }
+      },
+      "v1": {
+        "macro_f1": 0.8819,
+        "pr_auc": 0.9896,
+        "fnr_at_fpr_1pct": 0.1494,
+        "ece": 0.0295,
+        "mistaken_closures": 8,
+        "mistaken_closure_ids": [
+          "socb-ctu13-004039",
+          "socb-ctu13-004040",
+          "socb-ctu13-004125",
+          "socb-ctu13-004174",
+          "socb-ctu13-004213",
+          "socb-ctu13-004247",
+          "socb-ctu13-004259",
+          "socb-ctu13-004271"
+        ],
+        "aurc": 0.035238702693677806,
+        "gate_score_only": {
+          "threshold": 0.9718467004151577,
+          "cases": 654,
+          "closed": 80,
+          "closed_attacks": 0,
+          "closed_benign": 75,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.4716981132075472,
+          "abstained": 574
+        },
+        "gate_with_set": {
+          "threshold": 0.9718467004151577,
+          "cases": 654,
+          "closed": 80,
+          "closed_attacks": 0,
+          "closed_benign": 75,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.4716981132075472,
+          "abstained": 574
+        },
+        "coverage": {
+          "marginal": 0.896,
+          "attack_marginal": 0.8755,
+          "attack_mondrian": 0.8423,
+          "mondrian_mean_set_size": 3.055,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.8960244648318043,
+            "wilson_95": [
+              0.87027298568636,
+              0.9171507819317732
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.8948,
+        "pr_auc": 0.9888,
+        "fnr_at_fpr_1pct": 0.2656,
+        "ece": 0.0175,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.024404314579325737,
+        "gate_score_only": {
+          "threshold": 0.8848635377308721,
+          "cases": 654,
+          "closed": 104,
+          "closed_attacks": 0,
+          "closed_benign": 98,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.6163522012578616,
+          "abstained": 550
+        },
+        "gate_with_set": {
+          "threshold": 0.8848635377308721,
+          "cases": 654,
+          "closed": 104,
+          "closed_attacks": 0,
+          "closed_benign": 98,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.6163522012578616,
+          "abstained": 550
+        },
+        "coverage": {
+          "marginal": 0.9128,
+          "attack_marginal": 0.9336,
+          "attack_mondrian": 0.8465,
+          "mondrian_mean_set_size": 3.009,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9128440366972477,
+            "wilson_95": [
+              0.8887445164707722,
+              0.9321219594245788
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.8834,
+        "pr_auc": 0.9837,
+        "fnr_at_fpr_1pct": 0.1826,
+        "ece": 0.0181,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.025401687148335524,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 654,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 654
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 654,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 654
+        },
+        "coverage": {
+          "marginal": 0.9113,
+          "attack_marginal": 0.9212,
+          "attack_mondrian": 0.8423,
+          "mondrian_mean_set_size": 3.032,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9113149847094801,
+            "wilson_95": [
+              0.8870563884640851,
+              0.9307698412242463
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-3",
+      "n_test": 589,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.1556291390728477
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.16225165562913912
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 2,
+          "cal_fnr_at_fpr_1pct": 0.11258278145695366
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.6621,
+        "pr_auc": 0.9701,
+        "fnr_at_fpr_1pct": 0.0658,
+        "ece": 0.0771,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.06647999425190357,
+        "gate_score_only": {
+          "threshold": 0.6795965819566747,
+          "cases": 589,
+          "closed": 194,
+          "closed_attacks": 1,
+          "closed_benign": 187,
+          "attack_rate_among_closed": 0.005154639175257732,
+          "benign_yield": 0.7391304347826086,
+          "abstained": 395
+        }
+      },
+      "v1": {
+        "macro_f1": 0.5922,
+        "pr_auc": 0.9476,
+        "fnr_at_fpr_1pct": 0.0921,
+        "ece": 0.048,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.07393719416441168,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 589,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 589
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 589,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 589
+        },
+        "coverage": {
+          "marginal": 0.8234,
+          "attack_marginal": 0.9342,
+          "attack_mondrian": 0.9474,
+          "mondrian_mean_set_size": 3.219,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.8234295415959253,
+            "wilson_95": [
+              0.7905685101884335,
+              0.8520990939934697
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.5742,
+        "pr_auc": 0.9441,
+        "fnr_at_fpr_1pct": 0.0921,
+        "ece": 0.0605,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.08271221933963649,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 589,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 589
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 589,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 589
+        },
+        "coverage": {
+          "marginal": 0.8081,
+          "attack_marginal": 0.9211,
+          "attack_mondrian": 0.9474,
+          "mondrian_mean_set_size": 3.165,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.8081494057724957,
+            "wilson_95": [
+              0.7743937190439512,
+              0.8379116361214842
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.6148,
+        "pr_auc": 0.9238,
+        "fnr_at_fpr_1pct": 0.1184,
+        "ece": 0.0288,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.05260845020994161,
+        "gate_score_only": {
+          "threshold": 0.9094651120360239,
+          "cases": 589,
+          "closed": 121,
+          "closed_attacks": 0,
+          "closed_benign": 119,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.47035573122529645,
+          "abstained": 468
+        },
+        "gate_with_set": {
+          "threshold": 0.9094651120360239,
+          "cases": 589,
+          "closed": 121,
+          "closed_attacks": 0,
+          "closed_benign": 119,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.47035573122529645,
+          "abstained": 468
+        },
+        "coverage": {
+          "marginal": 0.8455,
+          "attack_marginal": 0.9342,
+          "attack_mondrian": 0.9868,
+          "mondrian_mean_set_size": 3.229,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.8455008488964346,
+            "wilson_95": [
+              0.8140823893035376,
+              0.8724417967910416
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-4",
+      "n_test": 663,
+      "lambda_choice": [
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.22175732217573219
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.15899581589958156
+        },
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.16736401673640167
+        }
+      ],
+      "lambda": 4.0,
+      "logreg": {
+        "macro_f1": 0.8824,
+        "pr_auc": 0.9941,
+        "fnr_at_fpr_1pct": 0.0292,
+        "ece": 0.1169,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.018579521591957915,
+        "gate_score_only": {
+          "threshold": 0.6647862327344242,
+          "cases": 663,
+          "closed": 276,
+          "closed_attacks": 0,
+          "closed_benign": 266,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.9047619047619048,
+          "abstained": 387
+        }
+      },
+      "v1": {
+        "macro_f1": 0.8033,
+        "pr_auc": 0.9888,
+        "fnr_at_fpr_1pct": 0.0468,
+        "ece": 0.0204,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-005956"
+        ],
+        "aurc": 0.01938615428658757,
+        "gate_score_only": {
+          "threshold": 0.8870070862964194,
+          "cases": 663,
+          "closed": 261,
+          "closed_attacks": 1,
+          "closed_benign": 255,
+          "attack_rate_among_closed": 0.0038314176245210726,
+          "benign_yield": 0.8673469387755102,
+          "abstained": 402
+        },
+        "gate_with_set": {
+          "threshold": 0.8870070862964194,
+          "cases": 663,
+          "closed": 261,
+          "closed_attacks": 1,
+          "closed_benign": 255,
+          "attack_rate_among_closed": 0.0038314176245210726,
+          "benign_yield": 0.8673469387755102,
+          "abstained": 402
+        },
+        "coverage": {
+          "marginal": 0.9336,
+          "attack_marginal": 0.9532,
+          "attack_mondrian": 0.9708,
+          "mondrian_mean_set_size": 3.089,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9336349924585219,
+            "wilson_95": [
+              0.9120797902691079,
+              0.9501941316566295
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.8269,
+        "pr_auc": 0.9828,
+        "fnr_at_fpr_1pct": 0.0877,
+        "ece": 0.03,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-005956"
+        ],
+        "aurc": 0.030730179521785903,
+        "gate_score_only": {
+          "threshold": 0.47589115988545255,
+          "cases": 663,
+          "closed": 281,
+          "closed_attacks": 4,
+          "closed_benign": 265,
+          "attack_rate_among_closed": 0.014234875444839857,
+          "benign_yield": 0.9013605442176871,
+          "abstained": 382
+        },
+        "gate_with_set": {
+          "threshold": 0.36356393406434356,
+          "cases": 663,
+          "closed": 271,
+          "closed_attacks": 3,
+          "closed_benign": 259,
+          "attack_rate_among_closed": 0.01107011070110701,
+          "benign_yield": 0.8809523809523809,
+          "abstained": 392
+        },
+        "coverage": {
+          "marginal": 0.9201,
+          "attack_marginal": 0.9708,
+          "attack_mondrian": 0.9708,
+          "mondrian_mean_set_size": 3.157,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9200603318250377,
+            "wilson_95": [
+              0.8969149232758107,
+              0.938366075876599
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.7537,
+        "pr_auc": 0.9852,
+        "fnr_at_fpr_1pct": 0.0468,
+        "ece": 0.0255,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.045177037024339665,
+        "gate_score_only": {
+          "threshold": 0.8775617848236962,
+          "cases": 663,
+          "closed": 216,
+          "closed_attacks": 1,
+          "closed_benign": 211,
+          "attack_rate_among_closed": 0.004629629629629629,
+          "benign_yield": 0.717687074829932,
+          "abstained": 447
+        },
+        "gate_with_set": {
+          "threshold": 0.8775617848236962,
+          "cases": 663,
+          "closed": 216,
+          "closed_attacks": 1,
+          "closed_benign": 211,
+          "attack_rate_among_closed": 0.004629629629629629,
+          "benign_yield": 0.717687074829932,
+          "abstained": 447
+        },
+        "coverage": {
+          "marginal": 0.917,
+          "attack_marginal": 0.9591,
+          "attack_mondrian": 0.9708,
+          "mondrian_mean_set_size": 3.338,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9170437405731523,
+            "wilson_95": [
+              0.8935696798830044,
+              0.9357128919864437
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-5",
+      "n_test": 469,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.07258064516129037
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 2,
+          "cal_fnr_at_fpr_1pct": 0.07258064516129037
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 3,
+          "cal_fnr_at_fpr_1pct": 0.06451612903225812
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.7281,
+        "pr_auc": 0.9847,
+        "fnr_at_fpr_1pct": 0.0992,
+        "ece": 0.1191,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.022440827266996716,
+        "gate_score_only": {
+          "threshold": 0.6617398770325227,
+          "cases": 469,
+          "closed": 268,
+          "closed_attacks": 1,
+          "closed_benign": 263,
+          "attack_rate_among_closed": 0.0037313432835820895,
+          "benign_yield": 0.8795986622073578,
+          "abstained": 201
+        }
+      },
+      "v1": {
+        "macro_f1": 0.768,
+        "pr_auc": 0.9677,
+        "fnr_at_fpr_1pct": 0.374,
+        "ece": 0.0429,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-006787"
+        ],
+        "aurc": 0.021153210387906893,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 469,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 469
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 469,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 469
+        },
+        "coverage": {
+          "marginal": 0.8827,
+          "attack_marginal": 0.7176,
+          "attack_mondrian": 0.6031,
+          "mondrian_mean_set_size": 3.211,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.8827292110874201,
+            "wilson_95": [
+              0.8504535600859017,
+              0.9087861243854555
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.6411,
+        "pr_auc": 0.9825,
+        "fnr_at_fpr_1pct": 0.2595,
+        "ece": 0.0536,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.05388648559850058,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 469,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 469
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 469,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 469
+        },
+        "coverage": {
+          "marginal": 0.8635,
+          "attack_marginal": 0.6336,
+          "attack_mondrian": 0.5115,
+          "mondrian_mean_set_size": 3.113,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.8635394456289979,
+            "wilson_95": [
+              0.8295042921303045,
+              0.8916676644288396
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.704,
+        "pr_auc": 0.943,
+        "fnr_at_fpr_1pct": 0.5344,
+        "ece": 0.0377,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-006787",
+          "socb-ctu13-006837"
+        ],
+        "aurc": 0.03985113315463276,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 469,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 469
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 469,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 469
+        },
+        "coverage": {
+          "marginal": 0.8763,
+          "attack_marginal": 0.687,
+          "attack_mondrian": 0.6412,
+          "mondrian_mean_set_size": 3.335,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.8763326226012793,
+            "wilson_95": [
+              0.8434457415676662,
+              0.9031047002662866
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-6",
+      "n_test": 519,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.2954545454545454
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.3125
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.9659090909090909
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.8493,
+        "pr_auc": 0.9949,
+        "fnr_at_fpr_1pct": 0.0278,
+        "ece": 0.1012,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.01816785862065119,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        }
+      },
+      "v1": {
+        "macro_f1": 0.638,
+        "pr_auc": 0.9691,
+        "fnr_at_fpr_1pct": 0.213,
+        "ece": 0.2114,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.04129155448515051,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        },
+        "coverage": {
+          "marginal": 0.975,
+          "attack_marginal": 0.9907,
+          "attack_mondrian": 0.9722,
+          "mondrian_mean_set_size": 3.534,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9749518304431599,
+            "wilson_95": [
+              0.9576201458046081,
+              0.9853043137667434
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.7125,
+        "pr_auc": 0.9709,
+        "fnr_at_fpr_1pct": 0.1944,
+        "ece": 0.1906,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.03851148716767004,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        },
+        "coverage": {
+          "marginal": 0.9672,
+          "attack_marginal": 0.9907,
+          "attack_mondrian": 0.9722,
+          "mondrian_mean_set_size": 3.42,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9672447013487476,
+            "wilson_95": [
+              0.9481731699998108,
+              0.9794502841423911
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.6252,
+        "pr_auc": 0.9672,
+        "fnr_at_fpr_1pct": 0.25,
+        "ece": 0.1621,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.0850335137484641,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 519,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 519
+        },
+        "coverage": {
+          "marginal": 0.9576,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 0.9722,
+          "mondrian_mean_set_size": 3.505,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9576107899807321,
+            "wilson_95": [
+              0.9366546364131885,
+              0.971842560942576
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-7",
+      "n_test": 162,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.21572580645161288
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.24798387096774188
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.2520161290322581
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.8268,
+        "pr_auc": 0.872,
+        "fnr_at_fpr_1pct": 0.5,
+        "ece": 0.1772,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.021732005261552813,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        }
+      },
+      "v1": {
+        "macro_f1": 0.517,
+        "pr_auc": 0.4582,
+        "fnr_at_fpr_1pct": 0.8125,
+        "ece": 0.1001,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.1580361383664855,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        },
+        "coverage": {
+          "marginal": 0.9259,
+          "attack_marginal": 0.8125,
+          "attack_mondrian": 0.5625,
+          "mondrian_mean_set_size": 3.537,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9259259259259259,
+            "wilson_95": [
+              0.8749984823125505,
+              0.9571215495620122
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.5036,
+        "pr_auc": 0.5227,
+        "fnr_at_fpr_1pct": 0.6875,
+        "ece": 0.076,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.10953729224676999,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        },
+        "coverage": {
+          "marginal": 0.963,
+          "attack_marginal": 0.9375,
+          "attack_mondrian": 0.6875,
+          "mondrian_mean_set_size": 3.426,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9629629629629629,
+            "wilson_95": [
+              0.9215612866577387,
+              0.9829170088580903
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.5109,
+        "pr_auc": 0.5353,
+        "fnr_at_fpr_1pct": 0.8125,
+        "ece": 0.0965,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.13335540314427613,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 162,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 162
+        },
+        "coverage": {
+          "marginal": 0.963,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 0.8125,
+          "mondrian_mean_set_size": 3.463,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9629629629629629,
+            "wilson_95": [
+              0.9215612866577387,
+              0.9829170088580903
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-8",
+      "n_test": 710,
+      "lambda_choice": [
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.09653092006033182
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.11764705882352944
+        },
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.15535444947209653
+        }
+      ],
+      "lambda": 4.0,
+      "logreg": {
+        "macro_f1": 0.3926,
+        "pr_auc": 0.4391,
+        "fnr_at_fpr_1pct": 0.825,
+        "ece": 0.2803,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.2659835880608253,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 710,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 710
+        }
+      },
+      "v1": {
+        "macro_f1": 0.4613,
+        "pr_auc": 0.8113,
+        "fnr_at_fpr_1pct": 0.5563,
+        "ece": 0.2579,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.1821039243990014,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 710,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 710
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 710,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 710
+        },
+        "coverage": {
+          "marginal": 0.6099,
+          "attack_marginal": 0.9062,
+          "attack_mondrian": 0.8688,
+          "mondrian_mean_set_size": 3.268,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.6098591549295774,
+            "wilson_95": [
+              0.5734804108520294,
+              0.6450555092354934
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.4867,
+        "pr_auc": 0.8619,
+        "fnr_at_fpr_1pct": 0.3562,
+        "ece": 0.2442,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.17247750379416582,
+        "gate_score_only": {
+          "threshold": 0.9044427920392369,
+          "cases": 710,
+          "closed": 42,
+          "closed_attacks": 0,
+          "closed_benign": 38,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.12666666666666668,
+          "abstained": 668
+        },
+        "gate_with_set": {
+          "threshold": 0.9044427920392369,
+          "cases": 710,
+          "closed": 42,
+          "closed_attacks": 0,
+          "closed_benign": 38,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.12666666666666668,
+          "abstained": 668
+        },
+        "coverage": {
+          "marginal": 0.6254,
+          "attack_marginal": 0.9625,
+          "attack_mondrian": 0.85,
+          "mondrian_mean_set_size": 3.237,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.6253521126760564,
+            "wilson_95": [
+              0.5891635498765485,
+              0.6601915384284457
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.4837,
+        "pr_auc": 0.8701,
+        "fnr_at_fpr_1pct": 0.2812,
+        "ece": 0.1993,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.15819374056916108,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 710,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 710
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 710,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 710
+        },
+        "coverage": {
+          "marginal": 0.6352,
+          "attack_marginal": 0.9625,
+          "attack_mondrian": 0.8187,
+          "mondrian_mean_set_size": 3.194,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.6352112676056338,
+            "wilson_95": [
+              0.5991637656380309,
+              0.6698035206235358
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-9",
+      "n_test": 879,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.45468998410174877
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.4864864864864865
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.7090620031796502
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.9021,
+        "pr_auc": 0.9954,
+        "fnr_at_fpr_1pct": 0.0655,
+        "ece": 0.1266,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.013910989391513454,
+        "gate_score_only": {
+          "threshold": 0.3127350727913595,
+          "cases": 879,
+          "closed": 315,
+          "closed_attacks": 19,
+          "closed_benign": 279,
+          "attack_rate_among_closed": 0.06031746031746032,
+          "benign_yield": 0.9522184300341296,
+          "abstained": 564
+        }
+      },
+      "v1": {
+        "macro_f1": 0.8263,
+        "pr_auc": 0.9914,
+        "fnr_at_fpr_1pct": 0.1399,
+        "ece": 0.0417,
+        "mistaken_closures": 1,
+        "mistaken_closure_ids": [
+          "socb-ctu13-009660"
+        ],
+        "aurc": 0.034261335776226844,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 879,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 879
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 879,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 879
+        },
+        "coverage": {
+          "marginal": 0.9238,
+          "attack_marginal": 0.9435,
+          "attack_mondrian": 0.8125,
+          "mondrian_mean_set_size": 3.116,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9237770193401593,
+            "wilson_95": [
+              0.9043323658782849,
+              0.9395337581652963
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.8473,
+        "pr_auc": 0.9841,
+        "fnr_at_fpr_1pct": 0.1429,
+        "ece": 0.0422,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-009388",
+          "socb-ctu13-009660"
+        ],
+        "aurc": 0.03156320782950833,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 879,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 879
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 879,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 879
+        },
+        "coverage": {
+          "marginal": 0.9147,
+          "attack_marginal": 0.9077,
+          "attack_mondrian": 0.8571,
+          "mondrian_mean_set_size": 3.17,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9146757679180887,
+            "wilson_95": [
+              0.8943553588523143,
+              0.9313874658829482
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.8632,
+        "pr_auc": 0.9932,
+        "fnr_at_fpr_1pct": 0.1071,
+        "ece": 0.0297,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-009454",
+          "socb-ctu13-009660"
+        ],
+        "aurc": 0.02520921966490673,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 879,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 879
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 879,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 879
+        },
+        "coverage": {
+          "marginal": 0.9147,
+          "attack_marginal": 0.9315,
+          "attack_mondrian": 0.8125,
+          "mondrian_mean_set_size": 3.093,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9146757679180887,
+            "wilson_95": [
+              0.8943553588523143,
+              0.9313874658829482
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-10",
+      "n_test": 892,
+      "lambda_choice": [
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.9546218487394958
+        },
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.9949579831932773
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.9983193277310924
+        }
+      ],
+      "lambda": 4.0,
+      "logreg": {
+        "macro_f1": 0.895,
+        "pr_auc": 0.9977,
+        "fnr_at_fpr_1pct": 0.0306,
+        "ece": 0.1224,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.02772220132772126,
+        "gate_score_only": {
+          "threshold": 0.6157235231192941,
+          "cases": 892,
+          "closed": 143,
+          "closed_attacks": 0,
+          "closed_benign": 129,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.43434343434343436,
+          "abstained": 749
+        }
+      },
+      "v1": {
+        "macro_f1": 0.3569,
+        "pr_auc": 0.4559,
+        "fnr_at_fpr_1pct": 0.9969,
+        "ece": 0.1424,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.36228177765213665,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "coverage": {
+          "marginal": 0.7657,
+          "attack_marginal": 0.9939,
+          "attack_mondrian": 0.9969,
+          "mondrian_mean_set_size": 4.758,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.765695067264574,
+            "wilson_95": [
+              0.7367958820322394,
+              0.792315597831602
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.6706,
+        "pr_auc": 0.9248,
+        "fnr_at_fpr_1pct": 0.8991,
+        "ece": 0.1054,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.20122012505835418,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "coverage": {
+          "marginal": 0.963,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 1.0,
+          "mondrian_mean_set_size": 4.733,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9630044843049327,
+            "wilson_95": [
+              0.9485005527412166,
+              0.9735375957134943
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.6564,
+        "pr_auc": 0.9096,
+        "fnr_at_fpr_1pct": 0.9939,
+        "ece": 0.1765,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.15179824483213042,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 892,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 892
+        },
+        "coverage": {
+          "marginal": 0.898,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 1.0,
+          "mondrian_mean_set_size": 4.7,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.897982062780269,
+            "wilson_95": [
+              0.8763820951008404,
+              0.9161688557500612
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-11",
+      "n_test": 386,
+      "lambda_choice": [
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.6087824351297405
+        },
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.6087824351297405
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 0,
+          "cal_fnr_at_fpr_1pct": 0.6187624750499001
+        }
+      ],
+      "lambda": 1.0,
+      "logreg": {
+        "macro_f1": 0.9079,
+        "pr_auc": 0.9944,
+        "fnr_at_fpr_1pct": 0.553,
+        "ece": 0.2015,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.003958204113040491,
+        "gate_score_only": {
+          "threshold": 0.8310272356970146,
+          "cases": 386,
+          "closed": 13,
+          "closed_attacks": 0,
+          "closed_benign": 13,
+          "attack_rate_among_closed": 0.0,
+          "benign_yield": 0.24528301886792453,
+          "abstained": 373
+        }
+      },
+      "v1": {
+        "macro_f1": 0.9385,
+        "pr_auc": 0.9972,
+        "fnr_at_fpr_1pct": 0.4801,
+        "ece": 0.2235,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.004385567735554562,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "coverage": {
+          "marginal": 0.9974,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 1.0,
+          "mondrian_mean_set_size": 4.202,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9974093264248705,
+            "wilson_95": [
+              0.9854732731250875,
+              0.9995425360236752
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.8749,
+        "pr_auc": 0.9942,
+        "fnr_at_fpr_1pct": 0.7483,
+        "ece": 0.2195,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.008096196489288028,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "coverage": {
+          "marginal": 0.9922,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 1.0,
+          "mondrian_mean_set_size": 4.166,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9922279792746114,
+            "wilson_95": [
+              0.9774018661773195,
+              0.9973533616261435
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.7576,
+        "pr_auc": 0.9867,
+        "fnr_at_fpr_1pct": 0.9238,
+        "ece": 0.1457,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.017883300163880646,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 386,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 386
+        },
+        "coverage": {
+          "marginal": 0.9896,
+          "attack_marginal": 1.0,
+          "attack_mondrian": 1.0,
+          "mondrian_mean_set_size": 4.199,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9896373056994818,
+            "wilson_95": [
+              0.9736619599110974,
+              0.9959629772197158
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-12",
+      "n_test": 680,
+      "lambda_choice": [
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 3,
+          "cal_fnr_at_fpr_1pct": 0.36122448979591837
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 13,
+          "cal_fnr_at_fpr_1pct": 0.3408163265306122
+        },
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 21,
+          "cal_fnr_at_fpr_1pct": 0.34285714285714286
+        }
+      ],
+      "lambda": 4.0,
+      "logreg": {
+        "macro_f1": 0.3333,
+        "pr_auc": 0.5309,
+        "fnr_at_fpr_1pct": 0.9181,
+        "ece": 0.1914,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.2155694221301813,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        }
+      },
+      "v1": {
+        "macro_f1": 0.3707,
+        "pr_auc": 0.5045,
+        "fnr_at_fpr_1pct": 0.9488,
+        "ece": 0.3038,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.4397732370897151,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        },
+        "coverage": {
+          "marginal": 0.5765,
+          "attack_marginal": 0.1229,
+          "attack_mondrian": 0.1502,
+          "mondrian_mean_set_size": 3.016,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.5764705882352941,
+            "wilson_95": [
+              0.5390045154800166,
+              0.6130775185331759
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.354,
+        "pr_auc": 0.5836,
+        "fnr_at_fpr_1pct": 0.9352,
+        "ece": 0.3004,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.3753586987989254,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        },
+        "coverage": {
+          "marginal": 0.5706,
+          "attack_marginal": 0.1263,
+          "attack_mondrian": 0.1468,
+          "mondrian_mean_set_size": 3.071,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.5705882352941176,
+            "wilson_95": [
+              0.5330900294616142,
+              0.6072933865505635
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.3568,
+        "pr_auc": 0.5118,
+        "fnr_at_fpr_1pct": 0.9659,
+        "ece": 0.2772,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.34968661289690994,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 680,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 680
+        },
+        "coverage": {
+          "marginal": 0.55,
+          "attack_marginal": 0.1229,
+          "attack_mondrian": 0.1126,
+          "mondrian_mean_set_size": 3.066,
+          "coverage_check": {
+            "status": "violated",
+            "empirical": 0.55,
+            "wilson_95": [
+              0.5124310225893709,
+              0.5870072304192551
+            ]
+          }
+        }
+      }
+    },
+    {
+      "held_out": "ctu13-scenario-13",
+      "n_test": 750,
+      "lambda_choice": [
+        {
+          "lambda": 4.0,
+          "cal_mistaken_closures": 1,
+          "cal_fnr_at_fpr_1pct": 0.3977055449330784
+        },
+        {
+          "lambda": 2.0,
+          "cal_mistaken_closures": 5,
+          "cal_fnr_at_fpr_1pct": 0.3556405353728489
+        },
+        {
+          "lambda": 1.0,
+          "cal_mistaken_closures": 11,
+          "cal_fnr_at_fpr_1pct": 0.372848948374761
+        }
+      ],
+      "lambda": 4.0,
+      "logreg": {
+        "macro_f1": 0.8762,
+        "pr_auc": 0.9897,
+        "fnr_at_fpr_1pct": 0.0865,
+        "ece": 0.0901,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.01697413191687765,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        }
+      },
+      "v1": {
+        "macro_f1": 0.8759,
+        "pr_auc": 0.984,
+        "fnr_at_fpr_1pct": 0.125,
+        "ece": 0.0331,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-003453",
+          "socb-ctu13-003530"
+        ],
+        "aurc": 0.022557175503307627,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        },
+        "coverage": {
+          "marginal": 0.916,
+          "attack_marginal": 0.9087,
+          "attack_mondrian": 0.9135,
+          "mondrian_mean_set_size": 3.051,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.916,
+            "wilson_95": [
+              0.8939655985741461,
+              0.9337946588361887
+            ]
+          }
+        }
+      },
+      "cost": {
+        "macro_f1": 0.8291,
+        "pr_auc": 0.9825,
+        "fnr_at_fpr_1pct": 0.1154,
+        "ece": 0.027,
+        "mistaken_closures": 2,
+        "mistaken_closure_ids": [
+          "socb-ctu13-003453",
+          "socb-ctu13-003530"
+        ],
+        "aurc": 0.033985547903711374,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        },
+        "coverage": {
+          "marginal": 0.9,
+          "attack_marginal": 0.9327,
+          "attack_mondrian": 0.8894,
+          "mondrian_mean_set_size": 3.051,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.9,
+            "wilson_95": [
+              0.8764493210560121,
+              0.919474003377002
+            ]
+          }
+        }
+      },
+      "cost_hard": {
+        "macro_f1": 0.8391,
+        "pr_auc": 0.9838,
+        "fnr_at_fpr_1pct": 0.1106,
+        "ece": 0.0337,
+        "mistaken_closures": 0,
+        "mistaken_closure_ids": [],
+        "aurc": 0.03320111472766571,
+        "gate_score_only": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        },
+        "gate_with_set": {
+          "threshold": null,
+          "cases": 750,
+          "closed": 0,
+          "closed_attacks": 0,
+          "closed_benign": 0,
+          "attack_rate_among_closed": null,
+          "benign_yield": 0.0,
+          "abstained": 750
+        },
+        "coverage": {
+          "marginal": 0.888,
+          "attack_marginal": 0.9183,
+          "attack_mondrian": 0.899,
+          "mondrian_mean_set_size": 3.036,
+          "coverage_check": {
+            "status": "holds",
+            "empirical": 0.888,
+            "wilson_95": [
+              0.8634236624215091,
+              0.9086219622785147
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

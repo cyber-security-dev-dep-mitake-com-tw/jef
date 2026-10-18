@@ -1,0 +1,1213 @@
+[
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000245",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9477
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7624
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 131,
+      "total_bytes": 9423,
+      "total_packets": 131,
+      "duration_s": 9798.411,
+      "states": "INT:131",
+      "interval_cv": 7.052
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 5,
+      "benign": 5
+    },
+    "nearest_similarity": 0.9941
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000253",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9237
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5509
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 6,
+      "total_bytes": 1520,
+      "total_packets": 12,
+      "duration_s": 1878.38,
+      "states": "CON:6",
+      "interval_cv": 0.618
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "unknown": 6,
+      "c2": 1,
+      "botnet": 3
+    },
+    "nearest_similarity": 0.9935
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000259",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9335
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6975
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 11,
+      "total_bytes": 1348,
+      "total_packets": 14,
+      "duration_s": 9981.518,
+      "states": "INT:8, CON:3",
+      "interval_cv": 2.363
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 3,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9952
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000272",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9678
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5715
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 13,
+      "total_bytes": 3692,
+      "total_packets": 26,
+      "duration_s": 9846.936,
+      "states": "CON:13",
+      "interval_cv": 2.4
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 3,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9955
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000291",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9205
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.4935
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 7,
+      "total_bytes": 1516,
+      "total_packets": 14,
+      "duration_s": 7868.221,
+      "states": "CON:7",
+      "interval_cv": 2.208
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 7,
+      "unknown": 3
+    },
+    "nearest_similarity": 0.9948
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000296",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9087
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5939
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 6,
+      "total_bytes": 1472,
+      "total_packets": 12,
+      "duration_s": 7955.576,
+      "states": "CON:6",
+      "interval_cv": 1.63
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "unknown": 10
+    },
+    "nearest_similarity": 0.995
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000299",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9785
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.681
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 9,
+      "total_bytes": 959,
+      "total_packets": 11,
+      "duration_s": 1617.073,
+      "states": "INT:7, CON:2",
+      "interval_cv": 2.373
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 4
+    },
+    "nearest_similarity": 0.9958
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000305",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9467
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.679
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 20,
+      "total_bytes": 4776,
+      "total_packets": 39,
+      "duration_s": 10270.847,
+      "states": "CON:19, INT:1",
+      "interval_cv": 2.414
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 4
+    },
+    "nearest_similarity": 0.9965
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000348",
+    "gold": "c2",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9573
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7216
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "5296",
+      "flows": 9,
+      "total_bytes": 2158872,
+      "total_packets": 35069,
+      "duration_s": 16157.422,
+      "states": "FSA_FSA:4, PA_PA:3, SPA_SPA:1, PA_RPA:1",
+      "interval_cv": 0.903
+    },
+    "training_slice_labels": {},
+    "nearest_training_labels": {
+      "benign": 9,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9956
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000435",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9034
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.475
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 11,
+      "total_bytes": 3784,
+      "total_packets": 22,
+      "duration_s": 11822.516,
+      "states": "CON:11",
+      "interval_cv": 1.645
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 4,
+      "benign": 3,
+      "unknown": 3
+    },
+    "nearest_similarity": 0.9953
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000436",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9152
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7896
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 52,
+      "total_bytes": 3854,
+      "total_packets": 52,
+      "duration_s": 406.531,
+      "states": "INT:52",
+      "interval_cv": 2.305
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 5,
+      "benign": 5
+    },
+    "nearest_similarity": 0.994
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000443",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9357
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.78
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 297,
+      "total_bytes": 21394,
+      "total_packets": 297,
+      "duration_s": 10928.216,
+      "states": "INT:297",
+      "interval_cv": 10.455
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 4
+    },
+    "nearest_similarity": 0.9936
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000449",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9513
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6354
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 4,
+      "total_bytes": 902,
+      "total_packets": 8,
+      "duration_s": 0.042,
+      "states": "CON:4",
+      "interval_cv": 0.185
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "benign": 2,
+      "c2": 1,
+      "unknown": 7
+    },
+    "nearest_similarity": 0.9947
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000453",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.913
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6855
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 5,
+      "total_bytes": 401,
+      "total_packets": 5,
+      "duration_s": 121.098,
+      "states": "INT:5",
+      "interval_cv": 0.994
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "unknown": 6,
+      "c2": 1,
+      "benign": 3
+    },
+    "nearest_similarity": 0.9936
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000460",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.981
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6853
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 12,
+      "total_bytes": 792,
+      "total_packets": 12,
+      "duration_s": 156.516,
+      "states": "INT:12",
+      "interval_cv": 0.454
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 4
+    },
+    "nearest_similarity": 0.9937
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000477",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9195
+    },
+    "logreg": {
+      "pred": "unknown",
+      "p": 0.4363
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 2,
+      "total_bytes": 502,
+      "total_packets": 4,
+      "duration_s": 8777.569,
+      "states": "CON:2",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "unknown": 7,
+      "benign": 2,
+      "botnet": 1
+    },
+    "nearest_similarity": 0.9968
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000489",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9594
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6255
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 28,
+      "total_bytes": 7150,
+      "total_packets": 56,
+      "duration_s": 11054.492,
+      "states": "CON:28",
+      "interval_cv": 2.729
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 3,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9958
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000501",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9464
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5307
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 7,
+      "total_bytes": 1810,
+      "total_packets": 14,
+      "duration_s": 8805.421,
+      "states": "CON:7",
+      "interval_cv": 1.571
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 7,
+      "unknown": 2,
+      "benign": 1
+    },
+    "nearest_similarity": 0.9947
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000510",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9786
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7039
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 20,
+      "total_bytes": 2652,
+      "total_packets": 27,
+      "duration_s": 11907.994,
+      "states": "INT:13, CON:7",
+      "interval_cv": 2.596
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 4
+    },
+    "nearest_similarity": 0.9965
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000513",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9723
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6342
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 41,
+      "total_bytes": 14271,
+      "total_packets": 82,
+      "duration_s": 9080.306,
+      "states": "CON:41",
+      "interval_cv": 5.928
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 5,
+      "benign": 3,
+      "unknown": 2
+    },
+    "nearest_similarity": 0.9943
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000520",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9268
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5795
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 32,
+      "total_bytes": 10651,
+      "total_packets": 64,
+      "duration_s": 10749.084,
+      "states": "CON:32",
+      "interval_cv": 3.06
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 7,
+      "benign": 3
+    },
+    "nearest_similarity": 0.9963
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000521",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9714
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.48
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 13,
+      "total_bytes": 7891,
+      "total_packets": 26,
+      "duration_s": 128.205,
+      "states": "CON:13",
+      "interval_cv": 0.913
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 3,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9942
+  },
+  {
+    "fold": "ctu13-scenario-1",
+    "case_id": "socb-ctu13-000531",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.982
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7397
+    },
+    "flow": {
+      "proto": "udp",
+      "dport": "53",
+      "flows": 17,
+      "total_bytes": 1173,
+      "total_packets": 17,
+      "duration_s": 173.35,
+      "states": "INT:17",
+      "interval_cv": 0.564
+    },
+    "training_slice_labels": {
+      "botnet": 11,
+      "unknown": 3,
+      "benign": 25
+    },
+    "nearest_training_labels": {
+      "botnet": 6,
+      "benign": 4
+    },
+    "nearest_similarity": 0.9933
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004039",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9633
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5246
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 2,
+      "total_bytes": 98479,
+      "total_packets": 121,
+      "duration_s": 1.56,
+      "states": "FSPA_FSA:1, FSPA_FSPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "benign": 9,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9972
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004040",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9089
+    },
+    "logreg": {
+      "pred": "c2",
+      "p": 0.4729
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 5,
+      "total_bytes": 17499,
+      "total_packets": 56,
+      "duration_s": 5440.47,
+      "states": "FSPA_FSPA:5",
+      "interval_cv": 0.192
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "benign": 7,
+      "botnet": 2,
+      "c2": 1
+    },
+    "nearest_similarity": 0.9971
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004125",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9093
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6871
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 1,
+      "total_bytes": 20101,
+      "total_packets": 31,
+      "duration_s": 331.788,
+      "states": "FSPA_FSRPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "unknown": 2,
+      "benign": 8
+    },
+    "nearest_similarity": 0.998
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004174",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9425
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.8029
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 6,
+      "total_bytes": 8735,
+      "total_packets": 48,
+      "duration_s": 10662.086,
+      "states": "FSPA_FSA:6",
+      "interval_cv": 0.76
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "botnet": 2,
+      "benign": 8
+    },
+    "nearest_similarity": 0.9963
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004213",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9712
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6891
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 5,
+      "total_bytes": 8216,
+      "total_packets": 45,
+      "duration_s": 4540.611,
+      "states": "FSPA_FSPA:5",
+      "interval_cv": 1.727
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "benign": 8,
+      "c2": 1,
+      "botnet": 1
+    },
+    "nearest_similarity": 0.9976
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004247",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9668
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7795
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 20,
+      "total_bytes": 44606,
+      "total_packets": 180,
+      "duration_s": 11304.111,
+      "states": "FSPA_FSA:17, FSPA_FSPA:3",
+      "interval_cv": 1.973
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "benign": 8,
+      "unknown": 1,
+      "botnet": 1
+    },
+    "nearest_similarity": 0.9974
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004259",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9354
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.7855
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "443",
+      "flows": 1,
+      "total_bytes": 4570,
+      "total_packets": 18,
+      "duration_s": 2.376,
+      "states": "FSPA_FSPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "benign": 431,
+      "c2": 10,
+      "botnet": 26,
+      "unknown": 32
+    },
+    "nearest_training_labels": {
+      "benign": 8,
+      "unknown": 2
+    },
+    "nearest_similarity": 0.9983
+  },
+  {
+    "fold": "ctu13-scenario-2",
+    "case_id": "socb-ctu13-004271",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9217
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.8147
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 2,
+      "total_bytes": 3272,
+      "total_packets": 18,
+      "duration_s": 4533.523,
+      "states": "FSPA_FSPA:2",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1422,
+      "c2": 49,
+      "botnet": 97
+    },
+    "nearest_training_labels": {
+      "benign": 8,
+      "botnet": 1,
+      "c2": 1
+    },
+    "nearest_similarity": 0.9978
+  },
+  {
+    "fold": "ctu13-scenario-4",
+    "case_id": "socb-ctu13-005956",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9468
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.4817
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 1,
+      "total_bytes": 5498,
+      "total_packets": 14,
+      "duration_s": 500.002,
+      "states": "SPA_FSPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 81,
+      "benign": 1279,
+      "c2": 52,
+      "botnet": 108
+    },
+    "nearest_training_labels": {
+      "benign": 10
+    },
+    "nearest_similarity": 0.9976
+  },
+  {
+    "fold": "ctu13-scenario-5",
+    "case_id": "socb-ctu13-006787",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.928
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.5285
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 1,
+      "total_bytes": 14532,
+      "total_packets": 22,
+      "duration_s": 1.054,
+      "states": "FSPA_FSPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 86,
+      "benign": 1402,
+      "c2": 50,
+      "botnet": 100
+    },
+    "nearest_training_labels": {
+      "benign": 7,
+      "botnet": 2,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9987
+  },
+  {
+    "fold": "ctu13-scenario-9",
+    "case_id": "socb-ctu13-009660",
+    "gold": "c2",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9089
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.4289
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "443",
+      "flows": 1,
+      "total_bytes": 30398,
+      "total_packets": 42,
+      "duration_s": 45.432,
+      "states": "FSRPA_SPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "benign": 471,
+      "c2": 4,
+      "botnet": 26,
+      "unknown": 33
+    },
+    "nearest_training_labels": {
+      "benign": 10
+    },
+    "nearest_similarity": 0.9979
+  },
+  {
+    "fold": "ctu13-scenario-13",
+    "case_id": "socb-ctu13-003453",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.951
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.8106
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "443",
+      "flows": 1,
+      "total_bytes": 28459,
+      "total_packets": 42,
+      "duration_s": 2.298,
+      "states": "FSPA_FSPA:1",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 33,
+      "benign": 441,
+      "botnet": 19,
+      "c2": 8
+    },
+    "nearest_training_labels": {
+      "unknown": 2,
+      "botnet": 2,
+      "benign": 6
+    },
+    "nearest_similarity": 0.998
+  },
+  {
+    "fold": "ctu13-scenario-13",
+    "case_id": "socb-ctu13-003530",
+    "gold": "botnet",
+    "jef_v1": {
+      "pred": "benign",
+      "p": 0.9514
+    },
+    "logreg": {
+      "pred": "benign",
+      "p": 0.6125
+    },
+    "flow": {
+      "proto": "tcp",
+      "dport": "80",
+      "flows": 2,
+      "total_bytes": 55980,
+      "total_packets": 74,
+      "duration_s": 14046.941,
+      "states": "FSPA_FSPA:2",
+      "interval_cv": 0.0
+    },
+    "training_slice_labels": {
+      "unknown": 79,
+      "benign": 1398,
+      "botnet": 82,
+      "c2": 44
+    },
+    "nearest_training_labels": {
+      "benign": 9,
+      "unknown": 1
+    },
+    "nearest_similarity": 0.9978
+  }
+]

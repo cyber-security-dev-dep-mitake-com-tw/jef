@@ -14,6 +14,20 @@ genuinely skewed -- CVE attack vectors are ~74% `network`, only a fifth of
 alerts are known-benign -- so unweighted training buys accuracy by learning the
 prior and ignoring the evidence, which is precisely the behaviour a confidence
 number is supposed to expose rather than hide.
+
+Two optional, cost-aware additions (both off by default, so existing heads
+train exactly as before):
+
+* ``fn_cost`` adds an expected-cost term to the loss: for a sample whose true
+  answer is an *attack* option, ``fn_cost`` times the probability the head
+  puts on the *closing* options (benign, normal automation). Cross-entropy
+  treats "botnet called benign" like "botnet called C2"; in a SOC the first
+  closes an incident and the second does not. ``cost_groups`` names, per
+  bucket, which option indices are which.
+* :func:`hard_positive_multipliers` finds training attacks a first-pass head
+  put mostly on closing options; ``train_head(..., sample_multipliers=...)``
+  retrains with those cases weighted up. Training data only: the split being
+  scored is never looked at.
 """
 
 from __future__ import annotations
@@ -29,7 +43,10 @@ from .cache import FeatureCache
 
 log = logging.getLogger("jef.train")
 
-__all__ = ["TrainConfig", "logits_for", "train_head"]
+__all__ = ["TrainConfig", "hard_positive_multipliers", "logits_for", "train_head"]
+
+#: ``(bucket, attack option indices, closing option indices)``.
+CostGroup = tuple[str, tuple[int, ...], tuple[int, ...]]
 
 
 @dataclass(frozen=True)
@@ -44,6 +61,10 @@ class TrainConfig:
     #: Stop when validation loss has not improved for this many epochs.
     patience: int = 8
     threads: int | None = None
+    #: Weight of the expected false-negative cost term (0 disables it).
+    fn_cost: float = 0.0
+    #: Which options are attacks and which close a case, per bucket.
+    cost_groups: tuple[CostGroup, ...] = ()
 
 
 def _class_weights(cache: FeatureCache) -> np.ndarray:
@@ -81,8 +102,14 @@ def train_head(
     cache: FeatureCache,
     val_cache: FeatureCache | None = None,
     config: TrainConfig | None = None,
+    *,
+    sample_multipliers: np.ndarray | None = None,
 ) -> BilinearHead:
-    """Fit U, V, scale and bias. Returns the trained head."""
+    """Fit U, V, scale and bias. Returns the trained head.
+
+    ``sample_multipliers`` scales each training sample's weight (one entry per
+    sample of ``cache``), for hard-positive retraining.
+    """
     import torch
     import torch.nn.functional as F
 
@@ -103,6 +130,20 @@ def train_head(
     sample_weights = (
         _class_weights(cache) if cfg.class_weighting else np.ones(len(cache), np.float32)
     )
+    if sample_multipliers is not None:
+        if len(sample_multipliers) != len(cache):
+            raise ValueError("sample_multipliers must have one entry per training sample")
+        sample_weights = sample_weights * np.asarray(sample_multipliers, dtype=np.float32)
+    groups = {b: (list(att), list(clo)) for b, att, clo in cfg.cost_groups}
+
+    def cost_term(bucket: str, logits: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Per-sample probability on closing options when the truth is an attack."""
+        if not cfg.fn_cost or bucket not in groups:
+            return torch.zeros(len(y))
+        attack, closing = groups[bucket]
+        probs = F.softmax(logits, dim=-1)
+        is_attack = torch.isin(y, torch.tensor(attack, dtype=y.dtype)).float()
+        return cfg.fn_cost * probs[:, closing].sum(-1) * is_attack
 
     def forward(ctx: torch.Tensor, queries: torch.Tensor) -> torch.Tensor:
         a = F.normalize(ctx @ u, dim=-1)
@@ -112,11 +153,13 @@ def train_head(
     def evaluate(target: FeatureCache) -> tuple[float, float]:
         total_loss, correct, seen = 0.0, 0, 0
         with torch.no_grad():
-            for _bucket, idx in _batches(target, 256, np.random.default_rng(0)):
+            for bucket, idx in _batches(target, 256, np.random.default_rng(0)):
                 ctx_np, q_np, y_np = _stack(target, idx)
                 logits = forward(torch.from_numpy(ctx_np), torch.from_numpy(q_np))
                 y = torch.from_numpy(y_np)
+                # Early stopping watches the objective being trained, cost included.
                 total_loss += float(F.cross_entropy(logits, y, reduction="sum"))
+                total_loss += float(cost_term(bucket, logits, y).sum())
                 correct += int((logits.argmax(-1) == y).sum())
                 seen += len(idx)
         return total_loss / max(seen, 1), correct / max(seen, 1)
@@ -127,10 +170,12 @@ def train_head(
 
     for epoch in range(1, cfg.epochs + 1):
         epoch_loss, seen = 0.0, 0
-        for _bucket, idx in _batches(cache, cfg.batch_size, rng):
+        for bucket, idx in _batches(cache, cfg.batch_size, rng):
             ctx_np, q_np, y_np = _stack(cache, idx)
             logits = forward(torch.from_numpy(ctx_np), torch.from_numpy(q_np))
-            per_sample = F.cross_entropy(logits, torch.from_numpy(y_np), reduction="none")
+            y_t = torch.from_numpy(y_np)
+            per_sample = F.cross_entropy(logits, y_t, reduction="none")
+            per_sample = per_sample + cost_term(bucket, logits, y_t)
             w = torch.from_numpy(sample_weights[idx])
             loss = (per_sample * w).sum() / w.sum()
 
@@ -160,8 +205,8 @@ def train_head(
             best_state = (
                 u.detach().numpy().copy(),
                 v.detach().numpy().copy(),
-                float(scale),
-                float(bias),
+                float(scale.detach()),
+                float(bias.detach()),
             )
             stale = 0
         else:
@@ -194,3 +239,32 @@ def logits_for(head: BilinearHead, cache: FeatureCache) -> list[np.ndarray]:
         b = b / np.linalg.norm(b, axis=-1, keepdims=True).clip(min=1e-9)
         out.append(np.einsum("nr,nr->n", a, b).astype(np.float64) * head.scale + head.bias)
     return out
+
+
+def hard_positive_multipliers(
+    head: BilinearHead,
+    cache: FeatureCache,
+    cost_groups: tuple[CostGroup, ...],
+    *,
+    weight: float,
+    threshold: float = 0.5,
+) -> tuple[np.ndarray, int]:
+    """``(multipliers, n_hard)``: ``weight`` for training attacks the head mostly closed.
+
+    A sample is hard when its true option is an attack and the head puts at
+    least ``threshold`` of its probability on closing options. Everything else
+    keeps multiplier 1.
+    """
+    groups = {b: (set(att), list(clo)) for b, att, clo in cost_groups}
+    out = np.ones(len(cache), dtype=np.float32)
+    n_hard = 0
+    for i, logits in enumerate(logits_for(head, cache)):
+        group = groups.get(cache.bucket_of(i))
+        if group is None or int(cache.labels[i]) not in group[0]:
+            continue
+        z = np.exp(logits - logits.max())
+        probs = z / z.sum()
+        if float(probs[group[1]].sum()) >= threshold:
+            out[i] = weight
+            n_hard += 1
+    return out, n_hard

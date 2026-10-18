@@ -59,7 +59,11 @@ MAX_AUTO_TIER = 1
 
 #: Name patterns that mark an action as state-changing. Deliberately broad:
 #: a false positive here costs a human a look, a false negative closes an
-#: alert nobody saw. An explicit ``tier`` on the action overrides the guess.
+#: alert nobody saw. An explicit ``tier`` can raise an action above its
+#: name's tier, never lower it: a scene that declares ``close_alert`` T1 still
+#: gets T2 and ``AUTO_CLOSE_PROHIBITED``. Closing or suppressing is never
+#: automated, whatever the YAML says; an action wrongly caught by a pattern is
+#: renamed, not declared safe.
 _TIER_PATTERNS: tuple[tuple[int, re.Pattern[str]], ...] = (
     (
         3,
@@ -82,8 +86,14 @@ def inferred_tier(name: str) -> int:
 
 
 def tier_of(name: str, action: Action) -> int:
-    """The action's explicit ``tier`` if the scene set one, else the inferred one."""
-    return action.tier if action.tier is not None else inferred_tier(name)
+    """The higher of the action's explicit ``tier`` and the tier its name implies.
+
+    A declared tier is a floor raise, not an override: lowering a close,
+    suppress, isolate or block action below its name's tier would let a scene
+    automate it by editing one line of YAML.
+    """
+    inferred = inferred_tier(name)
+    return inferred if action.tier is None else max(action.tier, inferred)
 
 
 def referenced_questions(condition: str | None, available: Iterable[str]) -> set[str]:

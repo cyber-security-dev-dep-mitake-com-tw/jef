@@ -22,7 +22,7 @@ from jef_core.calibration import ArtifactInfo, Calibrator, file_sha256, split_bu
 from .cache import FeatureCache, build_feature_cache
 from .evaluate import evaluate_cache, majority_baseline
 from .schema import read_samples
-from .train import TrainConfig, logits_for, train_head
+from .train import CostGroup, TrainConfig, hard_positive_multipliers, logits_for, train_head
 
 log = logging.getLogger("jef.train.fit")
 
@@ -107,6 +107,30 @@ def _split_caches(
     return out
 
 
+def _cost_groups(corpus: Path, attack: str, closing: str) -> tuple[CostGroup, ...]:
+    """Per bucket, the option indices named by ``attack`` and ``closing``.
+
+    Read from the training samples' own option keys, so an index always means
+    the option it meant when the sample was written. Buckets with no attack or
+    no closing option get no group (their loss is unchanged).
+    """
+    att = {x.strip() for x in attack.split(",") if x.strip()}
+    clo = {x.strip() for x in closing.split(",") if x.strip()}
+    if not att or not clo:
+        return ()
+    if att & clo:
+        raise SystemExit(f"labels {sorted(att & clo)} cannot be both attack and closing")
+    seen: dict[str, CostGroup] = {}
+    for s in read_samples(corpus / "train.jsonl"):
+        if s.bucket in seen:
+            continue
+        a = tuple(i for i, k in enumerate(s.option_keys) if k in att)
+        c = tuple(i for i, k in enumerate(s.option_keys) if k in clo)
+        if a and c:
+            seen[s.bucket] = (s.bucket, a, c)
+    return tuple(seen[b] for b in sorted(seen))
+
+
 def _corpus_languages(manifest: Path) -> str:
     """``"en,zh-TW"`` from the corpus manifest, or ``""`` when it has none."""
     if not manifest.is_file():
@@ -142,6 +166,29 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--fn-cost",
+        type=float,
+        default=0.0,
+        help="weight of the expected false-negative cost: probability on --closing-labels "
+        "when the truth is one of --attack-labels (0: plain cross-entropy)",
+    )
+    parser.add_argument(
+        "--attack-labels",
+        default="",
+        help="comma-separated option keys that are attacks, e.g. c2,botnet,dns_tunnel",
+    )
+    parser.add_argument(
+        "--closing-labels",
+        default="",
+        help="comma-separated option keys that would close a case, e.g. benign,normal_automation",
+    )
+    parser.add_argument(
+        "--hard-positive-weight",
+        type=float,
+        default=0.0,
+        help="retrain once with training attacks the first head mostly closed weighted by this",
+    )
+    parser.add_argument(
         "--no-class-weighting",
         action="store_true",
         help="train on the raw prior; expect better accuracy and worse macro-F1",
@@ -166,19 +213,32 @@ def main(argv: list[str] | None = None) -> int:
         len({g for c in caches.values() for g in c.groups}),
     )
 
-    head = train_head(
-        caches["train"],
-        caches["calibration"],
-        TrainConfig(
-            rank=args.rank,
-            epochs=args.epochs,
-            lr=args.lr,
-            batch_size=args.batch_size,
-            class_weighting=not args.no_class_weighting,
-            seed=args.seed,
-            threads=args.threads,
-        ),
+    groups = _cost_groups(corpus, args.attack_labels, args.closing_labels)
+    if (args.fn_cost or args.hard_positive_weight) and not groups:
+        raise SystemExit(
+            "--fn-cost/--hard-positive-weight need --attack-labels and --closing-labels"
+        )
+    config = TrainConfig(
+        rank=args.rank,
+        epochs=args.epochs,
+        lr=args.lr,
+        batch_size=args.batch_size,
+        class_weighting=not args.no_class_weighting,
+        seed=args.seed,
+        threads=args.threads,
+        fn_cost=args.fn_cost,
+        cost_groups=groups,
     )
+    head = train_head(caches["train"], caches["calibration"], config)
+    hard_positives = 0
+    if args.hard_positive_weight:
+        multipliers, hard_positives = hard_positive_multipliers(
+            head, caches["train"], groups, weight=args.hard_positive_weight
+        )
+        log.info("hard positives in training: %d; retraining", hard_positives)
+        head = train_head(
+            caches["train"], caches["calibration"], config, sample_multipliers=multipliers
+        )
     # The head is only meaningful on these exact weights, so it says which.
     head.backbone, head.backbone_revision = backbone_id, revision
     head.save(out / "head.npz")
@@ -226,6 +286,10 @@ def main(argv: list[str] | None = None) -> int:
         "head": head.name,
         "rank": args.rank,
         "class_weighting": not args.no_class_weighting,
+        "fn_cost": args.fn_cost,
+        "cost_groups": [list(g) for g in groups],
+        "hard_positive_weight": args.hard_positive_weight,
+        "hard_positives": hard_positives,
         "excluded_sources": list(args.exclude_source),
         "splits": {k: len(v) for k, v in caches.items()},
         "split_unit": "evidence group (ATT&CK technique / CVE id / SOAR template)",

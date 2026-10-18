@@ -103,9 +103,11 @@ verdict that the trace carries as `policy_verdict` (`allow` or
 `review_required`, `human_review` is true whatever the action declared, and
 nothing downstream may flip it back.
 
-Two rules. Actions are tiered T0 to T4, explicitly via `tier:` on the action or
-inferred from the name (`close` is T2, `isolate`/`disable`/`block` T3, anything
-else T1); only T0 and T1 may run without a human. And an automating action
+Two rules. Actions are tiered T0 to T4 by the higher of `tier:` on the action
+and the tier its name implies (`close`/`suppress` is T2, `isolate`/`disable`/`block`
+T3, anything else T1): a declared tier can raise an action but never lower it,
+so closing or suppressing can never be automated by editing the YAML. Only T0
+and T1 may run without a human. And an automating action
 must rest on questions whose calibration is `validated`: every question the
 firing gate read must have `calibration_status == "validated"` (a correctness
 map and a conformal quantile at the scene's alpha, both fitted on enough

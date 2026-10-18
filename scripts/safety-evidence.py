@@ -166,6 +166,15 @@ CASES: dict[str, tuple[str, list[str]]] = {
             f"{SRV}/test_production_profile.py",
         ],
     ),
+    "P02": (
+        "Close and suppress never automate, whatever tier the scene declares",
+        [
+            f"{SCN}/test_policy.py::test_explicit_tier_can_raise_but_never_lower",
+            f"{SCN}/test_policy.py::test_tier_of_is_the_higher_of_declared_and_inferred",
+            f"{SCN}/test_policy.py::test_shipped_scenes_never_automate_a_state_changing_action",
+            "packages/jef/tests/cli/test_validate.py::test_declaring_a_close_action_t1_does_not_make_it_automatable",
+        ],
+    ),
 }
 MANUAL = {
     "S14": (
