@@ -125,14 +125,17 @@ def test_tier_one_with_calibrated_evidence_is_allowed(calibrated_engine: Engine)
     assert trace.action_tier == 1
 
 
-def test_explicit_tier_overrides_the_name_both_ways(calibrated_engine: Engine) -> None:
+def test_explicit_tier_can_raise_but_never_lower(calibrated_engine: Engine) -> None:
     engine = SceneEngine(ScriptedEngine(sure_false_positive(), calibrated_engine.calibrator))
     harmless_name_dangerous_tier = engine.run(scene_for("nuke"), "x")
     assert harmless_name_dangerous_tier.policy_verdict == "review_required"
     assert "DISRUPTIVE_ACTION_REQUIRES_APPROVAL" in harmless_name_dangerous_tier.reason_codes
-    # The author took responsibility in the YAML: `gentle_close` is declared T1.
+    # Declaring a close action T1 in the YAML does not make it automatable:
+    # auto-close stays prohibited, with calibrated evidence and a sure answer.
     declared_safe = engine.run(scene_for("gentle_close"), "x")
-    assert declared_safe.policy_verdict == "allow"
+    assert declared_safe.policy_verdict == "review_required"
+    assert declared_safe.action_tier == 2
+    assert "AUTO_CLOSE_PROHIBITED" in declared_safe.reason_codes
 
 
 # --------------------------------------------------------------------------- #
@@ -211,8 +214,10 @@ def test_inferred_tiers(name: str, tier: int) -> None:
     assert inferred_tier(name) == tier
 
 
-def test_tier_of_prefers_the_explicit_value() -> None:
-    assert tier_of("close", Action(tier=1)) == 1
+def test_tier_of_is_the_higher_of_declared_and_inferred() -> None:
+    assert tier_of("close", Action(tier=1)) == 2, "a close action cannot be declared T1"
+    assert tier_of("suppress_alert", Action(tier=0)) == 2
+    assert tier_of("isolate_host", Action(tier=1)) == 3
     assert tier_of("enrich", Action(tier=4)) == 4
     assert tier_of("close", Action()) == 2
     assert MAX_AUTO_TIER == 1

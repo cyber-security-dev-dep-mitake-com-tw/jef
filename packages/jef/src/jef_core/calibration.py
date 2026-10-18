@@ -257,6 +257,14 @@ DEFAULT_ALPHAS: tuple[float, ...] = (0.01, 0.05, 0.10, 0.20)
 #:
 #: Only ``validated`` may unlock automation. Everything else is "cannot say",
 #: and a UI must render it as such, not as a wide-but-trustworthy set.
+#:
+#: ``validated`` is a property of the *artifact*: it was fitted, for this task
+#: and model, on enough held-out data. It is **not** a promise that coverage
+#: holds where the model now runs. Split conformal guarantees coverage only on
+#: data exchangeable with the calibration split; on CTU-13, calibrating on two
+#: scenarios and testing on a third missed the 90% target in 7 of 13 folds
+#: (docs/validation/research/ndr-head-and-transfer-v1). Measure it on labelled
+#: data from the environment being served with :meth:`Calibrator.coverage_check`.
 CalibrationStatus = Literal["validated", "insufficient", "missing", "legacy", "incompatible"]
 
 #: The artifact format this code writes. 1 is the shape-keyed format that
@@ -425,6 +433,53 @@ class Calibrator:
             return full
         keep = [int(i) for i in np.flatnonzero(p >= 1.0 - qhat)]
         return keep or full
+
+    def coverage_check(
+        self,
+        probabilities: Sequence[NDArray[np.floating]],
+        labels: Sequence[int],
+        kind: str,
+        n_options: int,
+        alpha: float = 0.10,
+        task_id: str | None = None,
+        *,
+        min_samples: int = 50,
+    ) -> dict[str, object]:
+        """Does the conformal coverage promised for ``alpha`` hold on these labelled cases?
+
+        Feed it cases from the environment the model serves, scored by the
+        model, with reviewer labels. ``status`` is ``holds`` unless the data
+        shows coverage is below ``1 - alpha``: ``violated`` when the 95% Wilson
+        upper bound on empirical coverage is below the target (clear evidence,
+        not a near miss), ``too_few`` under ``min_samples`` cases, ``unfitted``
+        when no quantile applies (sets are then the full set and trivially
+        cover). A ``validated`` bucket whose check says ``violated`` must not
+        gate automation.
+        """
+        target = 1.0 - alpha
+        b = self._bucket(kind, n_options, task_id)
+        if b is None or b.conformal.get(_akey(alpha)) is None:
+            return {"status": "unfitted", "target": target, "n": len(labels)}
+        sets = [self.prediction_set(p, kind, n_options, alpha, task_id) for p in probabilities]
+        n = len(labels)
+        covered = sum(int(y) in s for s, y in zip(sets, labels, strict=True))
+        out: dict[str, object] = {
+            "target": target,
+            "n": n,
+            "covered": covered,
+            "empirical": covered / n if n else None,
+            "mean_set_size": float(np.mean([len(s) for s in sets])) if sets else None,
+        }
+        if n < min_samples:
+            out["status"] = "too_few"
+            return out
+        z = 1.959963984540054
+        phat = covered / n
+        centre = (phat + z * z / (2 * n)) / (1 + z * z / n)
+        half = z * math.sqrt(phat * (1 - phat) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+        out["wilson_95"] = [max(0.0, centre - half), min(1.0, centre + half)]
+        out["status"] = "violated" if centre + half < target else "holds"
+        return out
 
     def p_correct(
         self, confidence: float, kind: str, n_options: int, task_id: str | None = None
