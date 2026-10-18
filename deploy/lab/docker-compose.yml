@@ -13,6 +13,7 @@ networks:
     internal: true   # no egress; the host's published ports are the only way in
 services:
   jef:
+    image: jef-lab:local
     build:
       context: ../..
       args:
@@ -47,6 +48,28 @@ services:
       - ./mock_targets.py:/lab/mock_targets.py:ro
     ports:
       - "127.0.0.1:9009:9009"
+    networks: [lab]
+  # The safety matrix, end to end: plays the SOAR connector and the approval
+  # stub against jef and mock-targets from inside the lab network. Profile-
+  # gated, so `up` alone does not start it. CI runs its phases in order:
+  #   docker compose --profile soar run --rm mock-soar matrix
+  #   docker compose restart jef
+  #   docker compose --profile soar run --rm mock-soar after-restart
+  mock-soar:
+    profiles: ["soar"]
+    image: jef-lab:local          # the jef image: it ships jef_scene for grant signing
+    entrypoint: ["python", "/lab/mock_soar.py"]
+    command: ["matrix"]
+    environment:
+      JEF_URL: http://jef:8080
+      TARGETS_URL: http://mock-targets:9009
+      JEF_API_KEY: "lab-only-not-a-secret"                   # must match JEF_API_KEYS above
+      JEF_GRANT_SECRET: "lab-grant-secret-not-for-production"  # the approval stub's key
+      SOAR_OUT: /out
+    volumes:
+      - ./mock_soar.py:/lab/mock_soar.py:ro
+      - ${SOAR_OUT_DIR:-./soar-out}:/out
+    depends_on: [jef, mock-targets]
     networks: [lab]
 volumes:
   decisions: {}

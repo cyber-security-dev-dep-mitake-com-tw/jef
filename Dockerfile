@@ -67,7 +67,11 @@ ENV JEF_SCENES_DIR=/app/scenes
 COPY packages/jef-ui/ /app/ui/
 ENV JEF_UI_DIR=/app/ui
 
-RUN mkdir -p /app/.cache && chown -R jef:jef /app
+# /var/lib/jef holds the SQLite decision store when JEF_DECISION_STORE points
+# there (deploy/lab). It must exist in the image and belong to jef: a named
+# volume mounted on a missing path is created root-owned and the non-root
+# server could not open its store.
+RUN mkdir -p /app/.cache /var/lib/jef && chown -R jef:jef /app /var/lib/jef
 USER jef
 
 EXPOSE 8080

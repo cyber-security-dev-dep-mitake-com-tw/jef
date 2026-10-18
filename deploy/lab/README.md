@@ -46,6 +46,20 @@ With the hashing backbone `readiness` reports `backbone:test` and `decision_supp
 | Store down | stop the volume / make the DB path unwritable | `503 store_unavailable`; nothing authorized |
 | Egress | `egress_check.sh` | `PASS` |
 
+### The same matrix, automated
+
+`mock_soar.py` runs the rows above except Egress from inside the lab network, as the SOAR connector and the approval stub, and writes one JSON report per phase:
+
+```bash
+mkdir -p deploy/lab/soar-out
+docker compose -f deploy/lab/docker-compose.yml up --build -d jef mock-targets
+docker compose -f deploy/lab/docker-compose.yml --profile soar run --rm mock-soar matrix
+docker compose -f deploy/lab/docker-compose.yml restart jef
+docker compose -f deploy/lab/docker-compose.yml --profile soar run --rm mock-soar after-restart
+```
+
+CI runs the same steps, plus the store outage, in the `lab-compose` job and archives `lab-compose-<sha>`. It proves the contract on a CI runner; it is **not** evidence that an ESXi segment has no egress (S14), which only `egress_check.sh` on the lab VM can give.
+
 Collect `GET /calls` from the mock, the receipts, the readiness report and the egress output into the Safety Evidence Pack, alongside the automated half. Run it inside the lab VM so the pack is bound to where it ran:
 
 ```bash

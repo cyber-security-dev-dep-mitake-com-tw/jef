@@ -76,3 +76,6 @@ packages/jef-sdk-ts/package-lock.json
 
 # Generated evidence packs (scripts/safety-evidence.py); archived as CI artifacts, not committed.
 evidence/
+
+# --- lab mock SOAR reports (deploy/lab/mock_soar.py) ---
+deploy/lab/soar-out/
