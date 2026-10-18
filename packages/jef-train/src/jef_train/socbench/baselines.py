@@ -180,8 +180,45 @@ class LogisticScorer:
 #: the same instructions, the same options in TASK_LABELS order, the same
 #: option text. A comparison where systems were asked different things is not
 #: a comparison.
+#: The question each task asks, as the scene would ask it. Two languages so a
+#: zh-TW corpus is not a translated English corpus by accident.
+TASK_QUESTIONS: Mapping[str, Mapping[str, str]] = {
+    "soc.alert.verdict.v1": {
+        "en": "Given this alert and its context, what is the verdict?",
+        "zh-TW": "根據此告警與其脈絡，判定結果為何？",
+    },
+    "soc.ndr.technique.v1": {
+        "en": "Which network behaviour does this evidence show?",
+        "zh-TW": "此證據顯示何種網路行為？",
+    },
+    "soc.edr.execution.v1": {
+        "en": "Is this process execution malicious?",
+        "zh-TW": "此程序執行是否為惡意？",
+    },
+    "soc.identity.abuse.v1": {
+        "en": "Is this identity activity compromised, suspicious or legitimate?",
+        "zh-TW": "此身分活動屬於已遭入侵、可疑或合法？",
+    },
+    "soc.phishing.verdict.v1": {
+        "en": "What is the verdict on this e-mail?",
+        "zh-TW": "此郵件的判定結果為何？",
+    },
+    "soc.response.authority.v1": {
+        "en": "May this response action proceed under policy?",
+        "zh-TW": "此處置動作依政策是否可以執行？",
+    },
+}
+
+#: Fallback for a task with no entry above.
 VERDICT_INSTRUCTIONS = "Which verdict does this evidence support?"
 HTTP_INSTRUCTIONS = VERDICT_INSTRUCTIONS  # kept for callers of the old name
+
+
+def questions_digest() -> str:
+    """Digest of every task's English instructions: what remote systems are asked."""
+    return prompt_digest(
+        json.dumps({t: task_instructions(t) for t in sorted(TASK_LABELS)}, sort_keys=True)
+    )
 
 
 def prompt_digest(instructions: str) -> str:
@@ -215,11 +252,22 @@ def label_text(label: str) -> str:
     return LABEL_TEXT.get(label, label.replace("_", " "))
 
 
+def task_instructions(task: str, lang: str = "en") -> str:
+    """The instructions for ``task``: the exact text a JEF head is trained on."""
+    asked = TASK_QUESTIONS.get(task, {})
+    return asked.get(lang) or asked.get("en") or VERDICT_INSTRUCTIONS
+
+
 def verdict_question(task: str) -> dict[str, Any]:
-    """The choice question every scorer is asked for a case of ``task``."""
+    """The choice question every scorer is asked for a case of ``task``.
+
+    The same instructions ``export_corpus`` writes into training samples, so
+    a head is scored on the question it learned, and every other system is
+    asked that same question.
+    """
     return {
         "type": "choice",
-        "instructions": VERDICT_INSTRUCTIONS,
+        "instructions": task_instructions(task),
         "criteria": {lab: label_text(lab) for lab in TASK_LABELS[task]},
     }
 
@@ -249,7 +297,9 @@ class JefScorer:
     def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
         labels = TASK_LABELS[case["task_id"]]
         question = {**verdict_question(case["task_id"]), "task_id": case["task_id"]}
-        result = self.engine.evaluate(case["state"], {"verdict": question})
+        # case_text, not the raw state: the rendering every scorer and every
+        # exported training sample sees (state lines, then evidence lines).
+        result = self.engine.evaluate(case_text(case), {"verdict": question})
         return {lab: float(result.answers["verdict"].probabilities[lab]) for lab in labels}
 
 

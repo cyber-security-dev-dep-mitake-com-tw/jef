@@ -6,11 +6,13 @@ import json
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from jef_train.socbench import cli
 from jef_train.socbench.annotate import TASK_LABELS
-from jef_train.socbench.baselines import JefScorer, verdict_question
+from jef_train.socbench.baselines import JefScorer, case_text, verdict_question
 from jef_train.socbench.records import write_jsonl
 from jef_train.socbench.remote import (
     GatewayScorer,
@@ -225,7 +227,8 @@ def test_gateway_wire_format() -> None:
     assert url == "https://ai-gateway.example/v4/ai/decision-model"
     assert headers["ai-decision-model-specification-version"] == "4"
     assert headers["ai-model-id"] == "typesafe-ai/jev"
-    assert body["stateParts"] == [{"type": "json", "value": case(1)["state"]}]
+    # Every scorer sees the same rendering of the case: state, then evidence.
+    assert body["stateParts"] == [{"type": "text", "text": case_text(case(1))}]
     assert set(body) == {"stateParts", "questions"}
 
 
@@ -440,3 +443,30 @@ def test_cli_refuses_duplicate_names_and_unapproved_egress(tmp_path: Path, capsy
     assert cli.main([*base, "--scorer-config", str(ext)]) == 2
     assert "--allow-egress gw.example" in capsys.readouterr().err
     assert not (tmp_path / "report.json").exists()
+
+
+def test_jef_is_scored_on_the_question_and_text_it_is_trained_on() -> None:
+    """A head trained by export_corpus must be asked the same thing at evaluation."""
+    from jef_train.socbench.corpus_export import samples_from_gold
+
+    c = {**case(1), "family_id": "f1", "source_dataset": "unit", "language": "en"}
+    gold = {
+        "case_id": c["case_id"],
+        "task_id": TASK,
+        "label_origin": "two-reviewer",
+        "gold": {"verdict": TASK_LABELS[TASK][0]},
+    }
+    [sample], _ = samples_from_gold([c], [gold], {c["case_id"]: "train"}, min_tier="E")
+    seen: dict[str, Any] = {}
+
+    class Engine:
+        def evaluate(self, state: Any, questions: dict[str, Any]) -> Any:
+            seen["state"], seen["q"] = state, questions["verdict"]
+            probs = {lab: 1 / len(TASK_LABELS[TASK]) for lab in TASK_LABELS[TASK]}
+            return SimpleNamespace(answers={"verdict": SimpleNamespace(probabilities=probs)})
+
+    JefScorer(Engine()).predict(c)
+    assert seen["state"] == sample.state
+    assert seen["q"]["instructions"] == sample.instructions
+    assert list(seen["q"]["criteria"]) == sample.option_keys
+    assert list(seen["q"]["criteria"].values()) == sample.option_labels

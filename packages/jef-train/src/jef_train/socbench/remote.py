@@ -43,7 +43,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .annotate import TASK_LABELS
-from .baselines import VERDICT_INSTRUCTIONS, case_text, prompt_digest, verdict_question
+from .baselines import case_text, questions_digest, verdict_question
 
 __all__ = [
     "GatewayScorer",
@@ -206,7 +206,7 @@ class RemoteScorer:
             "auth": f"env:{self.auth_env}" if self.auth_env else "none",
             "timeout_s": self.timeout,
             "retries": self.retries,
-            "prompt_digest": prompt_digest(VERDICT_INSTRUCTIONS),
+            "prompt_digest": questions_digest(),
             **self.meta,
         }
 
@@ -243,7 +243,7 @@ class SystemOneScorer(RemoteScorer):
         task = case["task_id"]
         body = {
             "model": self.model,
-            "state": case["state"],
+            "state": case_text(case),
             "questions": {"verdict": verdict_question(task)},
         }
         reply = self._call(f"{self.url}/v1/systemone", body)
@@ -265,12 +265,8 @@ class GatewayScorer(RemoteScorer):
 
     def predict(self, case: Mapping[str, Any]) -> dict[str, float]:
         task = case["task_id"]
-        state = case["state"]
-        part = (
-            {"type": "json", "value": state}
-            if isinstance(state, Mapping)
-            else {"type": "text", "text": str(state) if state is not None else case_text(case)}
-        )
+        # The same rendering every scorer gets: state lines, then evidence.
+        part = {"type": "text", "text": case_text(case)}
         body = {"stateParts": [part], "questions": {"verdict": verdict_question(task)}}
         reply = self._call(
             f"{self.url}/decision-model",

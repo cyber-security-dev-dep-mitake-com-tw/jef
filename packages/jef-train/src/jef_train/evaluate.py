@@ -39,7 +39,7 @@ from dataclasses import asdict, dataclass, field
 from itertools import pairwise
 
 import numpy as np
-from jef_core.calibration import Calibrator
+from jef_core.calibration import Calibrator, split_bucket_key
 from jef_core.mathx import brier_score, confidence, expected_calibration_error, softmax
 
 from .cache import FeatureCache
@@ -162,9 +162,8 @@ def evaluate_cache(
     total_correct = 0
 
     for bucket, idx in sorted(buckets.items()):
-        kind, n_options = bucket.split(":")
-        width = int(n_options)
-        temperature = calib.temperature(kind, width)
+        task, kind, width = split_bucket_key(bucket)
+        temperature = calib.temperature(kind, width, task)
 
         probs = [softmax(logits[i], temperature=temperature) for i in idx]
         preds = [int(np.argmax(p)) for p in probs]
@@ -177,7 +176,7 @@ def evaluate_cache(
         for i, hit in zip(idx, hits, strict=True):
             per_source[cache.sources[i]].append(hit)
 
-        p_corrects = [calib.p_correct(c, kind, width) for c in confs]
+        p_corrects = [calib.p_correct(c, kind, width, task) for c in confs]
         have_map = all(p is not None for p in p_corrects) and bool(p_corrects)
         bucket_ece_pc = (
             expected_calibration_error(
@@ -194,7 +193,7 @@ def evaluate_cache(
         set_size: dict[str, float] = {}
         if calib.is_fitted():
             for alpha in alphas:
-                sets = [calib.prediction_set(p, kind, width, alpha) for p in probs]
+                sets = [calib.prediction_set(p, kind, width, alpha, task) for p in probs]
                 covered = sum(1 for s, y in zip(sets, labels, strict=True) if y in s)
                 empirical = covered / len(labels)
                 coverage[f"{alpha:.2f}"] = empirical
