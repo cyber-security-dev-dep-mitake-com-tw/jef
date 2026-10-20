@@ -1,0 +1,6022 @@
+{
+  "B_baselines": {
+    "cases": 24,
+    "fail_closed": {
+      "auto_allowed": 0,
+      "cases": 24,
+      "dispatched": 0,
+      "note": "every case to a person: workload 100%, no automated outcome",
+      "review_required": 24,
+      "workload_share": 1.0
+    },
+    "routing_decision": {
+      "b1_rules_macro_f1": 0.8667,
+      "b3_jef_macro_f1": 0.0889,
+      "decided": true,
+      "routing": "human_or_rule_assisted",
+      "why": "B3 below B1 on the same split: keep a person (or the rules) on routing"
+    },
+    "split": "test",
+    "tasks": {
+      "jef": {
+        "evidence_sufficiency": {
+          "excluded": {},
+          "false": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "support": 2
+          },
+          "scored": 24,
+          "small_sample": "24 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.913,
+            "recall": 0.9545,
+            "support": 22
+          }
+        },
+        "false_positive": {
+          "attack_called_false_positive": 10,
+          "attack_called_false_positive_rate": 0.625,
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "false": {
+            "precision": 0.8571,
+            "recall": 0.375,
+            "support": 16
+          },
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.3333,
+            "recall": 0.8333,
+            "support": 6
+          }
+        },
+        "owner": {
+          "accuracy_within_allowed": 0.125,
+          "confusion": {
+            "identity": {
+              "appsec": 1,
+              "fraud": 1,
+              "infra": 2,
+              "soc": 2
+            },
+            "infra": {
+              "appsec": 1,
+              "fraud": 2,
+              "infra": 1
+            },
+            "soc": {
+              "appsec": 6,
+              "fraud": 4,
+              "infra": 2,
+              "soc": 2
+            }
+          },
+          "excluded": {},
+          "macro_f1": 0.0889,
+          "mean_p_fraud": 0.2903,
+          "predicted_base_rate": {
+            "appsec": 8,
+            "fraud": 7,
+            "infra": 5,
+            "soc": 4
+          },
+          "scored": 24,
+          "small_sample": "24 scored < 30: per-case results only; no calibration error or interval is reported"
+        },
+        "severity": {
+          "critical_to_low_or_info": 2,
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "mae": 1.3636,
+          "qwk": 0.2632,
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "under_estimate_rate": 0.3182
+        },
+        "urgency": {
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "false": {
+            "precision": 0.4545,
+            "recall": 0.4167,
+            "support": 12
+          },
+          "fnr": 0.6,
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.3636,
+            "recall": 0.4,
+            "support": 10
+          },
+          "urgent_missed": 6
+        }
+      },
+      "logreg": {
+        "evidence_sufficiency": {
+          "excluded": {},
+          "false": {
+            "precision": null,
+            "recall": 0.0,
+            "support": 2
+          },
+          "scored": 24,
+          "small_sample": "24 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.9167,
+            "recall": 1.0,
+            "support": 22
+          }
+        },
+        "false_positive": {
+          "attack_called_false_positive": 1,
+          "attack_called_false_positive_rate": 0.0625,
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "false": {
+            "precision": 0.9375,
+            "recall": 0.9375,
+            "support": 16
+          },
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.8333,
+            "recall": 0.8333,
+            "support": 6
+          }
+        },
+        "owner": {
+          "accuracy_within_allowed": 0.5,
+          "confusion": {
+            "identity": {
+              "identity": 4,
+              "infra": 2
+            },
+            "infra": {
+              "identity": 2,
+              "infra": 2
+            },
+            "soc": {
+              "identity": 5,
+              "infra": 3,
+              "soc": 6
+            }
+          },
+          "excluded": {},
+          "macro_f1": 0.4781,
+          "mean_p_fraud": 0.1452,
+          "predicted_base_rate": {
+            "identity": 11,
+            "infra": 7,
+            "soc": 6
+          },
+          "scored": 24,
+          "small_sample": "24 scored < 30: per-case results only; no calibration error or interval is reported"
+        },
+        "severity": {
+          "critical_to_low_or_info": 0,
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "mae": 0.3182,
+          "qwk": 0.9319,
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "under_estimate_rate": 0.1364
+        },
+        "urgency": {
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "false": {
+            "precision": 1.0,
+            "recall": 0.6667,
+            "support": 12
+          },
+          "fnr": 0.0,
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.7143,
+            "recall": 1.0,
+            "support": 10
+          },
+          "urgent_missed": 0
+        }
+      },
+      "rules": {
+        "evidence_sufficiency": {
+          "excluded": {},
+          "false": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "support": 2
+          },
+          "scored": 24,
+          "small_sample": "24 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 1.0,
+            "recall": 0.9091,
+            "support": 22
+          }
+        },
+        "false_positive": {
+          "attack_called_false_positive": 0,
+          "attack_called_false_positive_rate": 0.0,
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "false": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 16
+          },
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 6
+          }
+        },
+        "owner": {
+          "accuracy_within_allowed": 0.9167,
+          "confusion": {
+            "identity": {
+              "identity": 6
+            },
+            "infra": {
+              "infra": 2,
+              "soc": 2
+            },
+            "soc": {
+              "soc": 14
+            }
+          },
+          "excluded": {},
+          "macro_f1": 0.8667,
+          "mean_p_fraud": 0.0,
+          "predicted_base_rate": {
+            "identity": 6,
+            "infra": 2,
+            "soc": 16
+          },
+          "scored": 24,
+          "small_sample": "24 scored < 30: per-case results only; no calibration error or interval is reported"
+        },
+        "severity": {
+          "critical_to_low_or_info": 0,
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "mae": 0.0455,
+          "qwk": 0.9908,
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "under_estimate_rate": 0.0
+        },
+        "urgency": {
+          "excluded": {
+            "gold_unknown": 2
+          },
+          "false": {
+            "precision": 1.0,
+            "recall": 0.9167,
+            "support": 12
+          },
+          "fnr": 0.0,
+          "scored": 22,
+          "small_sample": "22 scored < 30: per-case results only; no calibration error or interval is reported",
+          "true": {
+            "precision": 0.9091,
+            "recall": 1.0,
+            "support": 10
+          },
+          "urgent_missed": 0
+        }
+      }
+    }
+  },
+  "L_canary_live_vs_lab": [
+    {
+      "case_id": "itc-canary-v1-001",
+      "family": "c2-beacon",
+      "lab_owner": "fraud",
+      "lab_p_fp": 0.49,
+      "lab_severity": "危急",
+      "live_owner": "fraud",
+      "live_p_fp_on_reconstruction": 0.4029,
+      "live_severity": "中"
+    },
+    {
+      "case_id": "itc-canary-v1-002",
+      "family": "ransomware-vss",
+      "lab_owner": "fraud",
+      "lab_p_fp": 0.85,
+      "lab_severity": "低",
+      "live_owner": "infra",
+      "live_p_fp_on_reconstruction": 0.7219,
+      "live_severity": "資訊"
+    },
+    {
+      "case_id": "itc-canary-v1-003",
+      "family": "ssh-brute-success",
+      "lab_owner": "fraud",
+      "lab_p_fp": 0.59,
+      "lab_severity": null,
+      "live_owner": "infra",
+      "live_p_fp_on_reconstruction": 0.4489,
+      "live_severity": "危急"
+    },
+    {
+      "case_id": "itc-canary-v1-004",
+      "family": "nightly-backup",
+      "lab_owner": "fraud",
+      "lab_p_fp": 0.36,
+      "lab_severity": "高",
+      "live_owner": "fraud",
+      "live_p_fp_on_reconstruction": 0.4366,
+      "live_severity": "危急"
+    },
+    {
+      "case_id": "itc-canary-v1-005",
+      "family": "win-patch",
+      "lab_owner": null,
+      "lab_p_fp": 0.92,
+      "lab_severity": null,
+      "live_owner": "infra",
+      "live_p_fp_on_reconstruction": 0.7729,
+      "live_severity": "資訊"
+    },
+    {
+      "case_id": "itc-canary-v1-006",
+      "family": "nessus-approved",
+      "lab_owner": "soc",
+      "lab_p_fp": 0.29,
+      "lab_severity": "危急",
+      "live_owner": "fraud",
+      "live_p_fp_on_reconstruction": 0.3688,
+      "live_severity": "中"
+    }
+  ],
+  "R1": {
+    "cases": 72,
+    "mean_p_fraud": 0.3652,
+    "present": true,
+    "top_fraud_share": 0.4861
+  },
+  "R2": {
+    "cases": 87,
+    "mean_p_fraud_spread": 0.0,
+    "order_sensitive": false,
+    "top_changes_share": 0.0
+  },
+  "R3": {
+    "language_dependent": true,
+    "mean_abs_p_fraud_diff": 0.1182,
+    "pairs": 39,
+    "top_disagreement_share": 0.4615
+  },
+  "R4": {
+    "cases": 87,
+    "length_driven": false,
+    "spearman_rho": -0.0879
+  },
+  "R5": {
+    "mean_p_fraud": 0.4724,
+    "prior_towards_fraud": true,
+    "probes": {
+      "Alert.": {
+        "dist": {
+          "appsec": 0.006528,
+          "fraud": 0.217209,
+          "identity": 0.002238,
+          "infra": 0.04782,
+          "soc": 0.726205
+        },
+        "p_fraud": 0.2172,
+        "top": "soc"
+      },
+      "Notification.": {
+        "dist": {
+          "appsec": 0.005471,
+          "fraud": 0.479757,
+          "identity": 0.005875,
+          "infra": 0.050371,
+          "soc": 0.458527
+        },
+        "p_fraud": 0.4798,
+        "top": "fraud"
+      },
+      "告警。": {
+        "dist": {
+          "appsec": 0.003588,
+          "fraud": 0.58782,
+          "identity": 0.039291,
+          "infra": 0.099411,
+          "soc": 0.269889
+        },
+        "p_fraud": 0.5878,
+        "top": "fraud"
+      },
+      "系統通知。": {
+        "dist": {
+          "appsec": 0.043268,
+          "fraud": 0.605037,
+          "identity": 0.045391,
+          "infra": 0.225664,
+          "soc": 0.08064
+        },
+        "p_fraud": 0.605,
+        "top": "fraud"
+      }
+    }
+  },
+  "S1_severity_errors": [
+    {
+      "case_id": "itc-synth-v1-001",
+      "distribution": {
+        "中": 0.167691,
+        "低": 0.082372,
+        "危急": 0.084354,
+        "資訊": 0.433845,
+        "高": 0.231738
+      },
+      "family": "edr-vss-ransomware",
+      "gold": [
+        "危急"
+      ],
+      "kind": "critical_to_low",
+      "pred": "資訊",
+      "state": "EDR 於 02:09 偵測 app-07.corp.example 上由 u-2391 啟動 vssadmin delete shadows /all，隨後 4 分鐘內 2,800 個檔案改為 .crypt 副檔名，共用資料夾出現 HOW-TO-DECRYPT.txt。"
+    },
+    {
+      "case_id": "itc-synth-v1-002",
+      "distribution": {
+        "中": 0.06308,
+        "低": 0.025637,
+        "危急": 0.359823,
+        "資訊": 0.400966,
+        "高": 0.150494
+      },
+      "family": "edr-vss-ransomware",
+      "gold": [
+        "危急"
+      ],
+      "kind": "critical_to_low",
+      "pred": "資訊",
+      "state": "At 02:09 EDR saw u-2391 run vssadmin delete shadows /all on app-07.corp.example; within 4 minutes 2,800 files were renamed to .crypt and HOW-TO-DECRYPT.txt appeared on the shares."
+    },
+    {
+      "case_id": "itc-synth-v1-010",
+      "distribution": {
+        "中": 0.040024,
+        "低": 0.011252,
+        "危急": 0.624015,
+        "資訊": 0.224231,
+        "高": 0.100479
+      },
+      "family": "edr-admin-script",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "At 10:15 EDR saw CcmExec.exe on fs-03.corp.example start powershell.exe running the signed Set-Baseline.ps1, an SCCM configuration-baseline deployment (change CHG-2026-8126); the script hash matches the deployment manifest."
+    },
+    {
+      "case_id": "itc-synth-v1-018",
+      "distribution": {
+        "中": 0.274914,
+        "低": 0.021212,
+        "危急": 0.446898,
+        "資訊": 0.083696,
+        "高": 0.17328
+      },
+      "family": "ndr-beacon",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "Since 04:26 NDR has seen fs-03.corp.example send a fixed-size TLS connection to the monitoring service 203.0.113.99:443 every 300 seconds; the destination is on the approved SaaS allowlist and is the monitoring agent's heartbeat."
+    },
+    {
+      "case_id": "itc-synth-v1-030",
+      "distribution": {
+        "中": 0.187262,
+        "低": 0.01132,
+        "危急": 0.519956,
+        "資訊": 0.095711,
+        "高": 0.185752
+      },
+      "family": "ndr-scan",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "At 23:51 IDS saw 192.0.2.14 port-scan 8 subnets; 192.0.2.14 is the registered Nessus scanner and this run is approved (ticket CHG-2026-3183, a three-hour window from 23:51)."
+    },
+    {
+      "case_id": "itc-synth-v1-037",
+      "distribution": {
+        "中": 0.168186,
+        "低": 0.03697,
+        "危急": 0.402539,
+        "資訊": 0.235938,
+        "高": 0.156367
+      },
+      "family": "id-jump-host",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "身分平台顯示 u-4176 於 02:09 起 3 分鐘內從跳板機 ws-19.corp.example 以特權帳號登入 40 台伺服器，對應變更單 CHG-2026-7056 的修補作業。"
+    },
+    {
+      "case_id": "itc-synth-v1-038",
+      "distribution": {
+        "中": 0.165072,
+        "低": 0.024188,
+        "危急": 0.487944,
+        "資訊": 0.148209,
+        "高": 0.174587
+      },
+      "family": "id-jump-host",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "The identity platform shows u-4176 logging in to 40 servers with a privileged account from jump host ws-19.corp.example within 3 minutes from 02:09, matching the patching under change CHG-2026-7056."
+    },
+    {
+      "case_id": "itc-synth-v1-042",
+      "distribution": {
+        "中": 0.245964,
+        "低": 0.05496,
+        "危急": 0.320024,
+        "資訊": 0.197531,
+        "高": 0.181521
+      },
+      "family": "id-service-account",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "Service account svc-report logged in non-interactively to 9 database hosts from batch host web-02.corp.example at 23:51 for the scheduled daily report, registered as CHG-2026-3323."
+    },
+    {
+      "case_id": "itc-synth-v1-045",
+      "distribution": {
+        "中": 0.28253,
+        "低": 0.098363,
+        "危急": 0.121039,
+        "資訊": 0.305254,
+        "高": 0.192814
+      },
+      "family": "id-mfa",
+      "gold": [
+        "高",
+        "危急"
+      ],
+      "kind": "critical_to_low",
+      "pred": "資訊",
+      "state": "u-1042 於 23:51 前 2 分鐘收到 25 次 MFA 推播後核准一次，登入來源 198.51.100.36 位於境外，隨即建立信箱轉寄規則。"
+    },
+    {
+      "case_id": "itc-synth-v1-048",
+      "distribution": {
+        "中": 0.289428,
+        "低": 0.020824,
+        "危急": 0.403267,
+        "資訊": 0.097089,
+        "高": 0.189392
+      },
+      "family": "id-mfa",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "u-5820 re-enrolled an MFA device at 23:51, performed by the service desk after identity verification under ticket CHG-2026-7711, from the corporate network."
+    },
+    {
+      "case_id": "itc-synth-v1-051",
+      "distribution": {
+        "中": 0.127009,
+        "低": 0.026007,
+        "危急": 0.477041,
+        "資訊": 0.222898,
+        "高": 0.147046
+      },
+      "family": "rt-appsec-sqli",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "WAF 於 00:42 記錄 203.0.113.99 對測試環境 staging-api 送出大量注入測試字串；203.0.113.99 為應用安全團隊的 DAST 掃描器，掃描已排程（工單 CHG-2026-9615）。"
+    },
+    {
+      "case_id": "itc-synth-v1-052",
+      "distribution": {
+        "中": 0.066661,
+        "低": 0.006815,
+        "危急": 0.727026,
+        "資訊": 0.093846,
+        "高": 0.105653
+      },
+      "family": "rt-appsec-sqli",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "At 00:42 the WAF logged many injection test strings from 203.0.113.99 against the staging-api test environment; 203.0.113.99 is the AppSec team's DAST scanner and the scan is scheduled (ticket CHG-2026-9615)."
+    },
+    {
+      "case_id": "itc-synth-v1-061",
+      "distribution": {
+        "中": 0.199471,
+        "低": 0.05161,
+        "危急": 0.311541,
+        "資訊": 0.289733,
+        "高": 0.147645
+      },
+      "family": "rt-fraud-ato",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "風控系統於 10:15 標記客戶境外登入（198.51.100.140）；客戶已於前日透過 App 登記出國行程，裝置與過去相同，無轉帳或下單。"
+    },
+    {
+      "case_id": "itc-synth-v1-062",
+      "distribution": {
+        "中": 0.201236,
+        "低": 0.030068,
+        "危急": 0.356033,
+        "資訊": 0.135443,
+        "高": 0.277221
+      },
+      "family": "rt-fraud-ato",
+      "gold": [
+        "資訊"
+      ],
+      "kind": "benign_to_high",
+      "pred": "危急",
+      "state": "At 10:15 risk control flagged a customer login from abroad (198.51.100.140); the customer registered the trip in the app the day before, the device is the usual one, and there was no transfer or order."
+    }
+  ],
+  "evidence_class": "SYNTHETIC LABELS RESEARCH (Tier E) on the deployed jef-v0",
+  "inputs": {
+    "canary_manifest": {
+      "cases.jsonl": "sha256:05efc4325e45367ed9e92b1696811abe9af487470e38d8b1fc611b60eb9b3ef7",
+      "expectations.jsonl": "sha256:f01c082146a9746d7177e65ef0239f6e8c0e38eaa251977073097a26e421b52d",
+      "replay.jsonl": "sha256:c7c487131190e47f5eee1c1147f98abe45f8263bbb051776b14abaa2591a983e"
+    },
+    "dev_manifest": {
+      "cases.jsonl": "sha256:84991092251657081a3d05345cb37db7ec9b8d6f7d0c46c776b1659003f1155d",
+      "expectations.jsonl": "sha256:8f8f54fb8d5b63bbc1647c39b4fd70ad01a105a17dc1ff915e811c1b3a1b3f30"
+    },
+    "lock_cases_digest": "sha256:db661785fb1bc64c632bc1020c78af16b6c1f959604d4a4f882d9897b475d3dc",
+    "scene_sha256": "sha256:f3ce98e44b71d88270590a8d54c9e1110705cb49a28ede2abcd7e96f405182e6"
+  },
+  "model": {
+    "backbone": "jhu-clsp/mmBERT-base",
+    "calibration_legacy": true,
+    "calibration_sha256": "sha256:dacf41ff5f07f26389a8386b922a9aa8f0c56e895414a895e5dba9f0af04ef33",
+    "head": "bilinear-r64",
+    "head_sha256": "sha256:202b98571b09de6540176c6ca3e0436e3e0093750fd2621d2c9cebc06bb53d2e",
+    "name": "jef/jhu-clsp/mmBERT-base+bilinear-r64"
+  },
+  "per_case_owner_rotations": {
+    "itc-canary-v1-001": {
+      "language": "zh-TW",
+      "length": 177,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.58213,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.58213,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.58213,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.58213,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.58213,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-canary-v1-002": {
+      "language": "zh-TW",
+      "length": 171,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.319914,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.319914,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.319914,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.319914,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.319914,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-canary-v1-003": {
+      "language": "zh-TW",
+      "length": 157,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.362919,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.362919,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.362919,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.362919,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.362919,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-canary-v1-004": {
+      "language": "zh-TW",
+      "length": 173,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.434423,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.434423,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.434423,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.434423,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.434423,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-canary-v1-005": {
+      "language": "zh-TW",
+      "length": 174,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.250471,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.250471,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.250471,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.250471,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.250471,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-canary-v1-006": {
+      "language": "zh-TW",
+      "length": 130,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.407544,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.407544,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.407544,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.407544,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.407544,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-canary-v1-007": {
+      "language": "zh-TW",
+      "length": 103,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.44177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.44177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.44177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.44177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.44177,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-canary-v1-008": {
+      "language": "zh-TW",
+      "length": 119,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.205695,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.205695,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.205695,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.205695,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.205695,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-canary-v1-009": {
+      "language": "zh-TW",
+      "length": 83,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.462216,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.462216,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.462216,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.462216,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.462216,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-001": {
+      "language": "zh-TW",
+      "length": 136,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.485322,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.485322,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.485322,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.485322,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.485322,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-002": {
+      "language": "en",
+      "length": 179,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.185685,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.185685,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.185685,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.185685,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.185685,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-003": {
+      "language": "zh-TW",
+      "length": 152,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.447177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.447177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.447177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.447177,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.447177,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-004": {
+      "language": "en",
+      "length": 221,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.351362,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.351362,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.351362,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.351362,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.351362,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-005": {
+      "language": "zh-TW",
+      "length": 92,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.138412,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.138412,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.138412,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.138412,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.138412,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-006": {
+      "language": "en",
+      "length": 147,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.060888,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.060888,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.060888,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.060888,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.060888,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-007": {
+      "language": "zh-TW",
+      "length": 162,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.211153,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.211153,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.211153,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.211153,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.211153,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-008": {
+      "language": "en",
+      "length": 184,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.029742,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.029742,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.029742,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.029742,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.029742,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-009": {
+      "language": "zh-TW",
+      "length": 138,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.182177,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.182177,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.182177,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.182177,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.182177,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-010": {
+      "language": "en",
+      "length": 223,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.015854,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.015854,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.015854,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.015854,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.015854,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-011": {
+      "language": "zh-TW",
+      "length": 116,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.416693,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.416693,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.416693,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.416693,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.416693,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-012": {
+      "language": "en",
+      "length": 187,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.09697,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.09697,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.09697,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.09697,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.09697,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-013": {
+      "language": "zh-TW",
+      "length": 112,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.292469,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.292469,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.292469,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.292469,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.292469,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-014": {
+      "language": "en",
+      "length": 195,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.102666,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.102666,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.102666,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.102666,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.102666,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-015": {
+      "language": "zh-TW",
+      "length": 115,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.552446,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.552446,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.552446,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.552446,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.552446,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-016": {
+      "language": "en",
+      "length": 200,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.538471,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.538471,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.538471,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.538471,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.538471,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-017": {
+      "language": "zh-TW",
+      "length": 112,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.418144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.418144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.418144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.418144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.418144,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-018": {
+      "language": "en",
+      "length": 229,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.355139,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.355139,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.355139,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.355139,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.355139,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-019": {
+      "language": "zh-TW",
+      "length": 95,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.587574,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.587574,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.587574,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.587574,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.587574,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-020": {
+      "language": "en",
+      "length": 177,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.451128,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.451128,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.451128,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.451128,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.451128,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-021": {
+      "language": "zh-TW",
+      "length": 115,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.495365,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.495365,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.495365,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.495365,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.495365,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-022": {
+      "language": "en",
+      "length": 166,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.608644,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.608644,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.608644,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.608644,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.608644,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-023": {
+      "language": "zh-TW",
+      "length": 97,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.643607,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.643607,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.643607,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.643607,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.643607,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-024": {
+      "language": "en",
+      "length": 201,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.618916,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.618916,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.618916,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.618916,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.618916,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-025": {
+      "language": "zh-TW",
+      "length": 114,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.457561,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.457561,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.457561,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.457561,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.457561,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-026": {
+      "language": "en",
+      "length": 199,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.594526,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.594526,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.594526,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.594526,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.594526,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-027": {
+      "language": "zh-TW",
+      "length": 97,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.169041,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.169041,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.169041,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.169041,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.169041,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-028": {
+      "language": "en",
+      "length": 170,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.191087,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.191087,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.191087,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.191087,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.191087,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-029": {
+      "language": "zh-TW",
+      "length": 112,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.367995,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.367995,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.367995,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.367995,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.367995,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-030": {
+      "language": "en",
+      "length": 173,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.416127,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.416127,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.416127,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.416127,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.416127,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-031": {
+      "language": "zh-TW",
+      "length": 70,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.4538,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.4538,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.4538,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.4538,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.4538,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-032": {
+      "language": "en",
+      "length": 116,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.298199,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.298199,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.298199,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.298199,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.298199,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-033": {
+      "language": "zh-TW",
+      "length": 99,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.312218,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.312218,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.312218,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.312218,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.312218,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-034": {
+      "language": "en",
+      "length": 162,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.32543,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.32543,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.32543,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.32543,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.32543,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-035": {
+      "language": "zh-TW",
+      "length": 98,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.413144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.413144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.413144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.413144,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.413144,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-036": {
+      "language": "en",
+      "length": 136,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.26155,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.26155,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.26155,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.26155,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.26155,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-037": {
+      "language": "zh-TW",
+      "length": 95,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.269047,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.269047,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.269047,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.269047,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.269047,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-038": {
+      "language": "en",
+      "length": 198,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.277934,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.277934,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.277934,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.277934,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.277934,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-039": {
+      "language": "zh-TW",
+      "length": 87,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.283074,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.283074,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.283074,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.283074,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.283074,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-040": {
+      "language": "en",
+      "length": 207,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.297519,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.297519,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.297519,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.297519,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.297519,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-041": {
+      "language": "zh-TW",
+      "length": 101,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.408855,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.408855,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.408855,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.408855,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.408855,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-042": {
+      "language": "en",
+      "length": 180,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.362664,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.362664,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.362664,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.362664,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.362664,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-043": {
+      "language": "zh-TW",
+      "length": 103,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.270051,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.270051,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.270051,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.270051,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.270051,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-044": {
+      "language": "en",
+      "length": 186,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.166684,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.166684,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.166684,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.166684,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.166684,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-045": {
+      "language": "zh-TW",
+      "length": 76,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.496043,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.496043,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.496043,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.496043,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.496043,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-046": {
+      "language": "en",
+      "length": 163,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.558488,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.558488,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.558488,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.558488,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.558488,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-047": {
+      "language": "zh-TW",
+      "length": 67,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.452937,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.452937,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.452937,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.452937,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.452937,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-048": {
+      "language": "en",
+      "length": 156,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.355197,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.355197,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.355197,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.355197,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.355197,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-049": {
+      "language": "zh-TW",
+      "length": 107,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.576041,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.576041,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.576041,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.576041,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.576041,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-050": {
+      "language": "en",
+      "length": 184,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.49413,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.49413,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.49413,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.49413,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.49413,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-051": {
+      "language": "zh-TW",
+      "length": 112,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.223612,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.223612,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.223612,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.223612,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.223612,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-052": {
+      "language": "en",
+      "length": 208,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.091113,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.091113,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.091113,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.091113,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.091113,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-053": {
+      "language": "zh-TW",
+      "length": 88,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.422282,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.422282,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.422282,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.422282,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.422282,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-054": {
+      "language": "en",
+      "length": 174,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.725441,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.725441,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.725441,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.725441,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.725441,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-055": {
+      "language": "zh-TW",
+      "length": 56,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.252904,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.252904,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.252904,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.252904,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.252904,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-056": {
+      "language": "en",
+      "length": 130,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.369437,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.369437,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.369437,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.369437,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.369437,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-057": {
+      "language": "zh-TW",
+      "length": 71,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.836004,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.836004,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.836004,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.836004,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.836004,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-058": {
+      "language": "en",
+      "length": 147,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.685208,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.685208,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.685208,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.685208,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.685208,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-059": {
+      "language": "zh-TW",
+      "length": 75,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.235406,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.235406,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.235406,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.235406,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.235406,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-060": {
+      "language": "en",
+      "length": 213,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.564993,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.564993,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.564993,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.564993,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.564993,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-061": {
+      "language": "zh-TW",
+      "length": 72,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.320901,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.320901,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.320901,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.320901,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.320901,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-062": {
+      "language": "en",
+      "length": 201,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.351148,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.351148,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.351148,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.351148,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.351148,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-063": {
+      "language": "zh-TW",
+      "length": 56,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.243518,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.243518,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.243518,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.243518,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.243518,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-064": {
+      "language": "en",
+      "length": 153,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.655893,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.655893,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.655893,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.655893,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.655893,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-065": {
+      "language": "zh-TW",
+      "length": 109,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.229738,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.229738,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.229738,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.229738,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.229738,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-066": {
+      "language": "en",
+      "length": 183,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.185983,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.185983,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.185983,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.185983,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.185983,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-067": {
+      "language": "zh-TW",
+      "length": 85,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.291053,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.291053,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.291053,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.291053,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.291053,
+          "top": "infra"
+        }
+      ]
+    },
+    "itc-synth-v1-068": {
+      "language": "en",
+      "length": 129,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.258899,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.258899,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.258899,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.258899,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.258899,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-069": {
+      "language": "zh-TW",
+      "length": 71,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.526687,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.526687,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.526687,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.526687,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.526687,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-070": {
+      "language": "en",
+      "length": 133,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.279678,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.279678,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.279678,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.279678,
+          "top": "appsec"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.279678,
+          "top": "appsec"
+        }
+      ]
+    },
+    "itc-synth-v1-071": {
+      "language": "zh-TW",
+      "length": 72,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.496476,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.496476,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.496476,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.496476,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.496476,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-072": {
+      "language": "en",
+      "length": 193,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.487373,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.487373,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.487373,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.487373,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.487373,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-073": {
+      "language": "zh-TW",
+      "length": 59,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.292807,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.292807,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.292807,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.292807,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.292807,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-074": {
+      "language": "en",
+      "length": 117,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.259053,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.259053,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.259053,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.259053,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.259053,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-075": {
+      "language": "zh-TW",
+      "length": 46,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.373551,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.373551,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.373551,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.373551,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.373551,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-076": {
+      "language": "en",
+      "length": 143,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.426957,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.426957,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.426957,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.426957,
+          "top": "soc"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.426957,
+          "top": "soc"
+        }
+      ]
+    },
+    "itc-synth-v1-077": {
+      "language": "zh-TW",
+      "length": 78,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.427983,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.427983,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.427983,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.427983,
+          "top": "fraud"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.427983,
+          "top": "fraud"
+        }
+      ]
+    },
+    "itc-synth-v1-078": {
+      "language": "en",
+      "length": 123,
+      "rotations": [
+        {
+          "order": [
+            "soc",
+            "appsec",
+            "infra",
+            "identity",
+            "fraud"
+          ],
+          "p_fraud": 0.33623,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "appsec",
+            "infra",
+            "identity",
+            "fraud",
+            "soc"
+          ],
+          "p_fraud": 0.33623,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "infra",
+            "identity",
+            "fraud",
+            "soc",
+            "appsec"
+          ],
+          "p_fraud": 0.33623,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "identity",
+            "fraud",
+            "soc",
+            "appsec",
+            "infra"
+          ],
+          "p_fraud": 0.33623,
+          "top": "infra"
+        },
+        {
+          "order": [
+            "fraud",
+            "soc",
+            "appsec",
+            "infra",
+            "identity"
+          ],
+          "p_fraud": 0.33623,
+          "top": "infra"
+        }
+      ]
+    }
+  },
+  "verdict": {
+    "R1_fraud_bias_present": true,
+    "R2_order_sensitive": false,
+    "R3_language_dependent": true,
+    "R4_length_driven": false,
+    "R5_prior_towards_fraud": true,
+    "routing_decision": "human_or_rule_assisted"
+  }
+}
