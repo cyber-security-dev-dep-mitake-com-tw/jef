@@ -188,6 +188,17 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
         targeted.add(scene.fallthrough)
     if scene.unvalidated_fallback:
         targeted.add(scene.unvalidated_fallback)
+    else:
+        problems.append(
+            Problem(
+                source,
+                "warning",
+                "no safe fallback: a gate that fires on unvalidated calibration will propose "
+                "no action at all (not even escalation); set advisory.unvalidated_fallback, or "
+                "a fallthrough, to a human-review action of tier 1 or below",
+                _line_of(text, "scene:"),
+            )
+        )
 
     # Names accumulate across layers, exactly as the engine does it: a gate may
     # read any question answered so far. Scoping per layer here would report

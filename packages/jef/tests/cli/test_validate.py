@@ -314,3 +314,25 @@ def test_escalating_on_a_question_without_task_id_is_fine() -> None:
         "then: assign", "then: review"
     )
     assert not [p for p in validate_scene_text(scene, "ok.yaml") if "task_id" in p.message]
+
+
+def test_a_scene_without_a_safe_fallback_is_warned() -> None:
+    problems = validate_scene_text(
+        """
+scene: t
+fallthrough: done
+layers:
+  - id: L1
+    questions:
+      a: {type: noul, task_id: soar_zh.false_positive.v1, instructions: 甲？}
+    gates:
+      - when: 'a.calibration_status == "validated" and a.p_correct is not None'
+        then: done
+      - else: true
+        then: done
+actions:
+  done: {}
+""",
+        "t.yaml",
+    )
+    assert any("no safe fallback" in p.message for p in problems)

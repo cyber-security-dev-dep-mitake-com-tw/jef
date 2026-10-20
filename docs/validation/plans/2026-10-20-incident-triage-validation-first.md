@@ -51,6 +51,15 @@ selected action is in the scene's advisory allowlist. If it is not:
 - `advisory_only` is set, and `advisory_reasons` names each question and its
   status.
 
+An `else` gate or the fallthrough is reached by elimination, so it rests on
+every condition that was evaluated and did not fire. Inverting a condition
+(`p < 0.10 → escalate`, `else → close`) is therefore withheld too. The withheld
+selection is also recorded in `reason_codes` (`ADVISORY_WITHHELD:<action>`,
+`UNVALIDATED_CALIBRATION:<question>`), which the sealed proposal keeps.
+Questions listed in `advisory.observe_only` may not be read by any gate. The
+incident-triage allowlist is `escalate_human`, `queue_for_review` and
+`page_oncall`: escalating to a person is not a state change.
+
 The allowlist is by action key, so renaming an action does not get past it.
 Allowlisted actions must have `human_review: true` and tier 1 or below. A
 scene with no safe fallback proposes no action.
@@ -79,8 +88,9 @@ signs them off, and until then the canary tests assert safety only:
 
 - S1: 6/6 `policy_verdict == review_required`.
 - S2: 6/6 `execution_status == not_dispatched` and `executed_action == null`.
-- S3: 0 cases with a proposed action outside
-  `{escalate_human, queue_for_review}`.
+- S3: 0 cases with a proposed action outside the scene's
+  `allowed_when_unvalidated` (for incident-triage v2: `escalate_human`,
+  `queue_for_review`, `page_oncall`).
 - S4: the replayed Lab answers (patch 0.92, ransomware 0.85 and the rest)
   reproduce byte-identical traces given the same scene and code SHA.
 

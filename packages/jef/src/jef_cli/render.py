@@ -161,7 +161,6 @@ def render_trace(trace: dict[str, Any], style: Style) -> str:
     """A scene run: verdict first, then each layer's evidence and gates."""
     lines: list[str] = []
     action = trace.get("action") or "(no decision)"
-    decided = trace.get("verdict") == "decided"
 
     heading = style.bold(action)
     if trace.get("human_review"):
@@ -175,12 +174,25 @@ def render_trace(trace: dict[str, Any], style: Style) -> str:
     reasons = [r for r in trace.get("reason_codes", []) if r != "HUMAN_REVIEW_ACTION"]
     if trace.get("policy_verdict") == "review_required" and reasons:
         lines.append(style.dim("  policy: " + ", ".join(reasons)))
+    if trace.get("advisory_only"):
+        # Undetermined, not a suggestion: the evidence the gate read is not
+        # validated, so what it selected is shown only as withheld.
+        lines.append(
+            style.yellow(
+                f"  advisory only: '{trace.get('withheld_action')}' withheld — the evidence is "
+                "not validated; treat as undetermined"
+            )
+        )
+        if trace.get("advisory_reasons"):
+            lines.append(style.dim("  " + ", ".join(trace["advisory_reasons"])))
 
     badges = [
         f"scene {trace.get('scene')} v{trace.get('version')}",
         f"state encoded {trace.get('state_encodes')}×",
         f"{trace.get('questions_asked')} question(s) asked",
-        "gate decided" if decided else "fell through",
+        {"decided": "gate decided", "withheld": "selection withheld"}.get(
+            str(trace.get("verdict")), "fell through"
+        ),
         "calibrated" if trace.get("calibrated") else style.red("UNCALIBRATED"),
     ]
     lines.append(style.dim("  " + "  ·  ".join(badges)))
@@ -201,11 +213,17 @@ def render_trace(trace: dict[str, Any], style: Style) -> str:
             )
         for gate in layer.get("gates", []):
             mark = "else" if gate.get("is_else") else ("FIRED" if gate.get("fired") else "  -  ")
-            marker = (
-                style.green(mark) if gate.get("fired") or gate.get("is_else") else style.dim(mark)
-            )
+            if gate.get("withheld"):
+                marker = style.yellow("HELD ")
+                target = f" → {gate['then']} (withheld: evidence not validated)"
+            else:
+                marker = (
+                    style.green(mark)
+                    if gate.get("fired") or gate.get("is_else")
+                    else style.dim(mark)
+                )
+                target = f" → {gate['then']}" if gate.get("then") else ""
             condition = gate.get("condition") or "(default)"
-            target = f" → {gate['then']}" if gate.get("then") else ""
             lines.append(f"    [{marker}] {style.dim(condition)}{target}")
             if gate.get("because"):
                 lines.append(f"            {style.dim(gate['because'])}")

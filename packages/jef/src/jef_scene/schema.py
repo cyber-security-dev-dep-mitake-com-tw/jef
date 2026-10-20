@@ -173,10 +173,21 @@ class Scene(_Base):
         return self
 
     def _check_advisory(self) -> None:
+        from .policy import referenced_questions
+
         asked = {qid for layer in self.layers for qid in layer.questions}
-        for qid in self.advisory.observe_only:
-            if qid not in asked:
-                raise ValueError(f"advisory.observe_only names {qid!r}, which no layer asks")
+        observe_only = set(self.advisory.observe_only)
+        for qid in sorted(observe_only - asked):
+            raise ValueError(f"advisory.observe_only names {qid!r}, which no layer asks")
+        for layer in self.layers:
+            for gate in layer.gates:
+                read = referenced_questions(gate.when, asked) & observe_only
+                if read:
+                    raise ValueError(
+                        f"layer {layer.id!r}: a gate reads {sorted(read)}, which "
+                        "advisory.observe_only says no gate reads; drop it from "
+                        "observe_only once its task is calibrated"
+                    )
         # Only names the author wrote under ``advisory`` are checked here. The
         # implicit fallback (``fallthrough``) may be any action; when it is not
         # a safe one, ``unvalidated_fallback`` is None and a withheld gate
