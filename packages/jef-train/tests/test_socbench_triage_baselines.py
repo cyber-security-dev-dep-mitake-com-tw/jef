@@ -139,3 +139,26 @@ def test_cli_refuses_a_lock_that_does_not_match(tmp_path: Path) -> None:
         ]
     )
     assert rc == 2
+
+
+def test_logreg_constant_false_noul_predicts_false() -> None:
+    """A train split with only `false` for a noul task must not predict True."""
+    pack = load_pack(DEV)
+    lock = json.loads((DEV / "lock.json").read_text("utf-8"))
+    train = [c for c in pack.cases if c["case_id"] in set(lock["splits"]["train"])]
+    exps = {
+        cid: dict(e, expected=dict(e["expected"], urgency=False))
+        for cid, e in pack.expectations.items()
+    }
+    model = LogisticTriageEngine(train, exps)
+    assert model.constant["urgency"] == "false"
+    assert ask(model, "任何告警")["urgent"].value == 0.0
+
+
+def test_logreg_ignores_unscorable_labels() -> None:
+    pack = load_pack(DEV)
+    lock = json.loads((DEV / "lock.json").read_text("utf-8"))
+    train = [c for c in pack.cases if c["case_id"] in set(lock["splits"]["train"])]
+    exps = {cid: dict(e, label_status="disputed") for cid, e in pack.expectations.items()}
+    with pytest.raises(EvalError, match="no training labels"):
+        LogisticTriageEngine(train, exps)

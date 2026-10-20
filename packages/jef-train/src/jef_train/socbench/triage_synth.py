@@ -287,4 +287,18 @@ def verify_triage_lock(
         problems.append("cases differ from the locked cases")
     if digest_records(exps) != lock.get("expectations_digest"):
         problems.append("expectations differ from the locked expectations")
+    # The splits are trusted downstream (baselines, candidate export), so they
+    # must be the ones the seed and ratios produce, not a hand-edited list.
+    families = assign_splits(
+        [{"family_id": c["case_family"]} for c in cases],
+        ratios=lock.get("ratios", DEFAULT_RATIOS),
+        seed=str(lock.get("seed")),
+    )
+    if families != lock.get("families"):
+        problems.append("families are not assigned as the lock's seed and ratios assign them")
+    expected: dict[str, list[str]] = defaultdict(list)
+    for c in cases:
+        expected[families[c["case_family"]]].append(c["case_id"])
+    if {k: sorted(v) for k, v in expected.items()} != lock.get("splits"):
+        problems.append("splits are not the cases' family splits")
     return problems
