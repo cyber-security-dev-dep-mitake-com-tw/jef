@@ -724,6 +724,19 @@ def build_parser() -> argparse.ArgumentParser:
     ts.add_argument("--families", type=Path, required=True)
     ts.add_argument("--out", type=Path, required=True)
 
+    tb = trsub.add_parser("baselines", help="B0-B3 on one locked split, and the routing decision")
+    tb.add_argument("--pack", type=Path, required=True)
+    tb.add_argument("--lock", type=Path, required=True)
+    tb.add_argument("--split", default="test")
+    tb.add_argument("--scene", type=Path)
+    tb.add_argument(
+        "--backbone", help="B3: run the jef engine with this backbone (omit to skip B3)"
+    )
+    tb.add_argument("--head")
+    tb.add_argument("--calibration")
+    tb.add_argument("--include-pending", action="store_true")
+    tb.add_argument("--out", type=Path, required=True)
+
     tl = trsub.add_parser("lock", help="family-grouped splits; refuses leaks and near copies")
     tl.add_argument("--pack", type=Path, required=True)
     tl.add_argument("--out", type=Path, help="write the lock here")
@@ -775,7 +788,70 @@ def cmd_triage(args: argparse.Namespace) -> int:
             f"{ {k: len(v) for k, v in lock['splits'].items()} } -> {args.out}"
         )
         return 0
+    if args.triage_command == "baselines":
+        return cmd_triage_baselines(args)
     return cmd_triage_evaluate(args)
+
+
+def cmd_triage_baselines(args: argparse.Namespace) -> int:
+    import json
+
+    from jef_core import BilinearHead, Calibrator, Engine
+    from jef_scene import load_scene
+
+    from .triage import PackError, find_root, load_pack
+    from .triage_baselines import render_baselines, run_baselines
+    from .triage_eval import EvalError, Provenance, report_class
+    from .triage_synth import verify_triage_lock
+
+    try:
+        pack = load_pack(args.pack)
+    except PackError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    lock = json.loads(args.lock.read_text("utf-8"))
+    problems = verify_triage_lock(
+        lock, pack.cases, [pack.expectations[c["case_id"]] for c in pack.cases]
+    )
+    if problems:
+        print("\n".join(problems), file=sys.stderr)
+        return 2
+    scene_path = (
+        args.scene or find_root(args.pack).parents[1] / "scenes" / "incident-triage.zh-tw.yaml"
+    )
+    scene = load_scene(scene_path)
+    jef = None
+    if args.backbone:
+        jef = Engine(
+            args.backbone,
+            BilinearHead.load(args.head) if args.head else None,
+            Calibrator.load(args.calibration) if args.calibration else None,
+        )
+    try:
+        report = run_baselines(
+            pack, lock, scene, split=args.split, jef=jef, include_pending=args.include_pending
+        )
+    except EvalError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    smoke = jef is not None and jef.backbone.name.startswith("hashing")
+    cls, note = report_class(
+        pack.expectations, contract_smoke=smoke, include_pending=args.include_pending
+    )
+    report["evidence_class"], report["evidence_note"] = cls, note
+    if jef is not None:
+        report["provenance"] = Provenance(
+            scene_path, scene, jef, args.head, args.calibration, "jef", pack
+        ).to_dict()
+    report["lock"] = {"cases_digest": lock["cases_digest"], "seed": lock["seed"]}
+    args.out.mkdir(parents=True, exist_ok=True)
+    (args.out / "results.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True, default=str) + "\n",
+        "utf-8",
+    )
+    (args.out / "summary.md").write_text(render_baselines(report), "utf-8")
+    print(f"baselines on {args.split}: {report['routing_decision'].get('routing')} -> {args.out}")
+    return 0
 
 
 def cmd_triage_evaluate(args: argparse.Namespace) -> int:
