@@ -1,0 +1,14 @@
+{
+  "cases": 9,
+  "evidence_class": "CANARY — NOT AN ACCURACY ESTIMATE",
+  "families": 6,
+  "files": {
+    "cases.jsonl": "sha256:05efc4325e45367ed9e92b1696811abe9af487470e38d8b1fc611b60eb9b3ef7",
+    "expectations.jsonl": "sha256:f01c082146a9746d7177e65ef0239f6e8c0e38eaa251977073097a26e421b52d",
+    "replay.jsonl": "sha256:c7c487131190e47f5eee1c1147f98abe45f8263bbb051776b14abaa2591a983e"
+  },
+  "label_status": [
+    "pending_owner_confirmation"
+  ],
+  "pack": "six-alerts-v1"
+}
