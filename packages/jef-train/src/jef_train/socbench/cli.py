@@ -737,6 +737,29 @@ def build_parser() -> argparse.ArgumentParser:
     tb.add_argument("--include-pending", action="store_true")
     tb.add_argument("--out", type=Path, required=True)
 
+    ce = trsub.add_parser(
+        "candidate-export", help="a locked pack -> a jef_train.fit corpus for the five tasks"
+    )
+    ce.add_argument("--pack", type=Path, required=True)
+    ce.add_argument("--lock", type=Path, required=True)
+    ce.add_argument("--scene", type=Path)
+    ce.add_argument("--min-tier", default="B", choices=list("AB"))
+    ce.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="export synthetic (Tier E) labels to exercise the pipeline; never deployable",
+    )
+    ce.add_argument("--out", type=Path, required=True)
+
+    cc = trsub.add_parser(
+        "candidate-check", help="is a fitted candidate more than insufficient? (ceiling: research)"
+    )
+    cc.add_argument("--candidate", type=Path, required=True)
+    cc.add_argument("--corpus", type=Path, required=True)
+    cc.add_argument("--scene", type=Path)
+    cc.add_argument("--backbone", required=True)
+    cc.add_argument("--out", type=Path, required=True)
+
     tl = trsub.add_parser("lock", help="family-grouped splits; refuses leaks and near copies")
     tl.add_argument("--pack", type=Path, required=True)
     tl.add_argument("--out", type=Path, help="write the lock here")
@@ -790,7 +813,41 @@ def cmd_triage(args: argparse.Namespace) -> int:
         return 0
     if args.triage_command == "baselines":
         return cmd_triage_baselines(args)
+    if args.triage_command in ("candidate-export", "candidate-check"):
+        return cmd_triage_candidate(args)
     return cmd_triage_evaluate(args)
+
+
+def cmd_triage_candidate(args: argparse.Namespace) -> int:
+    import json
+
+    from jef_scene import load_scene
+
+    from .triage import PackError, find_root, load_pack
+    from .triage_candidate import CandidateError, check_candidate, export_triage_corpus
+
+    repo = find_root(Path.cwd()).parents[1]
+    scene = load_scene(args.scene or repo / "scenes" / "incident-triage.zh-tw.yaml")
+    try:
+        if args.triage_command == "candidate-export":
+            pack = load_pack(args.pack)
+            lock = json.loads(args.lock.read_text("utf-8"))
+            m = export_triage_corpus(
+                pack, lock, scene, args.out, min_tier=args.min_tier, dry_run=args.dry_run
+            )
+            print(f"exported {m['splits']} ({m['note']}) -> {args.out}")
+            return 0
+        report = check_candidate(
+            args.candidate, args.corpus, scene, backbone=args.backbone, repo_root=repo
+        )
+    except (CandidateError, PackError) as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    short = {k: v["status"] for k, v in report["buckets"].items()}
+    print(f"candidate status: {report['status']} (ceiling research); buckets {short} -> {args.out}")
+    return 0
 
 
 def cmd_triage_baselines(args: argparse.Namespace) -> int:

@@ -237,7 +237,12 @@ class LogisticTriageEngine(Engine):
         for task in TASK_OF_QUESTION.values():
             xs, ys = [], []
             for c in self.train_cases:
-                y = _train_target(task, expectations[c["case_id"]]["expected"][task])
+                e = expectations[c["case_id"]]
+                # Train only on labels the harness would score: pending and
+                # disputed labels are excluded here as they are there.
+                if e["label_status"] not in ("confirmed", "by_construction"):
+                    continue
+                y = _train_target(task, e["expected"][task])
                 if y is not None:
                     xs.append(c["state"])
                     ys.append(y)
@@ -265,7 +270,13 @@ class LogisticTriageEngine(Engine):
             if task is None:
                 continue
             if task in self.constant:
-                out[qid] = answer_from(q, qid, {self.constant[task]: 1.0})
+                const = self.constant[task]
+                if normalize(qid, q).kind == "noul":
+                    # answer_from reads P(true); a constant "false" must be 0.
+                    dist = {"true": 1.0 if const == "true" else 0.0}
+                else:
+                    dist = {const: 1.0}
+                out[qid] = answer_from(q, qid, dist)
                 continue
             vec, model, classes = self.models[task]
             probs = model.predict_proba(vec.transform([shared.text]))[0]

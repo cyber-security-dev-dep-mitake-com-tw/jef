@@ -187,3 +187,12 @@ def test_synthetic_scores_say_synthetic(tmp_path: Path) -> None:
     report = json.loads((out / "results.json").read_text("utf-8"))
     assert report["evidence_class"] == "CONTRACT SMOKE — NOT MODEL QUALITY"
     assert report["metrics"]["tasks"]["owner"]["scored"] > 0, "by_construction labels are scored"
+
+
+def test_a_hand_edited_split_is_refused(built) -> None:
+    cases, exps = built
+    lock = json.loads((PACK / "lock.json").read_text("utf-8"))
+    moved = lock["splits"]["test"][0]
+    lock["splits"]["test"].remove(moved)
+    lock["splits"]["train"].append(moved)
+    assert "splits are not the cases' family splits" in verify_triage_lock(lock, cases, exps)

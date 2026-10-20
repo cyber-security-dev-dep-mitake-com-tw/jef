@@ -197,3 +197,39 @@ Until the labels are confirmed they assert safety only:
 They also check the pack itself: schema, hashes, the manifest, the twin
 rule, no Tier A claim, and the privacy lint (only RFC 5737 addresses and
 `.example` names; no secrets or emails).
+
+## A task-scoped candidate: pipeline first, data later
+
+```bash
+uv run jef-bench triage candidate-export --pack PACK --lock PACK/lock.json --out out/corpus  # Tier B+ only
+uv run python -m jef_train.fit --corpus out/corpus --out out/candidate   # never models/jef-v0
+uv run jef-bench triage candidate-check --candidate out/candidate --corpus out/corpus \
+  --backbone jhu-clsp/mmBERT-base --out out/candidate/check.json
+```
+
+**Export.** `candidate-export` writes one sample per case and task, with the
+questions taken from the scene. Each sample is task-scoped
+(`soar_zh.routing.v1|choice:5`) and split by the lock's families.
+- It refuses unlocked inputs.
+- It refuses labels below Tier B. Synthetic labels (Tier E) export only with
+  `--dry-run`, and the manifest then says `deployable: false`.
+
+**Check.** `candidate-check` reports `insufficient` unless all of the
+following hold:
+- every bucket the scene asks is `validated` (at least 150 calibration
+  records, a correctness map and a quantile at the scene's alpha);
+- the calibration was fitted for this head and on this corpus;
+- the splits share no family;
+- conformal coverage `holds` on the test split;
+- it is not a dry run.
+
+Its ceiling is `research`. Promotion needs Tier A labels and a decision in
+the [validation ledger](../../docs/validation/README.md), never a flag. The
+shipped `models/jef-v0` is refused as a candidate.
+
+**Today.** The synthetic dry run ends at `insufficient`, as it should:
+- 10 calibration records per bucket against the 150 required;
+- coverage `too_few`.
+
+The 63-case SOCBench pilot does not change this. Its tasks are
+`soc.ndr.technique` and `soc.alert.verdict`, not these five.
