@@ -15,8 +15,8 @@ pip install "jef[mcp]"         # + an MCP server for agent clients
 
 ```bash
 # one question
-jef ask "客戶回報：連續三天付款失敗，已影響營收。錯誤碼 502。" \
-    --choice "應由哪個團隊處理？" billing=付款、發票、退款 infra=基礎設施 appsec=應用程式漏洞
+jef ask "EDR 偵測 fs-core-02 執行 vssadmin delete shadows /all，並將大量檔案改為 .lockbit。" \
+    --choice "應由哪個團隊處理？" soc=資安監控、端點與惡意程式 infra=主機、備份與可用性 identity=帳號與權限
 
 # a whole playbook, piped from wherever the alert came from
 siem-query --last 5m | jef scene incident-triage - --fail-on-human-review

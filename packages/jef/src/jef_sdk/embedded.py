@@ -29,7 +29,7 @@ class Jef:
     Example:
         >>> from jef_sdk import Jef, choice, noul
         >>> jef = Jef()                       # deterministic test backbone
-        >>> r = jef.evaluate("付款失敗", {"urgent": noul("是否緊急？")})
+        >>> r = jef.evaluate("EDR 偵測大量檔案加密", {"urgent": noul("是否需要立即處理？")})
         >>> r.answers["urgent"].confidence <= 1.0
         True
     """

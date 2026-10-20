@@ -11,18 +11,18 @@
  * const jef = new JefClient({ baseUrl: 'http://localhost:8080' });
  *
  * const { answers, usage } = await jef.evaluate(
- *   '客戶回報：連續三天付款失敗，已影響營收。錯誤碼 502。',
+ *   'EDR 於 02:14 偵測主機 fs-core-02 執行 vssadmin delete shadows /all，五分鐘內 3,200 個檔案被改為 .lockbit。',
  *   {
- *     urgent: noul('這則訊息是否表達時間緊迫？'),
+ *     urgent: noul('這則告警是否需要立即處理？'),
  *     team: choice('應由哪個團隊處理？', {
- *       billing: '付款、發票、退款',
- *       infra: '基礎設施、網路、主機層',
+ *       soc: '資安監控：惡意程式、勒索軟體、端點與網路入侵',
+ *       infra: '基礎設施：主機、備份、憑證與可用性',
  *     }),
- *     severity: score('評估此事件的嚴重度', ['資訊', '低', '中', '高', '危急'] as const),
+ *     severity: score('評估此告警的嚴重度', ['資訊', '低', '中', '高', '危急'] as const),
  *   },
  * );
  *
- * answers.team.choice;   // 'billing' | 'infra'
+ * answers.team.choice;   // 'soc' | 'infra'
  * usage.outputTokens;    // 0 — nothing is ever generated
  * ```
  */

@@ -22,13 +22,13 @@ from jef_core import Engine
 engine = Engine("jhu-clsp/mmBERT-base")
 
 result = engine.evaluate(
-    state="客戶回報：連續三天付款失敗，已影響營收。錯誤碼 502。",
+    state="EDR 於 02:14 偵測主機 fs-core-02 執行 vssadmin delete shadows /all，五分鐘內 3,200 個檔案被改為 .lockbit。",
     questions={
-        "urgent": {"type": "noul", "instructions": "這則訊息是否表達時間緊迫？"},
+        "urgent": {"type": "noul", "instructions": "這則告警是否需要立即處理？"},
         "team": {
             "type": "choice",
             "instructions": "應由哪個團隊處理？",
-            "criteria": {"billing": "付款、發票、退款", "infra": "基礎設施"},
+            "criteria": {"soc": "資安監控與惡意程式", "infra": "主機、備份與可用性"},
         },
         "severity": {
             "type": "score",
@@ -38,7 +38,7 @@ result = engine.evaluate(
     },
 )
 
-result.answers["team"].choice  # 'billing'
+result.answers["team"].choice  # 'soc' or 'infra'
 result.usage.outputTokens  # 0 — nothing is ever generated
 engine.encode_count  # 1 — the state is read once, for all questions
 ```

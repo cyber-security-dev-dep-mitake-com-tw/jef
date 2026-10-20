@@ -36,7 +36,7 @@ class JefClient:
     Example:
         >>> from jef_sdk import JefClient, choice          # doctest: +SKIP
         >>> with JefClient("http://localhost:8080") as jef:
-        ...     r = jef.evaluate("付款失敗", {"team": choice("誰處理？", soc="監控", infra="網路")})
+        ...     r = jef.evaluate("EDR 偵測大量檔案加密", {"team": choice("誰處理？", soc="監控", infra="主機")})
     """
 
     def __init__(
