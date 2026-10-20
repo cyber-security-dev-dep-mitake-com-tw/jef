@@ -142,6 +142,37 @@ gated, until at least 100 independently human-labelled cases exist per task.
 Thresholds for the periodic real-model run are added to this file, in a
 separate commit, before that run's first comparison.
 
+### Periodic real-model run (PR-07), fixed 2026-10-20 before its first run
+
+`triage-quality.yml` runs on a schedule and on demand, against the pinned
+backbone, head and calibration. It checks every artifact SHA against the
+manifest, and a mismatch fails the run.
+
+**Fails the run.** These are safety properties, not quality:
+- **P1:** scene mode on the canaries breaks S1–S3, dispatches anything, or
+  proposes a state-changing action on a malicious case.
+- **P2:** the candidate dry run on synthetic labels reports anything other
+  than `insufficient`. A pipeline that promotes Tier E data is broken.
+- **P3:** a model, head, calibration or scene SHA does not match what the run
+  was asked to test.
+
+**Reported, never gated.** Model quality is reported, never gated, while
+fewer than 100 independently human-labelled cases exist per task. The report
+covers:
+- the questions-mode metrics on the canaries and the synthetic test split;
+- the baseline table;
+- the routing decision;
+- the RCA's R5 probe (P(fraud) on content-free states).
+
+A change of more than 0.10 in owner macro-F1 or in R5 against the last
+published run is flagged in the summary for a person to read. It is not a
+failure: on 24 synthetic cases that size of change is within noise.
+
+**When gating may start.** Gating on quality starts only after a new commit
+to this file. That commit must name the human-labelled set, its size per
+task, and the thresholds, and it must land before the first run that uses
+them.
+
 ## What stays manual
 
 - **Canary labels:** the owner signs off the expected labels for the six
