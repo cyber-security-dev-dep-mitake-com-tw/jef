@@ -46,7 +46,7 @@ L  the six canary reconstructions, live: P(FP) next to the Lab's recorded
 
 Run from the repository root (needs the torch extra and the cached backbone):
 
-    uv run python docs/validation/research/triage-rca-v1/run.py
+    uv run python docs/validation/research/triage-rca-v1/run.py [OUT_DIR]
 """
 
 from __future__ import annotations
@@ -61,7 +61,9 @@ from typing import Any
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[4]
-OUT = Path(__file__).resolve().parent
+#: Results land next to this file unless a directory is given (the periodic
+#: workflow writes elsewhere so the published results stay what they were).
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "packages" / "jef-train" / "src"))
 
 from jef_core import BilinearHead, Engine  # noqa: E402
@@ -270,6 +272,7 @@ def main() -> None:
         },
         "per_case_owner_rotations": per_case,
     }
+    OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "results.json").write_text(
         json.dumps(results, ensure_ascii=False, indent=2, sort_keys=True, default=str) + "\n",
         "utf-8",

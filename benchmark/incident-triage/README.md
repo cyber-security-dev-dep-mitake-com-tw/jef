@@ -233,3 +233,20 @@ shipped `models/jef-v0` is refused as a candidate.
 
 The 63-case SOCBench pilot does not change this. Its tasks are
 `soc.ndr.technique` and `soc.alert.verdict`, not these five.
+
+## In CI
+
+- **Every PR:** the `triage-canary` job in `ci.yml` runs on CPU without torch.
+  - It runs the guard and harness tests and scene mode on the canaries
+    (replayed Lab answers under the shipped legacy calibration, and the
+    hashing backbone).
+  - It runs questions mode as a diagnostic, and verifies the synthetic lock.
+  - Artifact: `triage-canary-<sha>-<run>`. All of it is CONTRACT SMOKE.
+- **Weekly or on demand:** `triage-quality.yml` runs the real backbone
+  against the pinned head and calibration.
+  - It fails only on the pre-registered safety checks: **P1** canary S1–S3 or
+    a dispatch; **P2** a candidate dry run that is not `insufficient`;
+    **P3** a SHA mismatch.
+  - Quality is reported, and a change above 0.10 is flagged for a person.
+    Quality is never gated until a human-labelled set exists.
+  - Artifact: `triage-quality-<sha>-<run>`, never a push to `main`.
