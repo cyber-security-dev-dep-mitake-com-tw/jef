@@ -2,7 +2,7 @@
 
 Everything here needs a person, an account, a contract or a lab. Code and CI cannot do it. Each item says who acts, what to do, what it unblocks, and what to record afterwards. Record results in the [validation ledger](docs/validation/README.md); a claim without an artifact there stays **Pending**.
 
-Last updated 2026-10-18.
+Last updated 2026-10-20.
 
 ## 1. Cost of the JEF vs Laya vs official Jev comparison
 
@@ -23,6 +23,7 @@ The real blockers are not money:
 | 2.1b | **Priority: run the pilot now.** It is the cheapest step that produces non-source-label evidence, and it measures reviewer hours for everything below. It needs one qualified engineer and no lab. | one security engineer | G2, scheduling of 2.2 | as 2.1 |
 | 2.1d | **Label host windows on the scenarios every scorer fails** (CTU-13 scenarios 7, 8, 10, 12; see `ndr-host-fusion-v1`). A `soc.ndr.host.v1` batch from the fusion build gives the first human truth for host prioritisation. | qualified reviewer(s) | the next host-window study | batch gold |
 | 2.1c | **Label which flows of an infected host are malicious.** CTU-13 labels hosts. The new `--flow-labels behaviour` mapping uses the authors' behaviour tags (spam, click fraud, connection attempts, ICMP floods, C&C), but plain sessions from a bot stay `unknown` until a person looks. A reviewer batch on `soc.ndr.technique.v1` or `soc.ndr.host.v1` windows gives flow-level or window-level truth. | qualified reviewer(s), via a batch | an NDR result that is not capped by host-level labels | `check-batch` report and the batch's gold |
+| 2.1e | **Confirm the six incident-triage canary labels.** Read [`six-alerts-v1`](benchmark/incident-triage/canary/six-alerts-v1/) (`expectations.jsonl`): the owner, severity, urgency and evidence expected for the six K8S Lab alerts and their three no-approval twins. Correct them, then set `label_status: confirmed` and add your reviewer id. If the original Lab alerts and traces can be sanitized, add them as a separate pack with `origin: reviewer-sourced`. | the alert owner (the operator of the 2026-10-20 Lab run) | scoring the canaries, beyond the safety-only checks | the commit confirming the labels |
 | 2.2 | **Label the Tier A set (300+ cases)** with two independent reviewers and a third-person adjudicator. Open a *Gold annotation batch* issue per batch; each person commits only their own file. | two qualified reviewers plus an adjudicator; never a second handle, never an LLM | G2 (Tier A), G3, a meaningful JEF/Laya/Jev comparison | `check-batch --git` showing `tier_if_merged: A`; kappa per class |
 | 2.3 | **Get official Jev access.** Join the TypeSafe early-access waitlist or ask sales; set `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY`) in your shell only, never in a file. | account owner | the Jev column of the comparison | model version used (`jev-1.13.0` / `jev-1.14.0`), date, organisation rate limits |
 | 2.4 | **Approve egress for the comparison.** Allow `api.typesafe.ai` or `ai-gateway.vercel.sh` for **public** cases only (CTU-13, AIT-ADS, the pilot), and record the decision. Company SIEM or EDR data additionally needs the TypeSafe DPA; zero data retention needs an enterprise agreement. | security owner; legal for the DPA | running `jef-bench evaluate --allow-egress` | who approved, which hosts, which datasets |

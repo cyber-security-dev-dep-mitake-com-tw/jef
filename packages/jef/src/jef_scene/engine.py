@@ -200,18 +200,43 @@ class SceneEngine:
         else:
             skipped = []
 
-        # Advisory guard: a gate that fired on unvalidated evidence may only
-        # propose what the scene allows for that case. Without it, a raw
+        if decided is None:
+            decided = scene.fallthrough
+            verdict = "fallthrough"
+        else:
+            verdict = "decided"
+
+        # Advisory guard: a selection resting on unvalidated evidence may only
+        # be something the scene allows for that case. Without it, a raw
         # probability from a bucket nobody calibrated reads as "close this, it
         # is benign" in every trace and UI, even though the policy below keeps
         # a human in the loop. The allowlist is by action key, so renaming an
         # action cannot get past it.
+        #
+        # What the selection rests on: a ``when`` gate rests on the questions
+        # it reads. An ``else`` gate or the fallthrough is reached by
+        # elimination, so it rests on every condition that was evaluated and
+        # did not fire -- otherwise inverting a condition (``p < 0.10 ->
+        # escalate``, ``else -> close``) would carry an uncalibrated
+        # probability straight past the guard.
         withheld: str | None = None
         advisory_reasons: list[str] = []
+        unvalidated: dict[str, str] = {}
         if decided is not None and decided not in scene.allowed_when_unvalidated:
+            if deciding_condition is not None:
+                basis = referenced_questions(deciding_condition, available)
+            else:
+                basis = set().union(
+                    *(
+                        referenced_questions(g.condition, available)
+                        for lt in layer_traces
+                        for g in lt.gates
+                        if g.condition is not None and not g.fired
+                    )
+                )
             unvalidated = {
                 qid: available[qid].calibration_status
-                for qid in sorted(referenced_questions(deciding_condition, available))
+                for qid in sorted(basis)
                 if available[qid].calibration_status != "validated"
             }
             if unvalidated:
@@ -219,22 +244,16 @@ class SceneEngine:
                 advisory_reasons = [
                     f"UNVALIDATED_GATE:{qid}:{status}" for qid, status in unvalidated.items()
                 ]
-                layer_traces[-1].gates[-1].withheld = True
                 decided = scene.unvalidated_fallback
-                # The gate keeps ``then`` for diagnosis; the layer records what
-                # was actually proposed.
-                layer_traces[-1].outcome = decided or "withheld"
+                if verdict == "decided":
+                    # The gate keeps ``then`` for diagnosis; the layer records
+                    # what was actually proposed.
+                    layer_traces[-1].gates[-1].withheld = True
+                    layer_traces[-1].outcome = decided or "withheld"
+                verdict = "withheld"
                 deciding_condition = None
                 if decided is None:
                     advisory_reasons.append("ADVISORY_NO_FALLBACK")
-
-        if withheld is not None:
-            verdict = "withheld"
-        elif decided is None:
-            decided = scene.fallthrough
-            verdict = "fallthrough"
-        else:
-            verdict = "decided"
 
         action = scene.actions.get(decided) if decided else None
         warnings = list(engine._warnings() or [])
@@ -268,7 +287,16 @@ class SceneEngine:
             proposed_action=decided,
             policy_verdict=policy.verdict if policy else "review_required",
             action_tier=policy.tier if policy else None,
-            reason_codes=list(policy.reason_codes) if policy else [],
+            reason_codes=(list(policy.reason_codes) if policy else [])
+            # The why travels with the reason codes, which is what a sealed
+            # proposal and an audit dashboard keep; advisory_reasons has the
+            # calibration status of each question.
+            + (
+                [f"ADVISORY_WITHHELD:{withheld}"]
+                + [f"UNVALIDATED_CALIBRATION:{qid}" for qid in unvalidated]
+                if withheld is not None
+                else []
+            ),
             advisory_only=withheld is not None,
             withheld_action=withheld,
             advisory_reasons=advisory_reasons,

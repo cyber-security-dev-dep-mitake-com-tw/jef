@@ -315,7 +315,7 @@ def test_incident_triage_declares_no_state_changing_action() -> None:
     for name, action in scene.actions.items():
         assert tier_of(name, action) <= MAX_AUTO_TIER, f"{name} is T{tier_of(name, action)}"
     assert scene.unvalidated_fallback == "escalate_human"
-    assert scene.allowed_when_unvalidated == {"escalate_human", "queue_for_review"}
+    assert scene.allowed_when_unvalidated == {"escalate_human", "queue_for_review", "page_oncall"}
     assert scene.advisory.observe_only == ["is_false_positive"]
 
 
@@ -356,7 +356,7 @@ def test_shipped_triage_never_recommends_more_than_escalation_when_uncalibrated(
     scene = load_scene(_repo_root() / "scenes" / "incident-triage.zh-tw.yaml")
     answers = _triage_answers(fp, ev, owner, sev, urgent)
     trace = SceneEngine(ScriptedEngine(answers)).run(scene, "x")
-    assert trace.proposed_action in {"escalate_human", "queue_for_review"}
+    assert trace.proposed_action in scene.allowed_when_unvalidated
     assert trace.policy_verdict == "review_required" and trace.human_review
     assert trace.executed_action is None and trace.execution_status == "not_dispatched"
 
@@ -665,4 +665,79 @@ actions:
   auto: {{}}
   hidden_close: {{human_review: true, tier: 2}}
   review: {{human_review: true}}
+""")
+
+
+INVERTED = """
+scene: t
+fallthrough: escalate
+advisory: {{unvalidated_fallback: escalate}}
+layers:
+  - id: L1
+    questions:
+      is_fp: {{type: noul, instructions: 是否為誤報？}}
+    gates:
+      - when: 'is_fp.probability < 0.10'
+        then: escalate
+{tail}
+actions:
+  close_pending_review: {{human_review: true, tier: 2}}
+  escalate: {{human_review: true}}
+"""
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        "      - else: true\n        then: close_pending_review",
+        # The same elimination one level further: the fallthrough.
+        "      - else: true\n        then: next\n"
+        "  - id: L2\n    questions:\n      x: {type: noul, instructions: 乙？}\n"
+        "    gates:\n      - else: true\n        then: close_pending_review",
+    ],
+    ids=["else", "else-in-a-later-layer"],
+)
+def test_reaching_an_action_by_eliminating_unvalidated_gates_is_withheld(tail: str) -> None:
+    """Inverting the condition must not carry an uncalibrated probability past the guard."""
+    scene = load_scene_text(INVERTED.format(tail=tail))
+    trace = SceneEngine(
+        ScriptedEngine(sure_false_positive(0.95) | {"x": NoulAnswer(noul=0.5, confidence=0.0)})
+    ).run(scene, "x")
+    assert trace.withheld_action == "close_pending_review"
+    assert trace.proposed_action == "escalate"
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:missing"]
+
+
+def test_a_withheld_selection_keeps_its_reasons_in_the_reason_codes() -> None:
+    """The sealed proposal and audit counters read reason_codes, not advisory_reasons."""
+    from jef_scene.authz import ProposedDecision
+
+    scene = load_scene_text(ADVISORY.format(target="close_pending_review"))
+    trace = SceneEngine(ScriptedEngine(sure_false_positive())).run(scene, "x")
+    assert "ADVISORY_WITHHELD:close_pending_review" in trace.reason_codes
+    assert "UNVALIDATED_CALIBRATION:is_fp" in trace.reason_codes
+    p = ProposedDecision.from_trace(trace, case_id="c-1")
+    assert p is not None and p.action == "escalate"
+    assert "ADVISORY_WITHHELD:close_pending_review" in p.reason_codes
+
+
+def test_a_gate_may_not_read_an_observe_only_question() -> None:
+    from jef_core.errors import SceneError
+
+    with pytest.raises(SceneError, match="observe_only"):
+        load_scene_text("""
+scene: t
+fallthrough: review
+advisory: {observe_only: [is_fp]}
+layers:
+  - id: L1
+    questions:
+      is_fp: {type: noul, instructions: 是否為誤報？}
+    gates:
+      - when: 'is_fp.probability > 0.9'
+        then: review
+      - else: true
+        then: review
+actions:
+  review: {human_review: true}
 """)

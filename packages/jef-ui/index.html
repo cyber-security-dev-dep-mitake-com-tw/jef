@@ -248,12 +248,16 @@ function renderQuestion(q) {
 }
 
 function renderGate(g) {
-  const mark = g.is_else ? 'else' : (g.fired ? 'FIRED' : '—');
-  return `<div class="gate${g.fired ? ' fired' : ''}">
+  // A withheld gate fired on unvalidated evidence: its target is shown only
+  // as withheld, never as the outcome.
+  const mark = g.withheld ? '保留' : (g.is_else ? 'else' : (g.fired ? 'FIRED' : '—'));
+  return `<div class="gate${g.fired && !g.withheld ? ' fired' : ''}">
     <span class="mark">${mark}</span>
     <span>
       <span class="cond">${esc(g.condition ?? '（預設）')}</span>
-      ${g.then ? ` → <b>${esc(g.then)}</b>` : ''}
+      ${g.then ? (g.withheld
+        ? ` → <s>${esc(g.then)}</s>（未提出：證據未經校準驗證）`
+        : ` → <b>${esc(g.then)}</b>`) : ''}
       ${g.because ? `<div class="because">${esc(g.because)}</div>` : ''}
       ${g.error ? `<div class="because" style="color:var(--danger)">${esc(g.error)}</div>` : ''}
     </span>
@@ -262,10 +266,13 @@ function renderGate(g) {
 
 function render(trace) {
   const decided = trace.verdict === 'decided';
+  const verdictBadge = trace.verdict === 'withheld'
+    ? '<span class="badge human">待判斷：選擇已保留</span>'
+    : `<span class="badge ${decided ? 'ok' : 'bad'}">${decided ? '閘門判定' : '走到底（fallthrough）'}</span>`;
   const badges = [
     `<span class="badge">state 編碼 <b>${trace.state_encodes}</b> 次</span>`,
     `<span class="badge">提問 ${trace.questions_asked} 題</span>`,
-    `<span class="badge ${decided ? 'ok' : 'bad'}">${decided ? '閘門判定' : '走到底（fallthrough）'}</span>`,
+    verdictBadge,
     trace.human_review ? '<span class="badge human">需人工檢視</span>' : '<span class="badge ok">自動處理</span>',
     trace.calibrated ? '<span class="badge ok">已校準</span>' : '<span class="badge bad">未校準</span>',
   ];
@@ -293,6 +300,7 @@ function render(trace) {
     <div class="verdict">
       <h2>${esc(trace.action ?? '（無判定）')}</h2>
       <div class="why">scene <code>${esc(trace.scene)}</code> v${trace.version} · ${esc(trace.model)}</div>
+      ${trace.advisory_only ? `<div class="why">僅供參考：閘門選了 <s>${esc(trace.withheld_action ?? '')}</s>，但所依據的證據未經此任務校準驗證，因此未提出；請視為待判斷，而非建議。</div>` : ''}
       <div class="badges">${badges.join('')}</div>
     </div>
     ${layers}${skippedHtml}

@@ -21,10 +21,11 @@ fallthrough: escalate_human
 # 引擎不會提出閘門選的動作，而是改提 unvalidated_fallback，並在 trace 標
 # advisory_only 與 withheld_action。未校準的機率只能當觀察，不能變成
 # 「高度疑似良性、建議關閉」這種看似有把握的建議。允許清單按動作名稱比對，
-# 改名繞不過去；清單內的動作必須是人工覆核且 T1 以下。
+# 改名繞不過去；清單內的動作必須是人工覆核且 T1 以下。升級給人（含呼叫值班）
+# 不是狀態改變，未校準也可以提出；它只會讓人更早看到，不會讓告警被關掉。
 advisory:
   unvalidated_fallback: escalate_human
-  allowed_when_unvalidated: [escalate_human, queue_for_review]
+  allowed_when_unvalidated: [escalate_human, queue_for_review, page_oncall]
   # 照常詢問並寫入 trace 供分析，但在校準驗證前沒有閘門讀它。
   observe_only: [is_false_positive]
 

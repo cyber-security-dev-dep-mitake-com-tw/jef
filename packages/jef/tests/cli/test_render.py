@@ -152,3 +152,43 @@ def test_bars_never_exceed_their_width(fraction: float) -> None:
     from jef_cli.render import _bar
 
     assert display_width(_bar(fraction, 20)) == 20
+
+
+def test_a_withheld_selection_is_never_shown_as_the_outcome() -> None:
+    """The point of the advisory guard is lost if the renderer still says FIRED -> close."""
+    trace = {
+        "scene": "t",
+        "version": 2,
+        "verdict": "withheld",
+        "action": "escalate_human",
+        "human_review": True,
+        "calibrated": True,
+        "state_encodes": 1,
+        "questions_asked": 1,
+        "layers_skipped": [],
+        "advisory_only": True,
+        "withheld_action": "close_pending_review",
+        "advisory_reasons": ["UNVALIDATED_GATE:q:legacy"],
+        "layers": [
+            {
+                "id": "L1",
+                "outcome": "escalate_human",
+                "questions": [],
+                "gates": [
+                    {
+                        "index": 0,
+                        "condition": "q.noul > 0.9",
+                        "fired": True,
+                        "is_else": False,
+                        "then": "close_pending_review",
+                        "withheld": True,
+                    }
+                ],
+            }
+        ],
+    }
+    out = render_trace(trace, PLAIN)
+    assert "selection withheld" in out and "fell through" not in out
+    assert "advisory only" in out and "undetermined" in out
+    assert "FIRED" not in out
+    assert "close_pending_review (withheld" in out
