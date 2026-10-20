@@ -144,7 +144,8 @@ actions:
   combined: {}
   missed: {}
 """)
-    assert scene_engine.run(scene, "x").action == "combined"
+    gate = scene_engine.run(scene, "x").layers[1].gates[0]
+    assert gate.fired and gate.then == "combined"
 
 
 def test_duplicate_question_ids_across_layers_are_rejected() -> None:

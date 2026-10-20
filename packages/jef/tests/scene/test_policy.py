@@ -76,12 +76,15 @@ def test_pol_001_uncalibrated_auto_close_is_not_authorised() -> None:
     """The exact scenario from the shipped scene: raw 0.999, no calibration, `close`."""
     engine = SceneEngine(ScriptedEngine(sure_false_positive()))
     trace = engine.run(scene_for("close"), "IDS 回報連接埠掃描")
-    assert trace.action == "close", "the gate fired; the policy must not hide what was proposed"
-    assert trace.proposed_action == "close"
+    # The gate fired, and the trace says so -- but as a withheld selection,
+    # not as a recommendation: nothing measured supports "close".
+    assert trace.withheld_action == "close", "the policy must not hide what the gate selected"
+    assert trace.layers[0].gates[0].fired and trace.layers[0].gates[0].withheld
+    assert trace.action == trace.proposed_action == "review"
+    assert trace.verdict == "withheld" and trace.advisory_only is True
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:missing"]
     assert trace.policy_verdict == "review_required"
     assert trace.human_review is True
-    assert "AUTO_CLOSE_PROHIBITED" in trace.reason_codes
-    assert "UNVALIDATED_CALIBRATION:is_fp" in trace.reason_codes
     assert trace.executed_action is None
     assert trace.execution_status == "not_dispatched"
 
@@ -90,6 +93,7 @@ def test_pol_001_a_fabricated_certainty_changes_nothing() -> None:
     """0.99999 is still a model output nobody calibrated."""
     engine = SceneEngine(ScriptedEngine(sure_false_positive(0.99999)))
     trace = engine.run(scene_for("close"), "x")
+    assert trace.proposed_action == "review"
     assert trace.policy_verdict == "review_required"
     assert trace.human_review is True
 
@@ -110,9 +114,10 @@ def test_close_stays_review_required_even_when_calibrated(calibrated_engine: Eng
 def test_tier_one_without_calibration_needs_a_human() -> None:
     engine = SceneEngine(ScriptedEngine(sure_false_positive()))
     trace = engine.run(scene_for("request_context"), "x")
-    assert trace.action == "request_context"
+    assert trace.withheld_action == "request_context"
+    assert trace.action == "review"
     assert trace.policy_verdict == "review_required"
-    assert trace.reason_codes == ["UNVALIDATED_CALIBRATION:is_fp"]
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:missing"]
     assert trace.human_review is True
 
 
@@ -352,7 +357,7 @@ def test_insufficient_bucket_is_held_for_review() -> None:
     )
     assert trace.layers[0].questions[0].calibration_status == "insufficient"
     assert trace.policy_verdict == "review_required"
-    assert trace.reason_codes == ["UNVALIDATED_CALIBRATION:is_fp"]
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:insufficient"]
 
 
 STATUS_GATE = """
@@ -432,7 +437,8 @@ def test_ml_001_legacy_calibration_never_automates(calibrated_engine: Engine) ->
     assert q.calibration_status == "legacy"
     assert q.p_correct is not None, "the number is still shown for analysis"
     assert trace.policy_verdict == "review_required"
-    assert trace.reason_codes == ["UNVALIDATED_CALIBRATION:is_fp"]
+    assert trace.withheld_action == "request_context"
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:legacy"]
     assert trace.calibrated is True, "is_fitted stays true; status is what changed"
 
 
@@ -470,3 +476,146 @@ def test_shipped_scenes_name_a_task_for_every_question() -> None:
         for layer in scene.layers:
             for qid, q in layer.questions.items():
                 assert getattr(q, "task_id", None), f"{name}: {qid} has no task_id"
+
+
+# --------------------------------------------------------------------------- #
+# Advisory guard: a gate on unvalidated evidence recommends nothing it cannot
+# stand behind (incident-triage validation-first PR-01)
+# --------------------------------------------------------------------------- #
+
+ADVISORY = """
+scene: t
+fallthrough: escalate
+advisory:
+  unvalidated_fallback: escalate
+  allowed_when_unvalidated: [escalate, backlog]
+layers:
+  - id: L1
+    questions:
+      is_fp:
+        type: noul
+        task_id: soar_zh.false_positive.v1
+        instructions: 是否為誤報？
+    gates:
+      - when: 'is_fp.probability > 0.80'
+        then: {target}
+      - else: true
+        then: backlog
+actions:
+  close_pending_review: {{ human_review: true, tier: 2 }}
+  normal_maintenance: {{ human_review: true }}
+  escalate: {{ human_review: true }}
+  backlog: {{ human_review: true }}
+"""
+
+
+@pytest.mark.parametrize("p", [0.85, 0.92, 0.99, 0.99999])
+@pytest.mark.parametrize("target", ["close_pending_review", "normal_maintenance"])
+def test_unvalidated_gate_never_recommends_its_selection(p: float, target: str) -> None:
+    """The Lab's 0.92 patch alert, and a ransomware alert at any probability.
+
+    ``normal_maintenance`` is a close action renamed so no tier pattern
+    matches it: the allowlist is by key, so the rename does not get through.
+    """
+    scene = load_scene_text(ADVISORY.format(target=target))
+    trace = SceneEngine(ScriptedEngine(sure_false_positive(p))).run(scene, "x")
+    assert trace.withheld_action == target
+    assert trace.proposed_action == trace.action == "escalate"
+    assert trace.advisory_only and trace.verdict == "withheld"
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:missing"]
+    assert trace.layers[0].outcome == "escalate"
+    assert trace.policy_verdict == "review_required" and trace.human_review
+    assert trace.executed_action is None and trace.execution_status == "not_dispatched"
+
+
+def test_an_allowlisted_action_is_not_withheld() -> None:
+    scene = load_scene_text(ADVISORY.format(target="backlog"))
+    trace = SceneEngine(ScriptedEngine(sure_false_positive())).run(scene, "x")
+    assert trace.action == "backlog" and not trace.advisory_only
+    assert trace.withheld_action is None and trace.advisory_reasons == []
+
+
+def test_an_else_gate_is_not_withheld() -> None:
+    scene = load_scene_text(ADVISORY.format(target="close_pending_review"))
+    trace = SceneEngine(ScriptedEngine(sure_false_positive(0.1))).run(scene, "x")
+    assert trace.action == "backlog" and trace.verdict == "decided"
+    assert not trace.advisory_only
+
+
+def test_validated_close_is_proposed_and_still_needs_a_human(calibrated_engine: Engine) -> None:
+    """Validated calibration lets the gate recommend; it never lets close run alone."""
+    import numpy as np
+
+    rng = np.random.default_rng(3)
+    tasked = Calibrator()
+    logits, labels = [], []
+    for _ in range(400):
+        y = int(rng.integers(2))
+        lg = rng.normal(0, 0.5, size=2)
+        lg[y] += 2.5
+        logits.append(lg)
+        labels.append(y)
+    tasked.fit_bucket("noul", 2, logits, labels, task_id="soar_zh.false_positive.v1")
+    scene = load_scene_text(ADVISORY.format(target="close_pending_review"))
+    trace = SceneEngine(ScriptedEngine(sure_false_positive(), tasked)).run(scene, "x")
+    assert trace.action == "close_pending_review" and not trace.advisory_only
+    assert trace.policy_verdict == "review_required" and trace.human_review
+    assert trace.action_tier == 2
+
+
+def test_no_safe_fallback_proposes_nothing() -> None:
+    """A fallthrough that would itself automate is not a safe place to land."""
+    scene = load_scene_text("""
+scene: t
+fallthrough: done
+layers:
+  - id: L1
+    questions:
+      is_fp: {type: noul, instructions: 是否為誤報？}
+    gates:
+      - when: 'is_fp.probability > 0.5'
+        then: close
+      - else: true
+        then: done
+actions:
+  close: {}
+  done: {}
+""")
+    assert scene.unvalidated_fallback is None
+    trace = SceneEngine(ScriptedEngine(sure_false_positive())).run(scene, "x")
+    assert trace.action is None and trace.proposed_action is None
+    assert trace.withheld_action == "close"
+    assert trace.advisory_reasons == ["UNVALIDATED_GATE:is_fp:missing", "ADVISORY_NO_FALLBACK"]
+    assert trace.human_review is True and trace.policy_verdict == "review_required"
+
+
+@pytest.mark.parametrize(
+    "advisory",
+    [
+        "{unvalidated_fallback: close}",  # T2 by name
+        "{unvalidated_fallback: auto}",  # human_review false
+        "{allowed_when_unvalidated: [hidden_close]}",  # declared tier 2
+        "{unvalidated_fallback: nowhere}",  # undeclared
+    ],
+)
+def test_advisory_names_must_be_safe_actions(advisory: str) -> None:
+    from jef_core.errors import SceneError
+
+    with pytest.raises(SceneError, match="advisory"):
+        load_scene_text(f"""
+scene: t
+fallthrough: review
+advisory: {advisory}
+layers:
+  - id: L1
+    questions:
+      a: {{type: noul, instructions: 甲？}}
+    gates:
+      - else: true
+        then: review
+actions:
+  close: {{human_review: true}}
+  auto: {{}}
+  hidden_close: {{human_review: true, tier: 2}}
+  review: {{human_review: true}}
+""")

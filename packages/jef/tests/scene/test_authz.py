@@ -322,8 +322,27 @@ def test_allowlist_restricts_what_a_connector_performs() -> None:
     assert ex.dispatch_count == 0
 
 
-def test_proposal_from_a_real_trace(scene_engine: SceneEngine, minimal_scene) -> None:
-    trace = scene_engine.run(minimal_scene, "x")
+def test_proposal_from_a_real_trace(scene_engine: SceneEngine) -> None:
+    # The gate's `close` is withheld on an uncalibrated run; the advisory
+    # fallback gives the trace something safe to propose and seal.
+    scene = load_scene_text("""
+scene: t
+advisory: {unvalidated_fallback: review}
+layers:
+  - id: L1
+    questions:
+      flag: {type: noul, instructions: 是否為誤報？}
+    gates:
+      - when: 'flag.probability > 0.5'
+        then: close
+      - else: true
+        then: review
+actions:
+  close: {}
+  review: {human_review: true}
+""")
+    trace = scene_engine.run(scene, "x")
+    assert trace.withheld_action == "close" and trace.action == "review"
     p = ProposedDecision.from_trace(trace, case_id="case-7", asset_id="host-9")
     assert p is not None
     assert p.action == trace.action

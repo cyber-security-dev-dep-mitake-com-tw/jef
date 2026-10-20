@@ -140,6 +140,8 @@ export interface GateTrace {
   then: string | null;
   because: string | null;
   error?: string | null;
+  /** Fired on unvalidated evidence; its `then` was not proposed. */
+  withheld?: boolean;
 }
 
 export interface LayerTrace {
@@ -154,7 +156,7 @@ export interface SceneTrace {
   scene: string;
   version: number;
   model: string;
-  verdict: 'decided' | 'fallthrough';
+  verdict: 'decided' | 'fallthrough' | 'withheld';
   action: string | null;
   human_review: boolean;
   action_params: Record<string, unknown>;
@@ -165,6 +167,14 @@ export interface SceneTrace {
   questions_asked: number;
   calibrated: boolean;
   warnings?: string[];
+  /**
+   * True when a gate's selection was withheld because the evidence it read is
+   * not validated: read the case as undetermined, not as a confident suggestion.
+   */
+  advisory_only?: boolean;
+  /** Diagnostic only: what the gate selected before it was withheld. Never act on it. */
+  withheld_action?: string | null;
+  advisory_reasons?: string[];
 }
 
 export interface SceneSummary {

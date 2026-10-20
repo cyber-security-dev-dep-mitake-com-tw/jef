@@ -26,7 +26,7 @@ from typing import Any, Literal
 from jef_core.types import Question
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-__all__ = ["NEXT", "Action", "Gate", "Layer", "Scene"]
+__all__ = ["NEXT", "Action", "Advisory", "Gate", "Layer", "Scene"]
 
 #: Reserved ``then`` value meaning "fall through to the next layer".
 NEXT = "next"
@@ -94,6 +94,25 @@ class Action(_Base):
     params: dict[str, Any] = Field(default_factory=dict)
 
 
+class Advisory(_Base):
+    """What a gate may still select when the evidence it read is not validated.
+
+    A gate that fires on an answer whose calibration is ``legacy``, ``missing``
+    or ``insufficient`` has measured nothing it can stand behind, so the engine
+    does not let it *recommend* anything beyond these actions: whatever else it
+    selected is withheld and ``unvalidated_fallback`` is proposed instead. The
+    allowlist is by action key, never by name pattern, so renaming
+    ``close_pending_review`` to ``normal_maintenance`` does not get past it.
+    """
+
+    #: Proposed in place of a withheld action. Defaults to ``scene.fallthrough``;
+    #: with neither, a withheld gate proposes no action at all.
+    unvalidated_fallback: str | None = None
+    #: Actions a gate on unvalidated evidence may still select. Each must be a
+    #: human-review action of tier 1 or below. Defaults to the fallback alone.
+    allowed_when_unvalidated: list[str] = Field(default_factory=list)
+
+
 class Scene(_Base):
     scene: str = Field(min_length=1)
     version: int = 1
@@ -106,6 +125,8 @@ class Scene(_Base):
     #: Defaults to escalating rather than silently doing nothing, because a
     #: playbook that runs off the end has not made a decision.
     fallthrough: str | None = None
+    #: Fail-closed handling of gates that fire on unvalidated calibration.
+    advisory: Advisory = Field(default_factory=Advisory)
 
     @model_validator(mode="after")
     def _targets_resolve(self) -> Scene:
@@ -144,11 +165,57 @@ class Scene(_Base):
                 f"the final layer {last.id!r} can fall through without deciding "
                 "anything; give it an 'else' gate or set scene.fallthrough"
             )
+        self._check_advisory()
         return self
+
+    def _check_advisory(self) -> None:
+        # Only names the author wrote under ``advisory`` are checked here. The
+        # implicit fallback (``fallthrough``) may be any action; when it is not
+        # a safe one, ``unvalidated_fallback`` is None and a withheld gate
+        # proposes nothing, which is the honest answer when nothing measured
+        # supports a choice.
+        names = set(self.advisory.allowed_when_unvalidated)
+        if self.advisory.unvalidated_fallback is not None:
+            names.add(self.advisory.unvalidated_fallback)
+        for name in sorted(names):
+            action = self.actions.get(name)
+            if action is None:
+                raise ValueError(f"advisory names {name!r}, which is not a declared action")
+            if not _is_advisory_safe(name, action):
+                raise ValueError(
+                    f"advisory action {name!r} must be human_review: true and tier 1 or "
+                    "below: it is what a gate on unvalidated evidence may still propose"
+                )
+
+    @property
+    def unvalidated_fallback(self) -> str | None:
+        if self.advisory.unvalidated_fallback is not None:
+            return self.advisory.unvalidated_fallback
+        if self.fallthrough is not None and _is_advisory_safe(
+            self.fallthrough, self.actions[self.fallthrough]
+        ):
+            return self.fallthrough
+        return None
+
+    @property
+    def allowed_when_unvalidated(self) -> frozenset[str]:
+        fallback = self.unvalidated_fallback
+        allowed = set(self.advisory.allowed_when_unvalidated)
+        if fallback is not None:
+            allowed.add(fallback)
+        return frozenset(allowed)
 
     @property
     def question_count(self) -> int:
         return sum(len(layer.questions) for layer in self.layers)
 
 
-Verdict = Literal["decided", "fallthrough"]
+def _is_advisory_safe(name: str, action: Action) -> bool:
+    """A human-review action of tier 1 or below: safe to propose on no evidence."""
+    # Imported here: policy imports this module for its type hints.
+    from .policy import tier_of
+
+    return action.human_review and tier_of(name, action) <= 1
+
+
+Verdict = Literal["decided", "fallthrough", "withheld"]
