@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jef.local/benchmark/incident-triage/expectation.schema.json",
+  "title": "Incident-triage expectation",
+  "description": "What a reviewer expects for the five soar_zh tasks of one case. 'unknown' is a real answer (the evidence does not decide it) and is excluded from that task's denominator, never scored as benign.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case_id", "label_origin", "label_status", "reviewers", "truth_of_event", "truth_of_alert", "expected", "prohibited_actions", "required_context"],
+  "properties": {
+    "case_id": {"type": "string"},
+    "label_origin": {"enum": ["synthetic", "single-human-reviewed", "double-human-reviewed"]},
+    "label_status": {"enum": ["pending_owner_confirmation", "confirmed", "disputed"], "description": "Only confirmed labels are scored; pending ones are counted and reported."},
+    "reviewers": {"type": "array", "items": {"type": "string"}},
+    "truth_of_event": {"enum": ["malicious", "benign", "unknown"], "description": "Was the underlying activity an attack."},
+    "truth_of_alert": {"enum": ["true_positive", "false_positive", "unknown"], "description": "Was this detection right to fire. Kept apart from truth_of_event: a malicious event does not make every detection a true positive."},
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["false_positive", "evidence_sufficiency", "owner", "severity", "urgency"],
+      "properties": {
+        "false_positive": {"enum": [true, false, "unknown"]},
+        "evidence_sufficiency": {"enum": [true, false, "unknown"]},
+        "owner": {"oneOf": [{"const": "unknown"}, {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["soc", "appsec", "infra", "identity", "fraud"]}}], "description": "Every owner a reviewer would accept."},
+        "severity": {"oneOf": [{"const": "unknown"}, {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["資訊", "低", "中", "高", "危急"]}}]},
+        "urgency": {"enum": [true, false, "unknown"]}
+      }
+    },
+    "prohibited_actions": {"type": "array", "items": {"type": "string"}},
+    "required_context": {"type": "array", "items": {"type": "string"}, "description": "What a reviewer would need before deciding, when the state lacks it."},
+    "note": {"type": "string"}
+  }
+}
