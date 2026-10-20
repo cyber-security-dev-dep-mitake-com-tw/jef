@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import platform
 import re
@@ -106,7 +107,8 @@ def percentiles(samples: Sequence[float]) -> dict[str, Any]:
     for name, need in MIN_FOR.items():
         q = int(name[1:]) / 100
         if len(samples) >= need:
-            idx = min(len(ordered) - 1, max(0, round(q * len(ordered) + 0.5) - 1))
+            # Nearest rank: ceil(q * n), 1-based.
+            idx = min(len(ordered) - 1, max(0, math.ceil(q * len(ordered)) - 1))
             out[f"{name}_ms"] = round(ordered[idx] * 1000, 1)
         else:
             out[f"{name}_ms"] = f"n<{need}: not reported"
@@ -168,8 +170,18 @@ def run_load(
             "latency": percentiles(ok),
         }
     out["safety"] = dict(sorted(safety.items()))
-    out["safety_ok"] = safety.get("executed", 0) == 0 and all(
-        k == "execution_status:not_dispatched" for k in safety if k.startswith("execution_status:")
+    # A run with no successful response has shown nothing about safety: every
+    # level and the cold request must have answered at least once.
+    answered = cold_status == 200 and all(m["ok"] > 0 for m in out["levels"].values())
+    out["answered"] = answered
+    out["safety_ok"] = (
+        answered
+        and safety.get("executed", 0) == 0
+        and all(
+            k == "execution_status:not_dispatched"
+            for k in safety
+            if k.startswith("execution_status:")
+        )
     )
     return out
 
@@ -218,6 +230,29 @@ def kube_facts(kubectl: Kubectl, namespace: str, selector: str) -> dict[str, Any
     return facts
 
 
+def pod_changes(before: Any, after: Any) -> dict[str, Any] | None:
+    """Restarts per pod by name, plus pods that disappeared or appeared.
+
+    Summing restart counts across two pod sets misses a pod that was replaced
+    (its successor starts at 0) and can go negative; comparing by name does
+    not.
+    """
+    if before is None:
+        return None
+    if not after or "pods" not in after:
+        return {"clean": False, "error": (after or {}).get("error", "no pod list after the run")}
+    b = {p["name"]: p["restarts"] for p in before["pods"]}
+    a = {p["name"]: p["restarts"] for p in after["pods"]}
+    restarted = {n: a[n] - b[n] for n in sorted(b.keys() & a.keys()) if a[n] != b[n]}
+    gone, new = sorted(b.keys() - a.keys()), sorted(a.keys() - b.keys())
+    return {
+        "restarted": restarted,
+        "disappeared": gone,
+        "appeared": new,
+        "clean": not restarted and not gone and not new,
+    }
+
+
 def _kubectl(argv: Sequence[str]) -> str:
     return subprocess.run(  # noqa: S603 - fixed kubectl verbs, operator-given namespace
         ["kubectl", *argv],  # noqa: S607
@@ -246,9 +281,20 @@ def collect(
     kube_before = kube_facts(kubectl, namespace, selector) if kubectl and namespace else None
     load = run_load(send, states, levels, requests, warmup)
     after_calls = ledger_calls(send_ledger)
-    kube_after = kube_facts(kubectl, namespace, selector) if kubectl and namespace else None
+    # After minutes of load, a failed kubectl call must not lose the evidence.
+    try:
+        kube_after = kube_facts(kubectl, namespace, selector) if kubectl and namespace else None
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError, KeyError) as exc:
+        kube_after = {"error": f"{type(exc).__name__}: {exc}"}
 
-    if before_calls is None or after_calls is None:
+    if send_ledger is not None and (before_calls is None or after_calls is None):
+        # Asked for, and could not be performed: that is a failure, not "clean".
+        delivery = {
+            "measured": False,
+            "requested": True,
+            "error": "the mock ledger could not be read before or after the run",
+        }
+    elif before_calls is None or after_calls is None:
         delivery = {
             "measured": False,
             "note": "review_required is a policy verdict, not a delivery; pass --mock-ledger-url "
@@ -261,34 +307,36 @@ def collect(
             "ledger_calls_after": after_calls,
         }
         delivery["side_effects"] = after_calls - before_calls
-    restarts = None
-    if kube_before and kube_after:
-        restarts = sum(p["restarts"] for p in kube_after["pods"]) - sum(
-            p["restarts"] for p in kube_before["pods"]
-        )
-    git = subprocess.run(
-        ["git", "rev-parse", "HEAD"],  # noqa: S607
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout.strip()
+    restarts = pod_changes(kube_before, kube_after)
+    try:
+        git = subprocess.run(
+            ["git", "rev-parse", "HEAD"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        git = ""
+    scene_sha = None
+    if scene_path is not None and scene_path.is_file():
+        scene_sha = "sha256:" + hashlib.sha256(scene_path.read_bytes()).hexdigest()
+    # Delivery: clean when not asked for, or measured with no side effect.
+    delivery_ok = not delivery.get("requested") and delivery.get("side_effects", 0) == 0
+    # Platform: clean when not asked for, or every pod kept its name and count.
+    platform_ok = restarts is None or bool(restarts["clean"])
     return {
         "evidence_class": "RUNTIME EVIDENCE — not an SLA; sample sizes are next to every number",
         "collected_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "provenance": {
             "git_sha": git or None,
-            "scene_sha256": (
-                "sha256:" + hashlib.sha256(scene_path.read_bytes()).hexdigest()
-                if scene_path
-                else None
-            ),
+            "scene_sha256": scene_sha,
             "client": {"platform": platform.platform(), "python": sys.version.split()[0]},
         },
         "readiness": {"status": status, "body": redact(readiness)},
         "load": load,
         "delivery": delivery,
         "platform": {"before": kube_before, "after": kube_after, "restarts_during_run": restarts},
-        "ok": load["safety_ok"] and (delivery.get("side_effects", 0) == 0) and not restarts,
+        "ok": load["safety_ok"] and delivery_ok and platform_ok,
     }
 
 
@@ -315,7 +363,7 @@ def render(e: dict[str, Any]) -> str:
         "",
         f"- safety: {e['load']['safety']} → {'ok' if e['load']['safety_ok'] else '**NOT OK**'}",
         f"- delivery: {e['delivery']}",
-        f"- restarts during run: {e['platform']['restarts_during_run']}",
+        f"- pods during run: {e['platform']['restarts_during_run']}",
         "",
         f"**Overall: {'ok' if e['ok'] else 'NOT OK'}**",
     ]
@@ -356,7 +404,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         kubectl=_kubectl if args.kube_namespace else None,
         namespace=args.kube_namespace,
         selector=args.kube_selector,
-        scene_path=Path("scenes/incident-triage.zh-tw.yaml"),
+        scene_path=Path(__file__).resolve().parents[1] / "scenes" / "incident-triage.zh-tw.yaml",
     )
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "evidence.json").write_text(
