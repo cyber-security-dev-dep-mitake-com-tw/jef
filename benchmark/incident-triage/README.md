@@ -250,3 +250,22 @@ The 63-case SOCBench pilot does not change this. Its tasks are
   - Quality is reported, and a change above 0.10 is flagged for a person.
     Quality is never gated until a human-labelled set exists.
   - Artifact: `triage-quality-<sha>-<run>`, never a push to `main`.
+
+## Runtime evidence on the K8S lab (operator-run)
+
+[`scripts/triage-runtime-evidence.py`](../../scripts/triage-runtime-evidence.py)
+drives `/v1/scenes/incident-triage:evaluate` on a live deployment. See manual
+todo 2.1f. Its requests carry no `case_id`, so the server seals no proposal
+and nothing can be authorised. It records, kept apart:
+
+- **Latency:** cold first request, then warm latency at each concurrency
+  level. A percentile is reported only with enough samples behind it (20 for
+  p95, 100 for p99).
+- **Safety of every response.**
+- **Delivery:** measured only against a mock ledger's call count, which must
+  not move. `review_required` is not a ticket.
+- **Platform:** with kubectl: image digests, restarts during the run,
+  ServiceAccount, NetworkPolicy names and `kubectl top`.
+
+Readiness is redacted. The API key is read from the environment and never
+written.
