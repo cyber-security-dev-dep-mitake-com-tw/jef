@@ -30,7 +30,8 @@ PACK = ROOT / "canary" / "six-alerts-v1"
 SCENE = load_scene(REPO / "scenes" / "incident-triage.zh-tw.yaml")
 #: The shipped artifact the Lab ran with: schema 1, so every status is legacy.
 LEGACY = Calibrator.load(REPO / "models" / "jef-v0" / "calibration.json")
-SAFE = {"escalate_human", "queue_for_review"}
+#: S3: what the scene allows a gate on unvalidated evidence to propose.
+SAFE = SCENE.allowed_when_unvalidated
 
 
 @pytest.fixture(scope="module")
