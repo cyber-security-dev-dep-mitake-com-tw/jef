@@ -111,6 +111,10 @@ class Advisory(_Base):
     #: Actions a gate on unvalidated evidence may still select. Each must be a
     #: human-review action of tier 1 or below. Defaults to the fallback alone.
     allowed_when_unvalidated: list[str] = Field(default_factory=list)
+    #: Questions asked only so the trace records the model's view, with no gate
+    #: reading them -- typically because no gate on them is safe until their
+    #: task is calibrated. Declared so the validator does not flag them.
+    observe_only: list[str] = Field(default_factory=list)
 
 
 class Scene(_Base):
@@ -169,6 +173,10 @@ class Scene(_Base):
         return self
 
     def _check_advisory(self) -> None:
+        asked = {qid for layer in self.layers for qid in layer.questions}
+        for qid in self.advisory.observe_only:
+            if qid not in asked:
+                raise ValueError(f"advisory.observe_only names {qid!r}, which no layer asks")
         # Only names the author wrote under ``advisory`` are checked here. The
         # implicit fallback (``fallthrough``) may be any action; when it is not
         # a safe one, ``unvalidated_fallback`` is None and a withheld gate

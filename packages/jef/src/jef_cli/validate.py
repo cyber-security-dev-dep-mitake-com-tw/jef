@@ -186,6 +186,8 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
     targeted: set[str] = set()
     if scene.fallthrough:
         targeted.add(scene.fallthrough)
+    if scene.unvalidated_fallback:
+        targeted.add(scene.unvalidated_fallback)
 
     # Names accumulate across layers, exactly as the engine does it: a gate may
     # read any question answered so far. Scoping per layer here would report
@@ -316,7 +318,9 @@ def validate_scene_text(text: str, source: str) -> list[Problem]:
 
     # Checked after every layer, because a question may be read by a gate in a
     # later layer than the one that asks it.
-    for unused in sorted(names - used_anywhere):
+    # Questions a scene declares observe-only are asked for the trace on
+    # purpose; not reading them is the point.
+    for unused in sorted(names - used_anywhere - set(scene.advisory.observe_only)):
         problems.append(
             Problem(
                 source,

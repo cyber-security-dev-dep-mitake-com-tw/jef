@@ -66,6 +66,13 @@
           },
           "title": "Allowed When Unvalidated",
           "type": "array"
+        },
+        "observe_only": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observe Only",
+          "type": "array"
         }
       },
       "title": "Advisory",

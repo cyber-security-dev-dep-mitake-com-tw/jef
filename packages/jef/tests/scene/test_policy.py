@@ -305,13 +305,60 @@ def test_shipped_scenes_never_automate_a_state_changing_action(name: str) -> Non
             )
 
 
-def test_incident_triage_closes_only_pending_review() -> None:
+def test_incident_triage_declares_no_state_changing_action() -> None:
+    """Closing comes back only with a validated task and a measured threshold.
+
+    Until then the scene has no T2+ action at all, so no gate, rename or
+    calibration file can make it recommend one.
+    """
     scene = load_scene(_repo_root() / "scenes" / "incident-triage.zh-tw.yaml")
-    assert "close" not in scene.actions
-    pending = scene.actions["close_pending_review"]
-    assert pending.human_review is True
-    assert pending.tier == 2
-    assert pending.params["queue"] == "closed-pending-review"
+    for name, action in scene.actions.items():
+        assert tier_of(name, action) <= MAX_AUTO_TIER, f"{name} is T{tier_of(name, action)}"
+    assert scene.unvalidated_fallback == "escalate_human"
+    assert scene.allowed_when_unvalidated == {"escalate_human", "queue_for_review"}
+    assert scene.advisory.observe_only == ["is_false_positive"]
+
+
+#: The answers the K8S Lab run (2026-10-20) reported, as far as they were
+#: recorded, plus the extremes. Probabilities of the noul questions are P(true).
+LAB_LIKE = [
+    pytest.param(0.92, 0.9, "infra", 1, 0.1, id="win-patch-0.92"),
+    pytest.param(0.85, 0.9, "fraud", 1, 0.9, id="ransomware-0.85"),
+    pytest.param(0.99, 0.9, "fraud", 0, 0.99, id="ransomware-0.99"),
+    pytest.param(0.49, 0.2, "fraud", 4, 0.9, id="c2-0.49"),
+    pytest.param(0.01, 0.01, "soc", 4, 0.01, id="nothing-sure"),
+]
+
+
+def _triage_answers(fp: float, ev: float, owner: str, sev: int, urgent: float) -> dict:
+    from jef_core.types import ScoreAnswer
+
+    owners = ["soc", "appsec", "infra", "identity", "fraud"]
+    probs = {k: (0.96 if k == owner else 0.01) for k in owners}
+    legend = ["資訊", "低", "中", "高", "危急"]
+    sev_probs = {k: (0.96 if i == sev else 0.01) for i, k in enumerate(legend)}
+    return {
+        "is_false_positive": NoulAnswer(noul=fp, confidence=abs(2 * fp - 1)),
+        "has_evidence": NoulAnswer(noul=ev, confidence=abs(2 * ev - 1)),
+        "owner": ChoiceAnswer(choice=owner, probabilities=probs, confidence=0.95),
+        "severity": ScoreAnswer(
+            score=float(sev), legend=legend, probabilities=sev_probs, confidence=0.95
+        ),
+        "urgent": NoulAnswer(noul=urgent, confidence=abs(2 * urgent - 1)),
+    }
+
+
+@pytest.mark.parametrize(("fp", "ev", "owner", "sev", "urgent"), LAB_LIKE)
+def test_shipped_triage_never_recommends_more_than_escalation_when_uncalibrated(
+    fp: float, ev: float, owner: str, sev: int, urgent: float
+) -> None:
+    """Whatever the model says, an uncalibrated run ends at a person, undispatched."""
+    scene = load_scene(_repo_root() / "scenes" / "incident-triage.zh-tw.yaml")
+    answers = _triage_answers(fp, ev, owner, sev, urgent)
+    trace = SceneEngine(ScriptedEngine(answers)).run(scene, "x")
+    assert trace.proposed_action in {"escalate_human", "queue_for_review"}
+    assert trace.policy_verdict == "review_required" and trace.human_review
+    assert trace.executed_action is None and trace.execution_status == "not_dispatched"
 
 
 def test_trace_dict_carries_the_policy_fields(scene_engine: SceneEngine, minimal_scene) -> None:
