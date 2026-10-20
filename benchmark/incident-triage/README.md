@@ -233,3 +233,39 @@ shipped `models/jef-v0` is refused as a candidate.
 
 The 63-case SOCBench pilot does not change this. Its tasks are
 `soc.ndr.technique` and `soc.alert.verdict`, not these five.
+
+## In CI
+
+- **Every PR:** the `triage-canary` job in `ci.yml` runs on CPU without torch.
+  - It runs the guard and harness tests and scene mode on the canaries
+    (replayed Lab answers under the shipped legacy calibration, and the
+    hashing backbone).
+  - It runs questions mode as a diagnostic, and verifies the synthetic lock.
+  - Artifact: `triage-canary-<sha>-<run>`. All of it is CONTRACT SMOKE.
+- **Weekly or on demand:** `triage-quality.yml` runs the real backbone
+  against the pinned head and calibration.
+  - It fails only on the pre-registered safety checks: **P1** canary S1–S3 or
+    a dispatch; **P2** a candidate dry run that is not `insufficient`;
+    **P3** a SHA mismatch.
+  - Quality is reported, and a change above 0.10 is flagged for a person.
+    Quality is never gated until a human-labelled set exists.
+  - Artifact: `triage-quality-<sha>-<run>`, never a push to `main`.
+
+## Runtime evidence on the K8S lab (operator-run)
+
+[`scripts/triage-runtime-evidence.py`](../../scripts/triage-runtime-evidence.py)
+drives `/v1/scenes/incident-triage:evaluate` on a live deployment. See manual
+todo 2.1f. Its requests carry no `case_id`, so the server seals no proposal
+and nothing can be authorised. It records, kept apart:
+
+- **Latency:** cold first request, then warm latency at each concurrency
+  level. A percentile is reported only with enough samples behind it (20 for
+  p95, 100 for p99).
+- **Safety of every response.**
+- **Delivery:** measured only against a mock ledger's call count, which must
+  not move. `review_required` is not a ticket.
+- **Platform:** with kubectl: image digests, restarts during the run,
+  ServiceAccount, NetworkPolicy names and `kubectl top`.
+
+Readiness is redacted. The API key is read from the environment and never
+written.

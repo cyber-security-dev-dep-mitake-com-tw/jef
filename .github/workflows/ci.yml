@@ -82,6 +82,68 @@ jobs:
           path: evidence/safety/${{ github.sha }}
           if-no-files-found: warn
 
+  # Incident-triage safety and harness on every PR, CPU-only, no torch. Every
+  # number here is CONTRACT SMOKE (hashing backbone or replayed Lab answers):
+  # it proves the scene cannot recommend closing on unvalidated evidence and
+  # that the harness keeps its denominators honest. It says nothing about model
+  # quality; that is triage-quality.yml.
+  triage-canary:
+    name: incident-triage canary (contract smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync workspace
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+      - name: Scenes lint clean
+        run: uv run jef validate scenes/
+      - name: Advisory guard and triage harness tests
+        run: >-
+          uv run pytest -q packages/jef/tests/scene/test_policy.py
+          packages/jef-server/tests/test_scenes.py
+          packages/jef-train/tests/test_socbench_triage_canary.py
+          packages/jef-train/tests/test_socbench_triage_eval.py
+          packages/jef-train/tests/test_socbench_triage_synth.py
+          packages/jef-train/tests/test_socbench_triage_baselines.py
+          packages/jef-train/tests/test_socbench_triage_candidate.py
+      # Exits non-zero on S1-S3, any dispatch, a prohibited proposal, or a
+      # state-changing proposal on a malicious case.
+      - name: Scene mode, Lab answers replayed under the shipped legacy calibration
+        run: >-
+          uv run jef-bench triage evaluate --mode scene --scorer replay
+          --pack benchmark/incident-triage/canary/six-alerts-v1
+          --calibration models/jef-v0/calibration.json
+          --source-sha ${{ github.sha }} --out triage-out/canary-scene-replay
+      - name: Scene mode, hashing backbone
+        run: >-
+          uv run jef-bench triage evaluate --mode scene
+          --pack benchmark/incident-triage/canary/six-alerts-v1
+          --out triage-out/canary-scene-hashing
+      - name: Questions mode, Lab answers (pending labels, diagnostic)
+        run: >-
+          uv run jef-bench triage evaluate --mode questions --scorer replay --include-pending
+          --pack benchmark/incident-triage/canary/six-alerts-v1
+          --out triage-out/canary-questions-replay
+      - name: Synthetic set is the locked bytes
+        run: >-
+          uv run jef-bench triage lock --pack benchmark/incident-triage/synthetic/dev-v1
+          --verify benchmark/incident-triage/synthetic/dev-v1/lock.json
+      - name: Job summary
+        if: always()
+        run: |
+          for d in triage-out/*/; do
+            [ -f "$d/summary.md" ] && cat "$d/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Archive triage canary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-canary-${{ github.sha }}-${{ github.run_id }}
+          path: triage-out/
+          retention-days: 30
+
   contract:
     name: /v1/systemone conformance
     runs-on: ubuntu-latest

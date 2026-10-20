@@ -1,0 +1,130 @@
+name: Triage quality
+
+# The deployed incident-triage model, measured on a schedule (plan
+# 2026-10-20, PR-07). Real backbone, pinned artifacts, CPU only.
+#
+# Fails only on the pre-registered safety checks:
+#   P1 canary scene mode breaks S1-S3, dispatches, or proposes a
+#      state-changing action on a malicious case;
+#   P2 the candidate dry run on synthetic labels is anything but insufficient;
+#   P3 a model, scene or source SHA is not what the run was asked to test.
+# Quality is reported and flagged for a person, never gated, until a
+# human-labelled set exists (see the plan doc).
+#
+# Results leave as an artifact pinned to this commit, never as a push to main.
+on:
+  schedule:
+    # Mondays 03:30 UTC (11:30 Taipei), after the nightly benchmark.
+    - cron: "30 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      head:
+        description: "head.npz to test"
+        default: models/jef-v0/head.npz
+      calibration:
+        description: "calibration.json to test"
+        default: models/jef-v0/calibration.json
+      model_sha:
+        description: "expected head sha256 (default: models/jef-v0/manifest.json)"
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: triage-quality
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HEAD_PATH: ${{ inputs.head || 'models/jef-v0/head.npz' }}
+      CAL_PATH: ${{ inputs.calibration || 'models/jef-v0/calibration.json' }}
+      MODEL_SHA_INPUT: ${{ inputs.model_sha }}
+      BACKBONE: jhu-clsp/mmBERT-base
+      CANARY: benchmark/incident-triage/canary/six-alerts-v1
+      DEV: benchmark/incident-triage/synthetic/dev-v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync with the real backbone
+        run: uv sync --all-packages
+      - name: Cache Hugging Face downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-mmbert-v1
+          restore-keys: hf-${{ runner.os }}-
+
+      # P3: what is under test, pinned. A mismatch fails every step that passes it.
+      - name: Pin the artifacts
+        id: pins
+        run: |
+          if [ -n "$MODEL_SHA_INPUT" ]; then
+            model_sha="$MODEL_SHA_INPUT"
+          elif [ "$HEAD_PATH" != "models/jef-v0/head.npz" ]; then
+            # A different head with jef-v0's pinned sha would fail P3 for a
+            # reason that has nothing to do with the model: say what is missing.
+            echo "::error::head=$HEAD_PATH needs its expected sha256 in model_sha"
+            exit 1
+          else
+            model_sha=$(python3 -c 'import json; print(json.load(open("models/jef-v0/manifest.json"))["artifacts"]["head.npz"]["sha256"])')
+          fi
+          echo "model_sha=$model_sha" >> "$GITHUB_OUTPUT"
+          echo "scene_sha=$(sha256sum scenes/incident-triage.zh-tw.yaml | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: P1 canary, scene mode, real model
+        run: >-
+          uv run jef-bench triage evaluate --mode scene --pack "$CANARY"
+          --backbone "$BACKBONE" --head "$HEAD_PATH" --calibration "$CAL_PATH"
+          --source-sha ${{ github.sha }} --model-sha ${{ steps.pins.outputs.model_sha }}
+          --scene-sha ${{ steps.pins.outputs.scene_sha }} --out out/canary-scene
+
+      - name: Canary, questions mode (pending labels, diagnostic)
+        run: >-
+          uv run jef-bench triage evaluate --mode questions --include-pending --pack "$CANARY"
+          --backbone "$BACKBONE" --head "$HEAD_PATH" --calibration "$CAL_PATH"
+          --model-sha ${{ steps.pins.outputs.model_sha }} --out out/canary-questions
+
+      - name: Baselines on the locked synthetic test split
+        run: >-
+          uv run jef-bench triage baselines --pack "$DEV" --lock "$DEV/lock.json"
+          --backbone "$BACKBONE" --head "$HEAD_PATH" --calibration "$CAL_PATH"
+          --out out/baselines
+
+      - name: RCA probes (R1-R5, severity, Lab direction)
+        # The RCA measures the published artifact; it does not take overrides.
+        if: env.HEAD_PATH == 'models/jef-v0/head.npz' && env.CAL_PATH == 'models/jef-v0/calibration.json'
+        run: uv run python docs/validation/research/triage-rca-v1/run.py out/rca
+
+      - name: P2 candidate dry run must be insufficient
+        run: |
+          uv run jef-bench triage candidate-export --pack "$DEV" --lock "$DEV/lock.json" \
+            --dry-run --out out/candidate/corpus
+          uv run python -m jef_train.fit --corpus out/candidate/corpus \
+            --out out/candidate/model --backbone hashing --cache-dir out/candidate/cache --epochs 2
+          uv run jef-bench triage candidate-check --candidate out/candidate/model \
+            --corpus out/candidate/corpus --backbone hashing --out out/candidate/check.json
+          status=$(python3 -c 'import json; print(json.load(open("out/candidate/check.json"))["status"])')
+          if [ "$status" != "insufficient" ]; then
+            echo "::error::a synthetic dry run reported '$status'; the pipeline must refuse Tier E data"
+            exit 1
+          fi
+
+      - name: Summary
+        if: always()
+        run: python3 scripts/triage-quality-summary.py out >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-quality-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            out/
+            !out/candidate/cache/
+          retention-days: 90
