@@ -42,6 +42,9 @@ def lock():
 
 @pytest.fixture(scope="module")
 def dry_run(tmp_path_factory, pack, lock):
+    # Training needs torch, which the per-PR CI job does not install; the
+    # periodic triage-quality workflow runs this end to end with it.
+    pytest.importorskip("torch")
     base = tmp_path_factory.mktemp("cand")
     corpus = base / "corpus"
     export_triage_corpus(pack, lock, SCENE, corpus, dry_run=True)
