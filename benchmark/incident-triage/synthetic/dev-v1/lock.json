@@ -1,0 +1,192 @@
+{
+  "lock_version": 1,
+  "created_at": "2026-10-20T13:45:48+00:00",
+  "seed": "incident-triage",
+  "ratios": {
+    "train": 0.6,
+    "calibration": 0.2,
+    "test": 0.2
+  },
+  "cases_digest": "sha256:db661785fb1bc64c632bc1020c78af16b6c1f959604d4a4f882d9897b475d3dc",
+  "expectations_digest": "sha256:0374abd7e061f6f4cf38c572c8773c1fce05109cbcb0637482f3dcf55b5c91d8",
+  "families": {
+    "edr-admin-script": "test",
+    "edr-installer": "calibration",
+    "edr-missing-parent": "test",
+    "edr-vss-ransomware": "test",
+    "id-jump-host": "train",
+    "id-mfa": "train",
+    "id-service-account": "test",
+    "id-ssh-brute": "train",
+    "ndr-beacon": "train",
+    "ndr-dns-tunnel": "calibration",
+    "ndr-scan": "train",
+    "ndr-transfer-spike": "train",
+    "rt-appsec-dependency": "train",
+    "rt-appsec-sqli": "train",
+    "rt-fraud-ato": "train",
+    "rt-fraud-structuring": "calibration",
+    "rt-infra-cert": "train",
+    "rt-infra-disk": "train",
+    "rt-trading-host-identity": "train",
+    "rt-trading-host-malware": "test",
+    "sev-blocked-download": "train",
+    "sev-high-impact-low-likelihood": "test",
+    "sev-low-impact-high-frequency": "test",
+    "sev-recovered": "test",
+    "sev-unknown-criticality": "test"
+  },
+  "splits": {
+    "calibration": [
+      "itc-synth-v1-011",
+      "itc-synth-v1-012",
+      "itc-synth-v1-013",
+      "itc-synth-v1-014",
+      "itc-synth-v1-023",
+      "itc-synth-v1-024",
+      "itc-synth-v1-025",
+      "itc-synth-v1-026",
+      "itc-synth-v1-063",
+      "itc-synth-v1-064"
+    ],
+    "test": [
+      "itc-synth-v1-001",
+      "itc-synth-v1-002",
+      "itc-synth-v1-003",
+      "itc-synth-v1-004",
+      "itc-synth-v1-005",
+      "itc-synth-v1-006",
+      "itc-synth-v1-007",
+      "itc-synth-v1-008",
+      "itc-synth-v1-009",
+      "itc-synth-v1-010",
+      "itc-synth-v1-041",
+      "itc-synth-v1-042",
+      "itc-synth-v1-043",
+      "itc-synth-v1-044",
+      "itc-synth-v1-067",
+      "itc-synth-v1-068",
+      "itc-synth-v1-071",
+      "itc-synth-v1-072",
+      "itc-synth-v1-073",
+      "itc-synth-v1-074",
+      "itc-synth-v1-075",
+      "itc-synth-v1-076",
+      "itc-synth-v1-077",
+      "itc-synth-v1-078"
+    ],
+    "train": [
+      "itc-synth-v1-015",
+      "itc-synth-v1-016",
+      "itc-synth-v1-017",
+      "itc-synth-v1-018",
+      "itc-synth-v1-019",
+      "itc-synth-v1-020",
+      "itc-synth-v1-021",
+      "itc-synth-v1-022",
+      "itc-synth-v1-027",
+      "itc-synth-v1-028",
+      "itc-synth-v1-029",
+      "itc-synth-v1-030",
+      "itc-synth-v1-031",
+      "itc-synth-v1-032",
+      "itc-synth-v1-033",
+      "itc-synth-v1-034",
+      "itc-synth-v1-035",
+      "itc-synth-v1-036",
+      "itc-synth-v1-037",
+      "itc-synth-v1-038",
+      "itc-synth-v1-039",
+      "itc-synth-v1-040",
+      "itc-synth-v1-045",
+      "itc-synth-v1-046",
+      "itc-synth-v1-047",
+      "itc-synth-v1-048",
+      "itc-synth-v1-049",
+      "itc-synth-v1-050",
+      "itc-synth-v1-051",
+      "itc-synth-v1-052",
+      "itc-synth-v1-053",
+      "itc-synth-v1-054",
+      "itc-synth-v1-055",
+      "itc-synth-v1-056",
+      "itc-synth-v1-057",
+      "itc-synth-v1-058",
+      "itc-synth-v1-059",
+      "itc-synth-v1-060",
+      "itc-synth-v1-061",
+      "itc-synth-v1-062",
+      "itc-synth-v1-065",
+      "itc-synth-v1-066",
+      "itc-synth-v1-069",
+      "itc-synth-v1-070"
+    ]
+  },
+  "counts": {
+    "calibration": {
+      "language": {
+        "zh-TW": 5,
+        "en": 5
+      },
+      "domain": {
+        "edr": 4,
+        "ndr": 4,
+        "routing": 2
+      },
+      "label_status": {
+        "by_construction": 10
+      },
+      "hard_negative": {
+        "False": 6,
+        "True": 4
+      }
+    },
+    "test": {
+      "language": {
+        "zh-TW": 12,
+        "en": 12
+      },
+      "domain": {
+        "edr": 10,
+        "identity": 4,
+        "routing": 2,
+        "severity": 8
+      },
+      "label_status": {
+        "by_construction": 24
+      },
+      "hard_negative": {
+        "False": 18,
+        "True": 6
+      }
+    },
+    "train": {
+      "language": {
+        "zh-TW": 22,
+        "en": 22
+      },
+      "domain": {
+        "ndr": 14,
+        "identity": 12,
+        "routing": 16,
+        "severity": 2
+      },
+      "label_status": {
+        "by_construction": 44
+      },
+      "hard_negative": {
+        "False": 28,
+        "True": 16
+      }
+    }
+  },
+  "near_duplicates": {
+    "thresholds": {
+      "across_families": 0.8,
+      "to_training": 0.6
+    },
+    "across_families": [],
+    "to_training": [],
+    "max_jaccard_to_training": 0.316
+  }
+}

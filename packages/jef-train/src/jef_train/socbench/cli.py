@@ -719,10 +719,66 @@ def build_parser() -> argparse.ArgumentParser:
     te.add_argument("--model-sha", help="fail unless --head has this sha256")
     te.add_argument("--scene-sha", help="fail unless the scene file has this sha256")
     te.add_argument("--out", type=Path, required=True)
+
+    ts = trsub.add_parser("synth", help="render the synthetic families into a pack")
+    ts.add_argument("--families", type=Path, required=True)
+    ts.add_argument("--out", type=Path, required=True)
+
+    tl = trsub.add_parser("lock", help="family-grouped splits; refuses leaks and near copies")
+    tl.add_argument("--pack", type=Path, required=True)
+    tl.add_argument("--out", type=Path, help="write the lock here")
+    tl.add_argument("--verify", type=Path, help="check the pack against an existing lock")
+    tl.add_argument("--seed", default="incident-triage")
     return p
 
 
 def cmd_triage(args: argparse.Namespace) -> int:
+    if args.triage_command == "synth":
+        from .triage_synth import build_families, write_pack
+
+        cases, exps = build_families(args.families)
+        write_pack(args.out, cases, exps)
+        print(
+            f"{len(cases)} cases in {len({c['case_family'] for c in cases})} families -> {args.out}"
+        )
+        return 0
+    if args.triage_command == "lock":
+        import json
+
+        from .triage import PackError, load_pack
+        from .triage_synth import LockError, triage_lock, verify_triage_lock
+
+        try:
+            pack = load_pack(args.pack)
+        except PackError as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        exps = [pack.expectations[c["case_id"]] for c in pack.cases]
+        if args.verify:
+            problems = verify_triage_lock(
+                json.loads(args.verify.read_text("utf-8")), pack.cases, exps
+            )
+            for problem in problems:
+                print(problem, file=sys.stderr)
+            return 1 if problems else 0
+        if not args.out:
+            print("lock needs --out (or --verify)", file=sys.stderr)
+            return 2
+        try:
+            lock = triage_lock(pack.cases, exps, seed=args.seed)
+        except LockError as exc:
+            print(exc, file=sys.stderr)
+            return 1
+        args.out.write_text(json.dumps(lock, ensure_ascii=False, indent=2) + "\n", "utf-8")
+        print(
+            f"locked {len(pack.cases)} cases: "
+            f"{ {k: len(v) for k, v in lock['splits'].items()} } -> {args.out}"
+        )
+        return 0
+    return cmd_triage_evaluate(args)
+
+
+def cmd_triage_evaluate(args: argparse.Namespace) -> int:
     """jef-bench triage evaluate: the two modes never share a report."""
     from jef_core import BilinearHead, Calibrator, Engine
     from jef_scene import load_scene

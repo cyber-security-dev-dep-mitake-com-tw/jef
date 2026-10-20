@@ -1,0 +1,13 @@
+{
+  "cases": 78,
+  "evidence_class": "SYNTHETIC LABELS — ENGINEERING CONTRACT",
+  "families": 25,
+  "files": {
+    "cases.jsonl": "sha256:84991092251657081a3d05345cb37db7ec9b8d6f7d0c46c776b1659003f1155d",
+    "expectations.jsonl": "sha256:8f8f54fb8d5b63bbc1647c39b4fd70ad01a105a17dc1ff915e811c1b3a1b3f30"
+  },
+  "label_status": [
+    "by_construction"
+  ],
+  "pack": "dev-v1"
+}
