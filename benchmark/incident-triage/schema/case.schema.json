@@ -5,30 +5,113 @@
   "description": "One alert as the scene sees it. Inputs only: the expected answers live in expectation.schema.json so a scorer can be run blind.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["case_id", "case_family", "origin", "language", "state", "evidence", "licence_or_permission", "derived_from", "state_sha256"],
+  "required": [
+    "case_id",
+    "case_family",
+    "origin",
+    "language",
+    "state",
+    "evidence",
+    "licence_or_permission",
+    "derived_from",
+    "state_sha256"
+  ],
   "properties": {
-    "case_id": {"type": "string", "pattern": "^itc-[a-z0-9-]+-[0-9]{3}$"},
-    "case_family": {"type": "string", "minLength": 1, "description": "Variants, translations and hard negatives of one scenario share a family and a split."},
-    "origin": {"enum": ["human-curated-canary", "synthetic", "reviewer-sourced"], "description": "Never Tier A on its own: tiers come from the expectation's label_origin and reviewers."},
-    "language": {"enum": ["zh-TW", "en"]},
-    "state": {"type": "string", "minLength": 1},
+    "case_id": {
+      "type": "string",
+      "pattern": "^itc-[a-z0-9-]+-[0-9]{3}$"
+    },
+    "case_family": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Variants, translations and hard negatives of one scenario share a family and a split."
+    },
+    "origin": {
+      "enum": [
+        "human-curated-canary",
+        "synthetic",
+        "reviewer-sourced"
+      ],
+      "description": "Never Tier A on its own: tiers come from the expectation's label_origin and reviewers."
+    },
+    "language": {
+      "enum": [
+        "zh-TW",
+        "en"
+      ]
+    },
+    "state": {
+      "type": "string",
+      "minLength": 1
+    },
     "evidence": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "field", "value"],
+        "required": [
+          "id",
+          "field",
+          "value"
+        ],
         "properties": {
-          "id": {"type": "string", "pattern": "^e[0-9]+$"},
-          "field": {"type": "string"},
-          "value": {"type": "string"}
+          "id": {
+            "type": "string",
+            "pattern": "^e[0-9]+$"
+          },
+          "field": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
         }
       }
     },
-    "licence_or_permission": {"type": "string", "minLength": 1},
-    "derived_from": {"type": "string", "minLength": 1, "description": "Where the scenario came from. A reconstruction says so: it is not the original alert text."},
-    "twin_of": {"type": ["string", "null"], "description": "The case this one copies with the approval or change evidence removed."},
-    "translation_of": {"type": ["string", "null"]},
-    "state_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "sha256 of the UTF-8 state string."}
+    "licence_or_permission": {
+      "type": "string",
+      "minLength": 1
+    },
+    "derived_from": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where the scenario came from. A reconstruction says so: it is not the original alert text."
+    },
+    "twin_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The case this one copies with the approval or change evidence removed."
+    },
+    "translation_of": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256 of the UTF-8 state string."
+    },
+    "hard_negative_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The case this one resembles while carrying a different answer (same family, same split)."
+    },
+    "domain": {
+      "enum": [
+        "edr",
+        "ndr",
+        "identity",
+        "routing",
+        "severity",
+        "lab"
+      ],
+      "description": "Which part of the label space the case covers."
+    }
   }
 }

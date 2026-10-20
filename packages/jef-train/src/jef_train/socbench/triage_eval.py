@@ -302,7 +302,9 @@ def _scorable(
 ) -> tuple[dict[str, Mapping[str, Any]], Counter[str]]:
     keep, excluded = {}, Counter[str]()
     for cid, e in expectations.items():
-        if e["label_status"] == "confirmed" or (
+        # by_construction: synthetic, scored, and reported as SYNTHETIC LABELS
+        # by report_class because its label_origin is Tier E.
+        if e["label_status"] in ("confirmed", "by_construction") or (
             include_pending and e["label_status"] == "pending_owner_confirmation"
         ):
             keep[cid] = e
