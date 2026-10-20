@@ -33,8 +33,8 @@ npm install @jef-ai/sdk@next   # TypeScript client (release candidates publish t
 > review, and deliberately unsupported.
 
 ```bash
-jef ask "客戶回報：連續三天付款失敗，錯誤碼 502。" \
-    --choice "應由哪個團隊處理？" billing=付款、發票、退款 infra=基礎設施
+jef ask "EDR 偵測 fs-core-02 執行 vssadmin delete shadows /all，並將大量檔案改為 .lockbit。" \
+    --choice "應由哪個團隊處理？" soc=資安監控、端點與惡意程式 infra=主機、備份與可用性 identity=帳號與權限
 
 siem-query --last 5m | jef scene vuln-triage - --fail-on-human-review
 jef validate scenes/
@@ -46,28 +46,28 @@ from jef_core import Engine
 engine = Engine("jhu-clsp/mmBERT-base")
 
 result = engine.evaluate(
-    state="客戶回報：連續三天付款失敗，已影響營收。錯誤碼 502。",
+    state="EDR 於 02:14 偵測主機 fs-core-02 執行 vssadmin delete shadows /all，五分鐘內 3,200 個檔案被改為 .lockbit。",
     questions={
-        "urgent": {"type": "noul", "instructions": "這則訊息是否表達時間緊迫？"},
+        "urgent": {"type": "noul", "instructions": "這則告警是否需要立即處理？"},
         "team": {
             "type": "choice",
             "instructions": "應由哪個團隊處理？",
             "criteria": {
-                "billing": "付款、發票、退款",
-                "infra": "基礎設施、網路、主機層",
-                "appsec": "應用程式漏洞與程式碼相關",
+                "soc": "資安監控：惡意程式、勒索軟體、端點與網路入侵",
+                "infra": "基礎設施：主機、備份、憑證與可用性",
+                "identity": "身分與存取：帳號、權限、登入與 MFA",
             },
         },
         "severity": {
             "type": "score",
-            "instructions": "評估此事件的嚴重度",
+            "instructions": "評估此告警的嚴重度",
             "criteria": ["資訊", "低", "中", "高", "危急"],
         },
     },
 )
 
-result.answers["team"].choice  # 'billing'
-result.answers["team"].confidence  # 0.91
+result.answers["team"].choice  # one of 'soc', 'infra', 'identity'
+result.answers["team"].confidence  # how peaked the distribution is, not P(correct)
 result.usage.outputTokens  # 0 -- nothing is ever generated
 ```
 
