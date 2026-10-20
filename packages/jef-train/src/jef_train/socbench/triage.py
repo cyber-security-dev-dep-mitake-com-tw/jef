@@ -115,9 +115,16 @@ def pack_manifest(path: Path) -> dict[str, Any]:
     }
     cases = _read_jsonl(path / "cases.jsonl")
     expectations = _read_jsonl(path / "expectations.jsonl")
+    origins = {c["origin"] for c in cases}
     return {
         "pack": path.name,
-        "evidence_class": "CANARY — NOT AN ACCURACY ESTIMATE",
+        "evidence_class": (
+            "CANARY — NOT AN ACCURACY ESTIMATE"
+            if origins == {"human-curated-canary"}
+            else "SYNTHETIC LABELS — ENGINEERING CONTRACT"
+            if origins == {"synthetic"}
+            else "MIXED: SEE PER-CASE ORIGIN"
+        ),
         "files": files,
         "cases": len(cases),
         "families": len({c["case_family"] for c in cases}),

