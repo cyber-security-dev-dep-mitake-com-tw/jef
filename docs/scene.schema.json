@@ -44,6 +44,40 @@
       "title": "Action",
       "type": "object"
     },
+    "Advisory": {
+      "additionalProperties": false,
+      "description": "What a gate may still select when the evidence it read is not validated.\n\nA gate that fires on an answer whose calibration is ``legacy``, ``missing``\nor ``insufficient`` has measured nothing it can stand behind, so the engine\ndoes not let it *recommend* anything beyond these actions: whatever else it\nselected is withheld and ``unvalidated_fallback`` is proposed instead. The\nallowlist is by action key, never by name pattern, so renaming\n``close_pending_review`` to ``normal_maintenance`` does not get past it.",
+      "properties": {
+        "unvalidated_fallback": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unvalidated Fallback"
+        },
+        "allowed_when_unvalidated": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed When Unvalidated",
+          "type": "array"
+        },
+        "observe_only": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Observe Only",
+          "type": "array"
+        }
+      },
+      "title": "Advisory",
+      "type": "object"
+    },
     "ChoiceQuestion": {
       "additionalProperties": false,
       "description": "Pick exactly one of ``criteria``. Values describe each option to the model.",
@@ -386,6 +420,9 @@
       ],
       "default": null,
       "title": "Fallthrough"
+    },
+    "advisory": {
+      "$ref": "#/$defs/Advisory"
     }
   },
   "required": [

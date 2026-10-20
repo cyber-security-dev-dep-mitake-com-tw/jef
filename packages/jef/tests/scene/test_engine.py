@@ -175,7 +175,9 @@ actions:
   review: {{}}
 """)
         trace = scene_engine.run(scene, "x")
-        assert trace.action == "close", f"{expr} should have fired"
+        # Uncalibrated, so the selection is withheld; the gate still fired.
+        assert trace.layers[0].gates[0].fired, f"{expr} should have fired"
+        assert trace.withheld_action == "close"
 
 
 def test_noul_probabilities_are_exposed_as_a_distribution(scene_engine: SceneEngine) -> None:
@@ -194,7 +196,7 @@ actions:
   close: {}
   review: {}
 """)
-    assert scene_engine.run(scene, "x").action == "close"
+    assert scene_engine.run(scene, "x").layers[0].gates[0].fired
 
 
 def test_registry_rejects_duplicate_scene_ids() -> None:

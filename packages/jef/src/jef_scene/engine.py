@@ -200,7 +200,37 @@ class SceneEngine:
         else:
             skipped = []
 
-        if decided is None:
+        # Advisory guard: a gate that fired on unvalidated evidence may only
+        # propose what the scene allows for that case. Without it, a raw
+        # probability from a bucket nobody calibrated reads as "close this, it
+        # is benign" in every trace and UI, even though the policy below keeps
+        # a human in the loop. The allowlist is by action key, so renaming an
+        # action cannot get past it.
+        withheld: str | None = None
+        advisory_reasons: list[str] = []
+        if decided is not None and decided not in scene.allowed_when_unvalidated:
+            unvalidated = {
+                qid: available[qid].calibration_status
+                for qid in sorted(referenced_questions(deciding_condition, available))
+                if available[qid].calibration_status != "validated"
+            }
+            if unvalidated:
+                withheld = decided
+                advisory_reasons = [
+                    f"UNVALIDATED_GATE:{qid}:{status}" for qid, status in unvalidated.items()
+                ]
+                layer_traces[-1].gates[-1].withheld = True
+                decided = scene.unvalidated_fallback
+                # The gate keeps ``then`` for diagnosis; the layer records what
+                # was actually proposed.
+                layer_traces[-1].outcome = decided or "withheld"
+                deciding_condition = None
+                if decided is None:
+                    advisory_reasons.append("ADVISORY_NO_FALLBACK")
+
+        if withheld is not None:
+            verdict = "withheld"
+        elif decided is None:
             decided = scene.fallthrough
             verdict = "fallthrough"
         else:
@@ -224,7 +254,10 @@ class SceneEngine:
             model=engine.model_name,
             verdict=verdict,
             action=decided,
-            human_review=bool(action and (action.human_review or (policy and policy.human_review))),
+            human_review=bool(
+                withheld is not None
+                or (action and (action.human_review or (policy and policy.human_review)))
+            ),
             action_params=dict(action.params) if action else {},
             layers=layer_traces,
             layers_skipped=skipped,
@@ -236,6 +269,9 @@ class SceneEngine:
             policy_verdict=policy.verdict if policy else "review_required",
             action_tier=policy.tier if policy else None,
             reason_codes=list(policy.reason_codes) if policy else [],
+            advisory_only=withheld is not None,
+            withheld_action=withheld,
+            advisory_reasons=advisory_reasons,
         )
 
     # -- internals ---------------------------------------------------------- #

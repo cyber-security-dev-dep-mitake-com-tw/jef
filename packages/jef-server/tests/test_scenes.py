@@ -44,9 +44,8 @@ def test_scene_evaluation_returns_a_full_trace(client: TestClient) -> None:
     trace = r.json()
 
     assert trace["scene"] == "incident-triage"
-    assert trace["verdict"] in ("decided", "fallthrough")
+    assert trace["verdict"] in ("decided", "fallthrough", "withheld")
     assert trace["action"] in (
-        "close",
         "request_context",
         "assign",
         "page_oncall",
@@ -74,6 +73,20 @@ def test_uncalibrated_scene_always_reaches_a_human(client: TestClient) -> None:
     trace = client.post("/v1/scenes/incident-triage:evaluate", json={"state": ALERT}).json()
     assert trace["calibrated"] is False
     assert trace["human_review"] is True
+
+
+def test_an_uncalibrated_run_proposes_only_escalation_and_says_why(client: TestClient) -> None:
+    """The advisory fields reach the HTTP contract, and nothing is dispatched."""
+    trace = client.post("/v1/scenes/incident-triage:evaluate", json={"state": ALERT}).json()
+    for key in ("advisory_only", "withheld_action", "advisory_reasons"):
+        assert key in trace, f"trace must carry {key}"
+    assert trace["proposed_action"] in ("escalate_human", "queue_for_review")
+    assert trace["policy_verdict"] == "review_required"
+    assert trace["executed_action"] is None
+    assert trace["execution_status"] == "not_dispatched"
+    if trace["advisory_only"]:
+        assert trace["withheld_action"] and trace["advisory_reasons"]
+    assert all("withheld" in g for layer in trace["layers"] for g in layer["gates"])
 
 
 def test_unknown_scene_is_rejected_with_the_list_of_known_ones(client: TestClient) -> None:

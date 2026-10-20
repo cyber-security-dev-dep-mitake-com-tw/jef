@@ -96,7 +96,7 @@ Every Run Reaches A Declared Action
     FOR    ${state}    IN    ${RANSOMWARE}    ${BENIGN}    系統異常。
         ${trace}=    Run Scene    ${SCENE}    ${state}
         Should Not Be Equal    ${trace}[action]    ${None}
-        Should Be True    "${trace}[verdict]" in ("decided", "fallthrough")
+        Should Be True    "${trace}[verdict]" in ("decided", "fallthrough", "withheld")
     END
 
 Unknown Scene Names The Ones It Knows

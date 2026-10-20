@@ -2,11 +2,13 @@
 
 A scene gate expresses what the *model* thinks. ``human_review: false`` on an
 action expresses what the *scene author* is willing to automate. Neither of
-those is an authorization. The gap this module closes was concrete:
-``scenes/incident-triage.zh-tw.yaml`` selected ``close`` (``human_review:
-false``) on ``is_false_positive.probability > 0.90``, a raw model probability
-from a bucket nobody had calibrated for that task, and a connector reading
-``human_review`` would have closed the alert.
+those is an authorization. The gap this module closed was concrete: an
+earlier ``scenes/incident-triage.zh-tw.yaml`` selected ``close``
+(``human_review: false``) on ``is_false_positive.probability > 0.90``, a raw
+model probability from a bucket nobody had calibrated for that task, and a
+connector reading ``human_review`` would have closed the alert. (The engine's
+advisory guard now also keeps such a gate from *proposing* the action; see
+:class:`jef_scene.schema.Advisory`. This module is the layer underneath it.)
 
 The verdict here is deterministic and sits between the scene and whatever
 dispatches actions. It can turn an automating action into ``review_required``;

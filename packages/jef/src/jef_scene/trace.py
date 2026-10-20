@@ -55,6 +55,10 @@ class GateTrace:
     because: str | None = None
     #: Present when the condition could not be evaluated.
     error: str | None = None
+    #: The gate fired on evidence whose calibration is not ``validated`` and
+    #: selected an action outside the scene's advisory allowlist, so ``then``
+    #: was not proposed. See :class:`jef_scene.schema.Advisory`.
+    withheld: bool = False
 
 
 @dataclass
@@ -71,7 +75,8 @@ class SceneTrace:
     scene: str
     version: int
     model: str
-    #: 'decided' when a gate selected an action, 'fallthrough' otherwise.
+    #: 'decided' when a gate selected an action, 'withheld' when the advisory
+    #: guard replaced it, 'fallthrough' otherwise.
     verdict: str
     action: str | None
     human_review: bool
@@ -100,6 +105,17 @@ class SceneTrace:
     #: a proposal for an outcome.
     executed_action: str | None = None
     execution_status: str = "not_dispatched"
+    #: True when a gate's selection was withheld because the evidence it read
+    #: is not validated. The proposal is then the scene's fallback, and a UI
+    #: should read the case as "undetermined", never as a confident suggestion.
+    advisory_only: bool = False
+    #: What the gate selected before it was withheld. Diagnostic only: it is
+    #: not a recommendation and nothing may act on it.
+    withheld_action: str | None = None
+    #: ``UNVALIDATED_GATE:<question>:<status>`` for each question behind the
+    #: withheld selection, and ``ADVISORY_NO_FALLBACK`` when the scene had no
+    #: fallback to propose instead.
+    advisory_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
