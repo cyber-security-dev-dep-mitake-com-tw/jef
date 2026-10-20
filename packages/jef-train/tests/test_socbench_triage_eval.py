@@ -26,6 +26,7 @@ from jef_train.socbench.triage_eval import (
     report_class,
     run_questions,
     run_scene,
+    scene_failures,
     scene_questions,
     score_questions,
     score_scene,
@@ -129,7 +130,7 @@ def test_each_task_has_its_own_denominator_and_exclusions_are_counted() -> None:
         "c": expectation("c", status="pending_owner_confirmation"),
         "d": expectation("d", status="disputed"),
     }
-    m = score_questions(rows, exps)["tasks"]
+    m = score_questions(rows, exps, scene=SCENE)["tasks"]
     assert m["false_positive"]["scored"] == 1
     assert m["false_positive"]["excluded"] == {
         "gold_unknown": 1,
@@ -143,7 +144,9 @@ def test_each_task_has_its_own_denominator_and_exclusions_are_counted() -> None:
 def test_unknown_is_never_scored_as_benign() -> None:
     """A model saying 'false positive' on an unknown case is neither right nor wrong."""
     rows = run_questions(scripted({"a": answers(fp=0.99)}), [case("a")], SCENE)
-    m = score_questions(rows, {"a": expectation("a", false_positive="unknown")})["tasks"]
+    m = score_questions(rows, {"a": expectation("a", false_positive="unknown")}, scene=SCENE)[
+        "tasks"
+    ]
     assert m["false_positive"]["scored"] == 0
     assert m["false_positive"]["attack_called_false_positive"] == 0
 
@@ -155,7 +158,7 @@ def test_a_missing_answer_is_excluded_not_wrong() -> None:
         "status": "missing_answer",
         "task_id": "soar_zh.urgency.v1",
     }
-    m = score_questions(rows, {"a": expectation("a")})["tasks"]
+    m = score_questions(rows, {"a": expectation("a")}, scene=SCENE)["tasks"]
     assert m["urgency"]["scored"] == 0 and m["urgency"]["excluded"] == {"missing_answer": 1}
 
 
@@ -166,7 +169,7 @@ def test_metrics_on_known_answers() -> None:
     }
     rows = run_questions(scripted(by_case), [case("atk"), case("ok")], SCENE)
     exps = {"atk": expectation("atk"), "ok": expectation("ok")}
-    m = score_questions(rows, exps)["tasks"]
+    m = score_questions(rows, exps, scene=SCENE)["tasks"]
     assert m["false_positive"]["attack_called_false_positive"] == 1
     assert m["false_positive"]["attack_called_false_positive_rate"] == 0.5
     assert m["owner"]["accuracy_within_allowed"] == 0.5
@@ -181,7 +184,7 @@ def test_metrics_on_known_answers() -> None:
 def test_an_allowed_alternative_counts_as_correct() -> None:
     rows = run_questions(scripted({"a": answers(owner="infra", sev=3)}), [case("a")], SCENE)
     exp = expectation("a", owner=["soc", "infra"], severity=["高", "危急"])
-    out = score_questions(rows, {"a": exp})
+    out = score_questions(rows, {"a": exp}, scene=SCENE)
     assert out["tasks"]["owner"]["accuracy_within_allowed"] == 1.0
     assert out["tasks"]["severity"]["mae"] == 0.0
     assert all(r["correct"] for r in out["per_case"] if r["task"] in ("owner", "severity"))
@@ -240,22 +243,24 @@ def test_an_l1_short_circuit_is_not_asked_in_scene_mode_but_answered_in_question
     assert scene_rows[0]["questions"]["owner"] == "not_asked"
     assert q_rows[0]["questions"]["owner"]["status"] == "answered"
 
-    sm = score_scene(scene_rows, {"a": expectation("a")})
+    sm = score_scene(scene_rows, {"a": expectation("a")}, scene=scene)
     assert sm["not_asked"] == {"owner": 1, "severity": 1, "urgent": 1}
     assert "tasks" not in sm, "scene mode never reports per-question accuracy"
     with pytest.raises(EvalError, match="scene-mode rows"):
-        score_questions(scene_rows, {"a": expectation("a")})
+        score_questions(scene_rows, {"a": expectation("a")}, scene=SCENE)
 
 
 def test_scene_mode_on_the_canaries_under_legacy() -> None:
     pack = load_pack(PACK_DIR)
     cases = [c for c in pack.cases if c["case_id"] in pack.replay]
     rows = run_scene(lambda c: ReplayEngine(pack.replay[c["case_id"]], LEGACY), cases, SCENE)
-    m = score_scene(rows, pack.expectations)
+    m = score_scene(rows, pack.expectations, scene=SCENE)
     assert m["cases"] == 6
     assert m["review_required"] == 6 and m["auto_allowed"] == 0
     assert m["dispatched"] == 0 and m["executed"] == 0
-    assert m["proposals_outside_escalation"] == []
+    assert m["proposals_outside_advisory_allowlist"] == []
+    assert m["unvalidated_not_review_required"] == []
+    assert m["unvalidated_outside_allowlist"] == []
     assert m["prohibited_action_proposed"] == []
     assert m["malicious_close_proposed"] == []
     assert m["not_asked"] == {"urgent": 6}
@@ -265,7 +270,7 @@ def test_replay_fillers_are_never_scored() -> None:
     pack = load_pack(PACK_DIR)
     cases = [c for c in pack.cases if c["case_id"] in pack.replay]
     rows = run_questions(lambda c: ReplayEngine(pack.replay[c["case_id"]], LEGACY), cases, SCENE)
-    m = score_questions(rows, pack.expectations, include_pending=True)["tasks"]
+    m = score_questions(rows, pack.expectations, include_pending=True, scene=SCENE)["tasks"]
     assert m["urgency"]["scored"] == 0 and m["urgency"]["excluded"] == {"not_recorded": 6}
     assert m["false_positive"]["scored"] == 6
     # The Lab's own numbers: ransomware 0.85 and SSH 0.59 read as false positives.
@@ -352,3 +357,83 @@ def test_cli_refuses_a_mismatched_scene_sha(tmp_path: Path) -> None:
     )  # fmt: skip
     assert rc == 2
     assert not (tmp_path / "x").exists()
+
+
+# --------------------------------------------------------------------------- #
+# P0 review: S1/S3 gate the exit code; close is found by tier; replay counts
+# --------------------------------------------------------------------------- #
+
+RENAMED_CLOSE = """
+scene: rc
+fallthrough: escalate_human
+advisory: {unvalidated_fallback: escalate_human}
+layers:
+  - id: L1
+    questions:
+      is_false_positive: {type: noul, task_id: soar_zh.false_positive.v1, instructions: 誤報？}
+    gates:
+      - when: 'is_false_positive.probability > 0.9'
+        then: normal_maintenance
+      - else: true
+        then: escalate_human
+actions:
+  normal_maintenance: {human_review: true, tier: 2}
+  escalate_human: {human_review: true}
+"""
+
+
+def _row(**over):  # type: ignore[no-untyped-def]
+    base = {
+        "case_id": "a",
+        "proposed_action": "escalate_human",
+        "withheld_action": None,
+        "advisory_only": False,
+        "policy_verdict": "review_required",
+        "execution_status": "not_dispatched",
+        "executed_action": None,
+        "questions": {},
+        "calibration_status": {"is_false_positive": "legacy"},
+        "latency_ms": 1.0,
+    }
+    return base | over
+
+
+def test_a_renamed_close_on_a_malicious_case_fails_the_run() -> None:
+    scene = load_scene_text(RENAMED_CLOSE)
+    row = _row(proposed_action="normal_maintenance", calibration_status={"x": "validated"})
+    m = score_scene([row], {"a": expectation("a")}, scene=scene)
+    assert m["malicious_close_proposed"] == ["a"], "found by tier, not by the word close"
+    assert any("state-changing" in f for f in scene_failures(m))
+
+
+def test_s1_and_s3_fail_the_run_on_unvalidated_rows() -> None:
+    allowed = score_scene([_row(policy_verdict="allow")], scene=SCENE)
+    assert any(f.startswith("S1") for f in scene_failures(allowed))
+    outside = score_scene([_row(proposed_action="request_context")], scene=SCENE)
+    assert any(f.startswith("S3") for f in scene_failures(outside))
+    validated = score_scene(
+        [_row(proposed_action="request_context", calibration_status={"x": "validated"})],
+        scene=SCENE,
+    )
+    assert scene_failures(validated) == [], "a validated row may propose more"
+    assert validated["proposals_outside_advisory_allowlist"] == ["a"], "but it is counted"
+
+
+def test_replay_counts_the_cases_it_has_no_record_for(tmp_path: Path) -> None:
+    out = tmp_path / "scene"
+    rc = main(
+        [
+            "triage", "evaluate", "--mode", "scene", "--pack", str(PACK_DIR),
+            "--scorer", "replay", "--out", str(out),
+        ]
+    )  # fmt: skip
+    assert rc == 0
+    report = json.loads((out / "results.json").read_text("utf-8"))
+    assert report["metrics"]["excluded_cases"]["no_replay_record"] == [
+        "itc-canary-v1-007",
+        "itc-canary-v1-008",
+        "itc-canary-v1-009",
+    ]
+    model = report["provenance"]["model"]
+    assert model["name"] == "replay" and "backbone" not in model
+    assert model["replay_sources"] == ["k8s-lab-smoke-2026-10-20 operator summary"]

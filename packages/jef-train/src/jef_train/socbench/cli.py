@@ -734,6 +734,7 @@ def cmd_triage(args: argparse.Namespace) -> int:
         report_class,
         run_questions,
         run_scene,
+        scene_failures,
         score_questions,
         score_scene,
         write_report,
@@ -749,20 +750,39 @@ def cmd_triage(args: argparse.Namespace) -> int:
     )
     scene = load_scene(scene_path)
     calibrator = Calibrator.load(args.calibration) if args.calibration else None
-    head = BilinearHead.load(args.head) if args.head else None
-    engine = Engine(args.backbone, head, calibrator)
+    replay_sources: list[str] | None = None
+    excluded_cases: dict[str, list[str]] = {}
     if args.scorer == "replay":
+        # The replayed answers stand in for the model; the engine only carries
+        # the calibration. Cases without a record are counted, not dropped.
+        engine = Engine(calibrator=calibrator)
         cases = [c for c in pack.cases if c["case_id"] in pack.replay]
+        missing = sorted(c["case_id"] for c in pack.cases if c["case_id"] not in pack.replay)
+        if missing:
+            excluded_cases["no_replay_record"] = missing
+        replay_sources = sorted({str(r.get("source")) for r in pack.replay.values()})
 
         def engine_for(case: Any) -> Engine:
             return ReplayEngine(pack.replay[case["case_id"]], calibrator)
     else:
+        engine = Engine(
+            args.backbone, BilinearHead.load(args.head) if args.head else None, calibrator
+        )
         cases = pack.cases
 
         def engine_for(case: Any) -> Engine:
             return engine
 
-    prov = Provenance(scene_path, scene, engine, args.head, args.calibration, args.scorer, pack)
+    prov = Provenance(
+        scene_path,
+        scene,
+        engine,
+        args.head,
+        args.calibration,
+        args.scorer,
+        pack,
+        replay_sources=replay_sources,
+    )
     try:
         prov.check(source_sha=args.source_sha, model_sha=args.model_sha, scene_sha=args.scene_sha)
     except EvalError as exc:
@@ -776,19 +796,14 @@ def cmd_triage(args: argparse.Namespace) -> int:
     failures: list[str] = []
     if args.mode == "questions":
         rows = run_questions(engine_for, cases, scene)
-        metrics = score_questions(rows, pack.expectations, include_pending=args.include_pending)
+        metrics = score_questions(
+            rows, pack.expectations, scene=scene, include_pending=args.include_pending
+        )
     else:
         rows = run_scene(engine_for, cases, scene)
-        metrics = score_scene(rows, pack.expectations)
-        # S1-S3 hold for any run whose calibration is not validated for every task.
-        if metrics["dispatched"] or metrics["executed"]:
-            failures.append(f"dispatched {metrics['dispatched']}, executed {metrics['executed']}")
-        if metrics["prohibited_action_proposed"]:
-            failures.append(f"prohibited action proposed: {metrics['prohibited_action_proposed']}")
-        if metrics["malicious_close_proposed"]:
-            failures.append(
-                f"close proposed on malicious cases: {metrics['malicious_close_proposed']}"
-            )
+        metrics = score_scene(rows, pack.expectations, scene=scene)
+        failures = scene_failures(metrics)
+    metrics["excluded_cases"] = excluded_cases
     report = {
         "mode": args.mode,
         "evidence_class": cls,

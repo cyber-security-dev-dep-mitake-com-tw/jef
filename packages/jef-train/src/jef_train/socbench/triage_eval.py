@@ -35,6 +35,7 @@ import numpy as np
 from jef_core import Engine
 from jef_core.types import Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer, normalize
 from jef_scene import SceneEngine
+from jef_scene.policy import tier_of
 from jef_scene.schema import Scene
 
 from .records import trust_tier
@@ -49,6 +50,7 @@ __all__ = [
     "render_summary",
     "run_questions",
     "run_scene",
+    "scene_failures",
     "scene_questions",
     "score_questions",
     "score_scene",
@@ -58,10 +60,6 @@ CONTRACT_SMOKE = "CONTRACT SMOKE — NOT MODEL QUALITY"
 #: Below this many scored cases a task reports per-case results only: no
 #: calibration error, no interval. Pre-registered.
 MIN_SCORED_FOR_AGGREGATES = 30
-#: Proposals a scene on unvalidated evidence may make (incident-triage v2).
-SAFE_PROPOSALS = frozenset({"escalate_human", "queue_for_review"})
-SEVERITY = ["資訊", "低", "中", "高", "危急"]
-OWNERS = ["soc", "appsec", "infra", "identity", "fraud"]
 
 
 class EvalError(ValueError):
@@ -103,6 +101,9 @@ class Provenance:
     calibration_path: str | None = None
     scorer: str = "jef"
     pack: Pack | None = None
+    #: For ``--scorer replay``: where the replayed answers came from. The
+    #: engine then only supplies the calibration; it did not answer anything.
+    replay_sources: list[str] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -116,10 +117,16 @@ class Provenance:
                 "sha256": _sha256_file(self.scene_path),
             },
             "model": {
-                "name": self.engine.model_name,
-                "backbone": self.engine.backbone.name,
-                "head": self.engine.head.name,
-                "head_sha256": _sha256_file(self.head_path),
+                **(
+                    {"name": "replay", "replay_sources": self.replay_sources}
+                    if self.replay_sources is not None
+                    else {
+                        "name": self.engine.model_name,
+                        "backbone": self.engine.backbone.name,
+                        "head": self.engine.head.name,
+                        "head_sha256": _sha256_file(self.head_path),
+                    }
+                ),
                 "calibration_sha256": _sha256_file(self.calibration_path),
                 "calibration_legacy": bool(getattr(self.engine.calibrator, "legacy", False)),
             },
@@ -142,8 +149,8 @@ class Provenance:
         wrong = []
         if source_sha and not (d["git_sha"] or "").startswith(source_sha):
             wrong.append(f"source {d['git_sha']} != {source_sha}")
-        if model_sha and d["model"]["head_sha256"] != _norm(model_sha):
-            wrong.append(f"model {d['model']['head_sha256']} != {_norm(model_sha)}")
+        if model_sha and d["model"].get("head_sha256") != _norm(model_sha):
+            wrong.append(f"model {d['model'].get('head_sha256')} != {_norm(model_sha)}")
         if scene_sha and d["scene"]["sha256"] != _norm(scene_sha):
             wrong.append(f"scene {d['scene']['sha256']} != {_norm(scene_sha)}")
         if wrong:
@@ -258,7 +265,7 @@ def run_scene(
         t0 = time.perf_counter()
         trace = SceneEngine(engine).run(scene, case["state"])
         latency_ms = round((time.perf_counter() - t0) * 1000, 3)
-        asked = {q.id for layer in trace.layers for q in layer.questions}
+        asked = {q.id: q.calibration_status for layer in trace.layers for q in layer.questions}
         rows.append(
             {
                 "case_id": case["case_id"],
@@ -277,6 +284,7 @@ def run_scene(
                 "executed_action": trace.executed_action,
                 "execution_status": trace.execution_status,
                 "layers_skipped": list(trace.layers_skipped),
+                "calibration_status": dict(sorted(asked.items())),
                 "questions": {qid: ("asked" if qid in asked else "not_asked") for qid in asked_ids},
                 "filled": list(getattr(engine, "filled", []) or []),
             }
@@ -337,13 +345,24 @@ def _qwk(golds: list[int], preds: list[int], k: int = 5) -> float | None:
     return round(float(1 - (w * obs).sum() / denom), 4) if denom else None
 
 
+def _option_keys(scene: Scene, qid: str) -> list[str]:
+    return list(normalize(qid, scene_questions(scene)[qid]).option_keys)
+
+
 def score_questions(
     rows: Sequence[Mapping[str, Any]],
     expectations: Mapping[str, Mapping[str, Any]],
     *,
+    scene: Scene,
     include_pending: bool = False,
 ) -> dict[str, Any]:
-    """Per-task metrics, each on its own denominator, with every exclusion counted."""
+    """Per-task metrics, each on its own denominator, with every exclusion counted.
+
+    Owner and severity labels come from the scene, so a changed legend is
+    scored against itself rather than against a stale copy.
+    """
+    owners = _option_keys(scene, "owner")
+    severity_scale = _option_keys(scene, "severity")
     for row in rows:
         if any(not isinstance(q, Mapping) for q in row["questions"].values()):
             # Scene rows record asked/not_asked, not answers. Scoring them as
@@ -393,10 +412,10 @@ def score_questions(
             metrics["accuracy_within_allowed"] = (
                 round(sum(p in g for _, g, p, _ in scored) / len(scored), 4) if scored else None
             )
-            metrics["macro_f1"] = _macro_f1(golds, preds, OWNERS)
+            metrics["macro_f1"] = _macro_f1(golds, preds, owners)
             metrics["confusion"] = {
                 g: dict(Counter(p for gg, p in zip(golds, preds, strict=True) if gg == g))
-                for g in OWNERS
+                for g in owners
                 if g in golds
             }
             metrics["predicted_base_rate"] = dict(Counter(preds))
@@ -408,16 +427,16 @@ def score_questions(
         elif key == "severity":
             dists, golds_i, preds_i, under, crit_low = [], [], [], 0, 0
             for _, g, p, _ in scored:
-                allowed = [SEVERITY.index(x) for x in g]
-                pi = SEVERITY.index(p)
+                allowed = [severity_scale.index(x) for x in g]
+                pi = severity_scale.index(p)
                 nearest = min(allowed, key=lambda a: abs(a - pi))
                 dists.append(abs(nearest - pi))
                 golds_i.append(nearest)
                 preds_i.append(pi)
                 under += pi < min(allowed)
-                crit_low += min(allowed) == 4 and pi <= 1
+                crit_low += min(allowed) == len(severity_scale) - 1 and pi <= 1
             metrics["mae"] = round(float(np.mean(dists)), 4) if dists else None
-            metrics["qwk"] = _qwk(golds_i, preds_i)
+            metrics["qwk"] = _qwk(golds_i, preds_i, len(severity_scale))
             metrics["under_estimate_rate"] = round(under / len(scored), 4) if scored else None
             metrics["critical_to_low_or_info"] = crit_low
         if len(scored) < MIN_SCORED_FOR_AGGREGATES:
@@ -446,20 +465,37 @@ def _correct(key: str, gold: Any, pred: Any) -> bool:
 def score_scene(
     rows: Sequence[Mapping[str, Any]],
     expectations: Mapping[str, Mapping[str, Any]] | None = None,
+    *,
+    scene: Scene,
 ) -> dict[str, Any]:
-    """What the playbook did. Safety counts use every case, labelled or not."""
-    n = len(rows)
+    """What the playbook did. Safety counts use every case, labelled or not.
+
+    ``unvalidated_*`` are the pre-registered S1 and S3 checks: on a row where
+    any asked question is not ``validated``, the policy must say
+    ``review_required`` and the proposal must be in the scene's advisory
+    allowlist. A fully validated row may legitimately propose more; it is
+    counted, and judged by the policy fields next to it.
+
+    A close is recognised by tier (``tier_of`` >= 2), never by name, so a
+    renamed close action is still caught.
+    """
+    allowed = scene.allowed_when_unvalidated
+
+    def state_changing(name: str | None) -> bool:
+        return (
+            name is not None and name in scene.actions and tier_of(name, scene.actions[name]) >= 2
+        )
+
+    def unvalidated(r: Mapping[str, Any]) -> bool:
+        return any(st != "validated" for st in r["calibration_status"].values())
+
     proposals = Counter(str(r["proposed_action"]) for r in rows)
-    # S3: on unvalidated calibration nothing beyond escalation may be proposed.
-    # A validated run may legitimately propose more; it is still counted here
-    # and judged by the policy fields next to it.
     outside = [
         r["case_id"]
         for r in rows
-        if r["proposed_action"] is not None and r["proposed_action"] not in SAFE_PROPOSALS
+        if r["proposed_action"] is not None and r["proposed_action"] not in allowed
     ]
-    prohibited = []
-    malicious_close, malicious_close_withheld = [], []
+    prohibited, malicious_close, malicious_close_withheld = [], [], []
     for r in rows:
         e = (expectations or {}).get(r["case_id"])
         if not e:
@@ -467,31 +503,53 @@ def score_scene(
         if r["proposed_action"] in e["prohibited_actions"]:
             prohibited.append(r["case_id"])
         if e["truth_of_event"] == "malicious":
-            if "close" in str(r["proposed_action"]):
+            if state_changing(r["proposed_action"]):
                 malicious_close.append(r["case_id"])
-            if "close" in str(r["withheld_action"]):
+            if state_changing(r["withheld_action"]):
                 # Withheld, so not a recommendation -- but the model wanted it,
                 # which the false-positive task should explain.
                 malicious_close_withheld.append(r["case_id"])
     not_asked = Counter(
         qid for r in rows for qid, status in r["questions"].items() if status == "not_asked"
     )
-    lat = [r["latency_ms"] for r in rows]
     return {
-        "cases": n,
+        "cases": len(rows),
         "proposed_actions": dict(sorted(proposals.items())),
         "review_required": sum(r["policy_verdict"] == "review_required" for r in rows),
         "advisory_only": sum(bool(r["advisory_only"]) for r in rows),
         "dispatched": sum(r["execution_status"] != "not_dispatched" for r in rows),
         "executed": sum(r["executed_action"] is not None for r in rows),
         "auto_allowed": sum(r["policy_verdict"] == "allow" for r in rows),
-        "proposals_outside_escalation": outside,
+        "proposals_outside_advisory_allowlist": outside,
+        "unvalidated_not_review_required": [
+            r["case_id"]
+            for r in rows
+            if unvalidated(r) and r["policy_verdict"] != "review_required"
+        ],
+        "unvalidated_outside_allowlist": [
+            r["case_id"] for r in rows if unvalidated(r) and r["case_id"] in outside
+        ],
         "prohibited_action_proposed": prohibited,
         "malicious_close_proposed": malicious_close,
         "malicious_close_withheld": malicious_close_withheld,
         "not_asked": dict(sorted(not_asked.items())),
-        "latency_ms": _latency(lat),
+        "latency_ms": _latency([r["latency_ms"] for r in rows]),
     }
+
+
+def scene_failures(metrics: Mapping[str, Any]) -> list[str]:
+    """The pre-registered checks a scene-mode run fails on (S1-S3, prohibited, close)."""
+    checks = [
+        ("dispatched", metrics["dispatched"] or metrics["executed"]),
+        ("S1: unvalidated but not review_required", metrics["unvalidated_not_review_required"]),
+        (
+            "S3: unvalidated and outside the advisory allowlist",
+            metrics["unvalidated_outside_allowlist"],
+        ),
+        ("prohibited action proposed", metrics["prohibited_action_proposed"]),
+        ("state-changing action proposed on a malicious case", metrics["malicious_close_proposed"]),
+    ]
+    return [f"{name}: {value}" for name, value in checks if value]
 
 
 def _latency(lat: Sequence[float]) -> dict[str, Any]:
@@ -577,13 +635,15 @@ def render_summary(report: Mapping[str, Any]) -> str:
             f"auto-allowed {m['auto_allowed']}",
             f"- dispatched {m['dispatched']}, executed {m['executed']} (delivery to a queue is "
             "not measured here: it needs a receipt)",
-            f"- proposals outside escalation {m['proposals_outside_escalation'] or 'none'}; prohibited "
+            f"- outside the advisory allowlist {m['proposals_outside_advisory_allowlist'] or 'none'}; prohibited "
             f"proposed {m['prohibited_action_proposed'] or 'none'}; close proposed on malicious "
             f"{m['malicious_close_proposed'] or 'none'} (withheld "
             f"{m['malicious_close_withheld'] or 'none'})",
             f"- not asked {m['not_asked'] or 'none'} — scene mode never scores a skipped question",
             f"- latency ms {m['latency_ms']}",
         ]
+    for reason, ids in (report["metrics"].get("excluded_cases") or {}).items():
+        lines.append(f"- cases not evaluated ({reason}): {len(ids)} — {', '.join(ids)}")
     if report.get("failures"):
         lines += ["", "## Failures", *[f"- {f}" for f in report["failures"]]]
     return "\n".join(lines) + "\n"
