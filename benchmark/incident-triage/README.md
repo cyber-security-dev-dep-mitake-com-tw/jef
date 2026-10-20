@@ -36,6 +36,34 @@ p = Path('benchmark/incident-triage/canary/six-alerts-v1'); \
 (p / 'manifest.json').write_text(json.dumps(pack_manifest(p), ensure_ascii=False, indent=2, sort_keys=True) + '\n')"
 ```
 
+## Evaluate
+
+```bash
+# What the scene proposed: verdicts, withheld selections, not-asked questions, dispatch
+uv run jef-bench triage evaluate --mode scene \
+  --pack benchmark/incident-triage/canary/six-alerts-v1 --out out/triage-scene
+# The five questions, each on its own denominator
+uv run jef-bench triage evaluate --mode questions \
+  --pack benchmark/incident-triage/canary/six-alerts-v1 --out out/triage-questions
+```
+
+- `--scorer replay` replays the pack's recorded answers. `--backbone`,
+  `--head` and `--calibration` choose the model.
+- `--source-sha`, `--model-sha` and `--scene-sha` make a run fail unless the
+  loaded artifacts match.
+- `--include-pending` scores unconfirmed labels and stamps the report
+  DIAGNOSTIC.
+- Each run writes `results.json` (provenance, metrics, per-case rows) and
+  `summary.md`.
+- A run on the hashing backbone or on replayed answers is always
+  **CONTRACT SMOKE — NOT MODEL QUALITY**.
+- Scene mode exits 1 if anything was dispatched, a prohibited action was
+  proposed, or close was proposed on a malicious case.
+
+The two modes never share a report. Scene mode does not score questions,
+because a question the scene skipped was not asked. Questions mode refuses
+scene rows.
+
 ## Labels
 
 - `truth_of_event` (was it an attack) is kept apart from `truth_of_alert` (was

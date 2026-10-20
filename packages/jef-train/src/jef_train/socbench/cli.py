@@ -25,6 +25,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from .adapters import ADAPTERS
 from .manifest import SocbenchRepo, Source
@@ -686,11 +687,127 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--head", help="jef scorer: head.npz")
     ev.add_argument("--calibration", help="jef scorer: calibration.json")
     ev.add_argument("--out", type=Path, required=True)
+
+    tr = sub.add_parser("triage", help="incident-triage scene: five questions, or the scene")
+    trsub = tr.add_subparsers(dest="triage_command", required=True)
+    te = trsub.add_parser(
+        "evaluate",
+        help="score the five soar_zh questions (questions) or what the scene proposed (scene)",
+    )
+    te.add_argument("--mode", choices=["questions", "scene"], required=True)
+    te.add_argument("--pack", type=Path, required=True, help="a benchmark/incident-triage pack")
+    te.add_argument(
+        "--scene",
+        type=Path,
+        help="scene YAML (default: scenes/incident-triage.zh-tw.yaml in this checkout)",
+    )
+    te.add_argument(
+        "--scorer",
+        choices=["jef", "replay"],
+        default="jef",
+        help="jef: run the engine; replay: the pack's recorded answers (contract smoke)",
+    )
+    te.add_argument("--backbone", default="hashing")
+    te.add_argument("--head")
+    te.add_argument("--calibration")
+    te.add_argument(
+        "--include-pending",
+        action="store_true",
+        help="also score labels awaiting confirmation; the report says DIAGNOSTIC",
+    )
+    te.add_argument("--source-sha", help="fail unless HEAD starts with this")
+    te.add_argument("--model-sha", help="fail unless --head has this sha256")
+    te.add_argument("--scene-sha", help="fail unless the scene file has this sha256")
+    te.add_argument("--out", type=Path, required=True)
     return p
+
+
+def cmd_triage(args: argparse.Namespace) -> int:
+    """jef-bench triage evaluate: the two modes never share a report."""
+    from jef_core import BilinearHead, Calibrator, Engine
+    from jef_scene import load_scene
+
+    from .triage import PackError, ReplayEngine, find_root, load_pack
+    from .triage_eval import (
+        EvalError,
+        Provenance,
+        report_class,
+        run_questions,
+        run_scene,
+        score_questions,
+        score_scene,
+        write_report,
+    )
+
+    try:
+        pack = load_pack(args.pack)
+    except (PackError, FileNotFoundError) as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    scene_path = (
+        args.scene or find_root(args.pack).parents[1] / "scenes" / "incident-triage.zh-tw.yaml"
+    )
+    scene = load_scene(scene_path)
+    calibrator = Calibrator.load(args.calibration) if args.calibration else None
+    head = BilinearHead.load(args.head) if args.head else None
+    engine = Engine(args.backbone, head, calibrator)
+    if args.scorer == "replay":
+        cases = [c for c in pack.cases if c["case_id"] in pack.replay]
+
+        def engine_for(case: Any) -> Engine:
+            return ReplayEngine(pack.replay[case["case_id"]], calibrator)
+    else:
+        cases = pack.cases
+
+        def engine_for(case: Any) -> Engine:
+            return engine
+
+    prov = Provenance(scene_path, scene, engine, args.head, args.calibration, args.scorer, pack)
+    try:
+        prov.check(source_sha=args.source_sha, model_sha=args.model_sha, scene_sha=args.scene_sha)
+    except EvalError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
+    smoke = args.scorer == "replay" or engine.backbone.name.startswith("hashing")
+    cls, note = report_class(
+        pack.expectations, contract_smoke=smoke, include_pending=args.include_pending
+    )
+    failures: list[str] = []
+    if args.mode == "questions":
+        rows = run_questions(engine_for, cases, scene)
+        metrics = score_questions(rows, pack.expectations, include_pending=args.include_pending)
+    else:
+        rows = run_scene(engine_for, cases, scene)
+        metrics = score_scene(rows, pack.expectations)
+        # S1-S3 hold for any run whose calibration is not validated for every task.
+        if metrics["dispatched"] or metrics["executed"]:
+            failures.append(f"dispatched {metrics['dispatched']}, executed {metrics['executed']}")
+        if metrics["prohibited_action_proposed"]:
+            failures.append(f"prohibited action proposed: {metrics['prohibited_action_proposed']}")
+        if metrics["malicious_close_proposed"]:
+            failures.append(
+                f"close proposed on malicious cases: {metrics['malicious_close_proposed']}"
+            )
+    report = {
+        "mode": args.mode,
+        "evidence_class": cls,
+        "evidence_note": note,
+        "provenance": prov.to_dict(),
+        "metrics": metrics,
+        "rows": rows,
+        "failures": failures,
+    }
+    write_report(args.out, report)
+    print(f"{args.mode}: {len(rows)} cases, {cls}, failures {len(failures)} -> {args.out}")
+    return 1 if failures else 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command == "triage":
+        # Needs the incident-triage pack, not the socbench sources.
+        return cmd_triage(args)
     try:
         repo = SocbenchRepo(args.root)
     except FileNotFoundError as exc:
