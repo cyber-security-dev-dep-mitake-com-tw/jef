@@ -237,6 +237,7 @@ def check_candidate(
     # Every bucket the scene asks, at the scene's alpha.
     buckets: dict[str, Any] = {}
     engine = Engine(backbone, BilinearHead.load(str(head_path)), calibrator)
+    encoded: dict[str, Any] = {}
     test_by_bucket: dict[str, list[Sample]] = {}
     for s in splits["test"]:
         test_by_bucket.setdefault(s.bucket, []).append(s)
@@ -252,9 +253,10 @@ def check_candidate(
         if test:
             probs = []
             for s in test:
-                ans = engine.answer(
-                    engine.prepare(s.state), {"q": s.to_question() | {"task_id": s.task}}
-                )
+                # One backbone encode per state, shared by its five tasks.
+                if s.state not in encoded:
+                    encoded[s.state] = engine.prepare(s.state)
+                ans = engine.answer(encoded[s.state], {"q": s.to_question() | {"task_id": s.task}})
                 probs.append(_distribution(ans["q"], list(s.option_keys)))
             entry["coverage"] = calibrator.coverage_check(
                 probs, [s.label for s in test], info["kind"], info["n_options"],
