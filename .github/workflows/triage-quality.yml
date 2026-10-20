@@ -66,6 +66,11 @@ jobs:
         run: |
           if [ -n "$MODEL_SHA_INPUT" ]; then
             model_sha="$MODEL_SHA_INPUT"
+          elif [ "$HEAD_PATH" != "models/jef-v0/head.npz" ]; then
+            # A different head with jef-v0's pinned sha would fail P3 for a
+            # reason that has nothing to do with the model: say what is missing.
+            echo "::error::head=$HEAD_PATH needs its expected sha256 in model_sha"
+            exit 1
           else
             model_sha=$(python3 -c 'import json; print(json.load(open("models/jef-v0/manifest.json"))["artifacts"]["head.npz"]["sha256"])')
           fi
@@ -92,7 +97,8 @@ jobs:
           --out out/baselines
 
       - name: RCA probes (R1-R5, severity, Lab direction)
-        if: env.HEAD_PATH == 'models/jef-v0/head.npz'
+        # The RCA measures the published artifact; it does not take overrides.
+        if: env.HEAD_PATH == 'models/jef-v0/head.npz' && env.CAL_PATH == 'models/jef-v0/calibration.json'
         run: uv run python docs/validation/research/triage-rca-v1/run.py out/rca
 
       - name: P2 candidate dry run must be insufficient
