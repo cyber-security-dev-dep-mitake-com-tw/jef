@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -703,9 +704,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     te.add_argument(
         "--scorer",
-        choices=["jef", "replay"],
+        choices=["jef", "replay", "remote"],
         default="jef",
-        help="jef: run the engine; replay: the pack's recorded answers (contract smoke)",
+        help=(
+            "jef: run the engine; replay: the pack's recorded answers (contract smoke); "
+            "remote: one system from --scorer-config, asked the same five questions"
+        ),
+    )
+    te.add_argument("--scorer-config", type=Path, help="remote scorers (JSON, no inline secrets)")
+    te.add_argument("--scorer-name", help="which scorer in --scorer-config")
+    te.add_argument(
+        "--allow-egress",
+        action="append",
+        default=[],
+        metavar="HOST",
+        help="let cases go to this external host (public or approved cases only)",
     )
     te.add_argument("--backbone", default="hashing")
     te.add_argument("--head")
@@ -940,8 +953,37 @@ def cmd_triage_evaluate(args: argparse.Namespace) -> int:
     scene = load_scene(scene_path)
     calibrator = Calibrator.load(args.calibration) if args.calibration else None
     replay_sources: list[str] | None = None
+    remote_desc: dict[str, Any] | None = None
+    remote_engine: Any = None
     excluded_cases: dict[str, list[str]] = {}
-    if args.scorer == "replay":
+    if args.scorer == "remote":
+        from .remote import ScorerConfigError, load_scorer_config
+        from .triage_remote import EgressRefused, RemoteTriageEngine, egress_check
+
+        if not args.scorer_config or not args.scorer_name:
+            print("--scorer remote needs --scorer-config and --scorer-name", file=sys.stderr)
+            return 2
+        try:
+            scorers = {s.name: s for s in load_scorer_config(args.scorer_config)}
+            if args.scorer_name not in scorers:
+                raise ScorerConfigError(f"no scorer named {args.scorer_name!r}")
+            scorer = scorers[args.scorer_name]
+            egress_check(scorer, pack.cases, args.allow_egress)
+        except (ScorerConfigError, EgressRefused) as exc:
+            print(exc, file=sys.stderr)
+            return 2
+        if args.calibration or args.head:
+            print("a remote scorer brings its own model; --head/--calibration do not apply",
+                  file=sys.stderr)  # fmt: skip
+            return 2
+        remote_engine = RemoteTriageEngine(scorer)
+        engine = remote_engine
+        cases = pack.cases
+        remote_desc = scorer.describe()
+
+        def engine_for(case: Any) -> Engine:
+            return remote_engine.for_case(case)
+    elif args.scorer == "replay":
         # The replayed answers stand in for the model; the engine only carries
         # the calibration. Cases without a record are counted, not dropped.
         engine = Engine(calibrator=calibrator)
@@ -971,6 +1013,7 @@ def cmd_triage_evaluate(args: argparse.Namespace) -> int:
         args.scorer,
         pack,
         replay_sources=replay_sources,
+        remote=remote_desc,
     )
     try:
         prov.check(source_sha=args.source_sha, model_sha=args.model_sha, scene_sha=args.scene_sha)
@@ -978,7 +1021,9 @@ def cmd_triage_evaluate(args: argparse.Namespace) -> int:
         print(exc, file=sys.stderr)
         return 2
 
-    smoke = args.scorer == "replay" or engine.backbone.name.startswith("hashing")
+    smoke = args.scorer == "replay" or (
+        args.scorer == "jef" and engine.backbone.name.startswith("hashing")
+    )
     cls, note = report_class(
         pack.expectations, contract_smoke=smoke, include_pending=args.include_pending
     )
@@ -993,6 +1038,15 @@ def cmd_triage_evaluate(args: argparse.Namespace) -> int:
         metrics = score_scene(rows, pack.expectations, scene=scene)
         failures = scene_failures(metrics)
     metrics["excluded_cases"] = excluded_cases
+    if remote_engine is not None:
+        # A reply that is not a full distribution is a failure of the system,
+        # counted here; its questions were excluded, never filled in.
+        metrics["remote_contract_failures"] = {
+            "count": len(remote_engine.failures),
+            "cases": len({f["case_id"] for f in remote_engine.failures}),
+            "by_kind": dict(Counter(f["kind"] for f in remote_engine.failures)),
+            "items": remote_engine.failures,
+        }
     report = {
         "mode": args.mode,
         "evidence_class": cls,

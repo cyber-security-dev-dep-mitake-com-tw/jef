@@ -76,6 +76,28 @@ The two modes never share a report. Scene mode does not score questions,
 because a question the scene skipped was not asked. Questions mode refuses
 scene rows.
 
+### Another system on the same questions
+
+`--scorer remote --scorer-config scorers.json --scorer-name NAME` asks a
+`/v1/systemone` service or the AI Gateway decision-model dialect (Jev, Laya,
+an LLM wrapper, another JEF) the scene's five questions: same state, same
+instructions, same options in the same order. The config file is the one
+[`benchmark/socbench/scorers.example.json`](../socbench/scorers.example.json)
+describes, and credentials come from the environment variable named in
+`auth_env`.
+
+- A reply must be a full distribution over each question's options. A
+  refusal, a missing question or a partial distribution is a contract
+  failure. The question is excluded and counted under
+  `remote_contract_failures`, never filled in.
+- A remote system has no JEF calibration, so every question reports
+  `missing`.
+- An external host needs `--allow-egress HOST`. Packs with `own-telemetry` or
+  `reviewer-sourced` cases are never sent to an external host; that needs a
+  separate data-processing approval this tool does not take.
+- A system you cannot reach is `NOT_RUN` in any comparison. A stand-in such as
+  `research/jev-local` is never reported as the official Jev.
+
 ## `synthetic/dev-v1`: label-space coverage, not gold
 
 **Evidence class: SYNTHETIC LABELS — ENGINEERING CONTRACT (Tier E).**
