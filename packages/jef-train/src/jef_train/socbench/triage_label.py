@@ -195,8 +195,8 @@ class Labeller:
         rows: Sequence[Mapping[str, Any]],
         answers_path: Path,
         *,
-        ask: Ask = input,
-        say: Say = print,
+        ask: Ask | None = None,
+        say: Say | None = None,
         clock: Callable[[], float] = time.monotonic,
         color: bool | None = None,
         width: int | None = None,
@@ -205,7 +205,9 @@ class Labeller:
             raise ReviewError("the worksheet is empty")
         self.rows = list(rows)
         self.path = answers_path
-        self.ask, self.say, self.clock = ask, say, clock
+        self.ask: Ask = ask or (lambda prompt: input(prompt))
+        self.say: Say = say or print
+        self.clock = clock
         self.color = (
             color if color is not None else sys.stdout.isatty() and "NO_COLOR" not in os.environ
         )
@@ -236,6 +238,9 @@ class Labeller:
             + f"   {row['case_id']}   已完成 done {done}/{len(self.rows)}"
         )
         self.say(self._c(bar, "2"))
+        if not row["evidence"]:
+            self.say(self._c("  告警內容 Alert", "1"))
+            self.say(self._wrap(str(row["state"]), "    "))
         for e in row["evidence"]:
             name = FIELD_NAMES.get(e["field"], e["field"])
             self.say(self._c(f"  {name}", "1"))

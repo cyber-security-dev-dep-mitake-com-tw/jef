@@ -836,6 +836,17 @@ def build_parser() -> argparse.ArgumentParser:
     rc = rvsub.add_parser("check", help="tiers, unknown rates, kappa per task, reviewer time")
     rc.add_argument("--pack", type=Path, required=True, help="a reviewed pack")
     rc.add_argument("--answers", type=Path, action="append", default=[])
+    rl = rvsub.add_parser(
+        "label", help="interactive terminal labelling of one worksheet (zh-TW); resumable"
+    )
+    rl.add_argument("--worksheet", type=Path, required=True, help="from `review export`")
+    rl.add_argument(
+        "--answers",
+        type=Path,
+        help="answer file (default: beside the worksheet); resumed if present",
+    )
+    rl.add_argument("--case", help="re-label one case that is already answered")
+    rl.add_argument("--no-color", action="store_true")
 
     ce = trsub.add_parser(
         "candidate-export", help="a locked pack -> a jef_train.fit corpus for the five tasks"
@@ -1213,6 +1224,19 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         )
 
     try:
+        if args.review_command == "label":
+            from .triage_label import Labeller, default_answers_path
+
+            rows = jsonl(args.worksheet)
+            if not rows:
+                raise ReviewError(f"{args.worksheet} is empty")
+            answers = args.answers or default_answers_path(args.worksheet, rows)
+            labeller = Labeller(rows, answers, color=False if args.no_color else None)
+            try:
+                labeller.run(only=args.case)
+            except (KeyboardInterrupt, EOFError):
+                print(f"\n中斷 interrupted — 已確認的答案都已儲存 saved in {answers}")
+            return 0
         if args.review_command == "check":
             pack = load_pack(args.pack)
             exps = [pack.expectations[c["case_id"]] for c in pack.cases]
