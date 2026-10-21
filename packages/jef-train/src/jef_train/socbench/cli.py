@@ -724,6 +724,18 @@ def build_parser() -> argparse.ArgumentParser:
     ts.add_argument("--families", type=Path, required=True)
     ts.add_argument("--out", type=Path, required=True)
 
+    td = trsub.add_parser(
+        "drift", help="weekly drift of the five answers between two questions-mode reports"
+    )
+    td.add_argument(
+        "--reference", type=Path, required=True, help="results.json of the reference run"
+    )
+    td.add_argument("--current", type=Path, required=True, help="results.json of the current run")
+    td.add_argument("--pack", type=Path, help="the current pack, if it has confirmed labels")
+    td.add_argument("--calibration", type=Path, help="calibration.json for coverage_check")
+    td.add_argument("--alpha", type=float, default=0.10)
+    td.add_argument("--out", type=Path, required=True)
+
     tb = trsub.add_parser("baselines", help="B0-B3 on one locked split, and the routing decision")
     tb.add_argument("--pack", type=Path, required=True)
     tb.add_argument("--lock", type=Path, required=True)
@@ -815,6 +827,8 @@ def cmd_triage(args: argparse.Namespace) -> int:
         return cmd_triage_baselines(args)
     if args.triage_command in ("candidate-export", "candidate-check"):
         return cmd_triage_candidate(args)
+    if args.triage_command == "drift":
+        return cmd_triage_drift(args)
     return cmd_triage_evaluate(args)
 
 
@@ -908,6 +922,26 @@ def cmd_triage_baselines(args: argparse.Namespace) -> int:
     )
     (args.out / "summary.md").write_text(render_baselines(report), "utf-8")
     print(f"baselines on {args.split}: {report['routing_decision'].get('routing')} -> {args.out}")
+    return 0
+
+
+def cmd_triage_drift(args: argparse.Namespace) -> int:
+    import json
+
+    from .triage import PackError, load_pack
+    from .triage_drift import DriftError, drift_report
+
+    try:
+        pack = load_pack(args.pack) if args.pack else None
+        report = drift_report(
+            args.reference, args.current, pack=pack, calibration=args.calibration, alpha=args.alpha
+        )
+    except (DriftError, PackError, KeyError) as exc:
+        print(f"drift: {exc}", file=sys.stderr)
+        return 2
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    print(f"{report['recommendation']} -> {args.out}")
     return 0
 
 

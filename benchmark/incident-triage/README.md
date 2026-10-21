@@ -269,3 +269,16 @@ and nothing can be authorised. It records, kept apart:
 
 Readiness is redacted. The API key is read from the environment and never
 written.
+
+## Drift on private telemetry (operator-run)
+
+`jef-bench triage drift --reference ref/results.json --current cur/results.json --out drift.json` compares two questions-mode runs, for example last week's shadow run on a private Cloudflare pack against the run the model was checked on. Per task it reports:
+
+- the population stability index of the answers (0.10 and 0.25 are conventional watch and shifted lines, descriptive only);
+- unanswered rates;
+- calibration status counts;
+- with `--pack` (confirmed labels) and `--calibration`, `coverage_check`. Otherwise coverage is `NOT_MEASURED`, never an assumed pass.
+
+The output is counts and rates only, and the tool refuses to write it if the privacy lint finds anything. The `recommendation` says what a person should do; nothing is switched automatically, because no automation is enabled.
+
+`.github/workflows/triage-drift.yml` is a template for a weekly run. It is off unless the repository variable `JEF_PRIVATE_RUNNER_ENABLED` is `true`, it runs only on a self-hosted runner labelled `jef-private`, it never runs on pull requests, and it uploads the aggregate only.
