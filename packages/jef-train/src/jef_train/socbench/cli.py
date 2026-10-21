@@ -923,6 +923,12 @@ def build_parser() -> argparse.ArgumentParser:
     bc.add_argument("--context", type=Path, help="approval evidence (JSONL)")
     bc.add_argument("--gap-minutes", type=int, default=15)
     bc.add_argument(
+        "--link-max-actors",
+        type=int,
+        default=3,
+        help="a route family joins families only if at most this many actors touch it",
+    )
+    bc.add_argument(
         "--with-vendor-signals",
         action="store_true",
         help="also write a marked variant of each case that shows the WAF's own outputs",
@@ -1096,6 +1102,7 @@ def cmd_triage_cloudflare_pack(args: argparse.Namespace) -> int:
             pseud=pseud,
             context=context,
             gap_minutes=args.gap_minutes,
+            link_max_actors=args.link_max_actors,
             with_vendor_signals=args.with_vendor_signals,
         )
         out = write_private_pack(args.out, cases, exps, weak)
