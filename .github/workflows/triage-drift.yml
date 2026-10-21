@@ -1,0 +1,56 @@
+# Weekly drift of the incident-triage answers on PRIVATE telemetry.
+#
+# Template, off by default. It runs only on a self-hosted runner labelled
+# jef-private (where the private packs and reports live) and only when the
+# repository variable JEF_PRIVATE_RUNNER_ENABLED is "true". It never runs
+# on pull requests and never on GitHub-hosted runners. It uploads the drift
+# aggregates only (counts and rates, privacy-linted by the tool); the
+# reports it reads stay on the runner.
+name: triage-drift
+
+on:
+  workflow_dispatch:
+    inputs:
+      reference:
+        description: "results.json of the reference run (path on the private runner)"
+        required: true
+      current:
+        description: "results.json of the current run (path on the private runner)"
+        required: true
+      pack:
+        description: "current private pack with confirmed labels (optional)"
+        required: false
+        default: ""
+      calibration:
+        description: "calibration.json for coverage_check (optional)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    if: vars.JEF_PRIVATE_RUNNER_ENABLED == 'true'
+    runs-on: [self-hosted, jef-private]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Sync workspace
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+      - name: Drift report (aggregates only)
+        env:
+          REFERENCE: ${{ inputs.reference }}
+          CURRENT: ${{ inputs.current }}
+          PACK: ${{ inputs.pack }}
+          CALIBRATION: ${{ inputs.calibration }}
+        run: |
+          set -euo pipefail
+          args=(--reference "$REFERENCE" --current "$CURRENT" --out drift-out/drift.json)
+          if [ -n "$PACK" ]; then args+=(--pack "$PACK"); fi
+          if [ -n "$CALIBRATION" ]; then args+=(--calibration "$CALIBRATION"); fi
+          uv run jef-bench triage drift "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: triage-drift-${{ github.run_id }}
+          path: drift-out/drift.json
