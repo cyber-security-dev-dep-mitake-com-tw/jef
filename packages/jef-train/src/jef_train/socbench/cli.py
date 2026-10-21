@@ -760,6 +760,31 @@ def build_parser() -> argparse.ArgumentParser:
     cc.add_argument("--backbone", required=True)
     cc.add_argument("--out", type=Path, required=True)
 
+    ic = trsub.add_parser(
+        "ingest-cloudflare",
+        help="read-only: pull your own zone's security events into a private directory",
+    )
+    ic.add_argument("--token-env", required=True, help="env var holding an Analytics-read token")
+    ic.add_argument("--zone-id-env", required=True, help="env var holding the zone id")
+    ic.add_argument(
+        "--zone-alias", required=True, help="name recorded instead of the zone id (e.g. site-a)"
+    )
+    ic.add_argument("--start", required=True, help="UTC, e.g. 2026-10-19T00:00:00Z")
+    ic.add_argument("--end", required=True)
+    ic.add_argument("--window-minutes", type=int, default=60)
+    ic.add_argument("--limit", type=int, default=1000)
+    ic.add_argument(
+        "--out-private",
+        type=Path,
+        required=True,
+        help="a directory outside any git checkout; files are written owner-only",
+    )
+    ic.add_argument(
+        "--mock-events",
+        type=Path,
+        help="answer from a synthetic fixture instead of Cloudflare (contract tests and CI)",
+    )
+
     tl = trsub.add_parser("lock", help="family-grouped splits; refuses leaks and near copies")
     tl.add_argument("--pack", type=Path, required=True)
     tl.add_argument("--out", type=Path, help="write the lock here")
@@ -778,6 +803,8 @@ def cmd_triage(args: argparse.Namespace) -> int:
             f"{len(cases)} cases in {len({c['case_family'] for c in cases})} families -> {args.out}"
         )
         return 0
+    if args.triage_command == "ingest-cloudflare":
+        return cmd_triage_ingest_cloudflare(args)
     if args.triage_command == "lock":
         import json
 
@@ -816,6 +843,46 @@ def cmd_triage(args: argparse.Namespace) -> int:
     if args.triage_command in ("candidate-export", "candidate-check"):
         return cmd_triage_candidate(args)
     return cmd_triage_evaluate(args)
+
+
+def cmd_triage_ingest_cloudflare(args: argparse.Namespace) -> int:
+    import json
+    import os
+    from datetime import datetime, timedelta
+
+    from .cloudflare_mock import FakeZone, load_fixture_events
+    from .cloudflare_source import CloudflareError, GraphQLClient, ingest
+
+    token = os.environ.get(args.token_env, "")
+    zone_id = os.environ.get(args.zone_id_env, "")
+    for name, value in ((args.token_env, token), (args.zone_id_env, zone_id)):
+        if not value:
+            print(f"environment variable {name} is not set", file=sys.stderr)
+            return 2
+    transport = (
+        FakeZone(token, zone_id, load_fixture_events(args.mock_events))
+        if args.mock_events
+        else None
+    )
+    try:
+        start = datetime.fromisoformat(args.start.replace("Z", "+00:00"))
+        end = datetime.fromisoformat(args.end.replace("Z", "+00:00"))
+        client = GraphQLClient(token, zone_id, transport=transport)
+        result = ingest(
+            client,
+            zone_alias=args.zone_alias,
+            start=start,
+            end=end,
+            out_dir=args.out_private,
+            step=timedelta(minutes=args.window_minutes),
+            limit=args.limit,
+        )
+    except (CloudflareError, ValueError) as exc:
+        message = str(exc).replace(token, "***").replace(zone_id, "***")
+        print(f"ingest-cloudflare: {message}", file=sys.stderr)
+        return 1
+    print(json.dumps({**result.to_json(), "mock": bool(args.mock_events)}, indent=2))
+    return 1 if result.incomplete else 0
 
 
 def cmd_triage_candidate(args: argparse.Namespace) -> int:
