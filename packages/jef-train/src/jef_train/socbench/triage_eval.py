@@ -104,6 +104,9 @@ class Provenance:
     #: For ``--scorer replay``: where the replayed answers came from. The
     #: engine then only supplies the calibration; it did not answer anything.
     replay_sources: list[str] | None = None
+    #: For a remote scorer: its ``describe()`` (provider, model, version,
+    #: data flow, the env var name of its credential -- never the value).
+    remote: dict[str, Any] | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -120,6 +123,8 @@ class Provenance:
                 **(
                     {"name": "replay", "replay_sources": self.replay_sources}
                     if self.replay_sources is not None
+                    else {"name": "remote", **self.remote}
+                    if self.remote is not None
                     else {
                         "name": self.engine.model_name,
                         "backbone": self.engine.backbone.name,
