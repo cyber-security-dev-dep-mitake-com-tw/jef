@@ -36,7 +36,9 @@ FETCHABLE_ACCESS: frozenset[str] = frozenset(
 #: Access values where downloading is a human's act (a form, a registration, a
 #: contact). The pipeline refuses these outright rather than scraping around
 #: them: the gate is the data owner's condition of use.
-RESTRICTED_ACCESS: frozenset[str] = frozenset({"request-form", "registration-or-contact"})
+RESTRICTED_ACCESS: frozenset[str] = frozenset(
+    {"request-form", "registration-or-contact", "application", "own-zone", "unverified"}
+)
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,11 @@ class Source:
     license: str
     priority: int | str
     caveat: str
+    kind: str = "dataset"
+    label_granularity: str = "unknown"
+    trust_tier: str = "U"
+    adapter: str = "implemented"
+    access_verified: str | None = None
     links: dict[str, str] = field(default_factory=dict)
 
     @property
@@ -63,7 +70,12 @@ class Source:
 
     @property
     def fetchable(self) -> bool:
-        return self.access in FETCHABLE_ACCESS
+        return self.wired and self.access in FETCHABLE_ACCESS
+
+    @property
+    def wired(self) -> bool:
+        """An adapter and a pin manifest exist; catalogue rows are planning entries."""
+        return self.adapter == "implemented"
 
 
 @dataclass
@@ -167,12 +179,16 @@ class SocbenchRepo:
 
     # -- sources ------------------------------------------------------------
 
-    def load_sources(self) -> list[Source]:
+    def load_sources(self, *, catalogue: bool = False) -> list[Source]:
+        """The wired sources; with ``catalogue=True`` also the planning-only rows."""
         raw = yaml.safe_load(self.sources_path.read_text("utf-8"))
         # YAML reads an unquoted 2026-10-16 as a date object; the schema wants
         # the string, and so does anything that round-trips the manifest.
         if isinstance(raw, dict) and isinstance(raw.get("checked"), date):
             raw["checked"] = raw["checked"].isoformat()
+        for row in raw.get("sources", []) if isinstance(raw, dict) else []:
+            if isinstance(row, dict) and isinstance(row.get("access_verified"), date):
+                row["access_verified"] = row["access_verified"].isoformat()
         self.validate("sources", raw, where=str(self.sources_path))
         sources: list[Source] = []
         seen: set[str] = set()
@@ -197,10 +213,15 @@ class SocbenchRepo:
                     license=str(row["license"]),
                     priority=row["priority"],
                     caveat=row["caveat"],
+                    kind=row["kind"],
+                    label_granularity=row["label_granularity"],
+                    trust_tier=row["trust_tier"],
+                    adapter=row["adapter"],
+                    access_verified=row["access_verified"] or None,
                     links=links,
                 )
             )
-        return sources
+        return sources if catalogue else [s for s in sources if s.wired]
 
     def source(self, source_id: str) -> Source:
         for s in self.load_sources():

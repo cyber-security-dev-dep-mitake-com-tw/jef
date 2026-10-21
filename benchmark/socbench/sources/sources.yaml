@@ -1,179 +1,998 @@
-# SOCBench source manifest. Provenance only: no data lives in this repository.
+# SOCBench source registry (v2). Provenance only: no data lives in this repository.
+# adapter: implemented rows are wired (an adapter, a pin manifest, fetch/check);
+# adapter: catalogue rows are planning entries from the v5 dataset plan
+# (docs/validation/plans/2026-10-21-soc-specialist-v5.md) and nothing fetches them.
+# trust_tier is what the source's labels are worth (C source-labelled, D weak,
+# E synthetic, U unlabelled); A and B exist only after human review, and no
+# source is five-task incident-triage gold (five_task_gold is always false).
 # Fields: ground_truth_level is what the source actually labels, never what we
-# wish it labelled. access is what was true on 2026-10-16; re-verify before use.
+# wish it labelled. access is what was true on access_verified; re-verify before use.
 # jef_use lists the SOCBench task ids (docs/JEF-SECURITY-ROADMAP-AND-SOC-BENCHMARK.md §7.1).
-version: 1
-checked: 2026-10-16
+version: 2
+checked: 2026-10-21
 sources:
   - id: ait-ads
     name: AIT Alert Data Set
+    kind: dataset
     url: https://zenodo.org/records/8263181
     language: en
     ground_truth_level: attack-phase-window        # labels.csv marks attack phases by time, not per-alert verdicts
+    label_granularity: window
+    trust_tier: D
+    five_task_gold: false
     realism: high                                   # Wazuh 2,293,628 + Suricata 306,635 + AMiner 55,558 alerts, 8 scenarios, benign-behaviour false positives
     hard_negatives: strong
     jef_use: [soc.alert.verdict.v1, soc.ndr.technique.v1]
     access: public-download                         # ~96 MB zip + labels.csv
+    access_verified: 2026-10-16
     license: see-record                             # check the Zenodo record before redistribution
     priority: 1
+    adapter: implemented
     caveat: a window hit is not a per-alert malicious label; build case-level verdicts by aggregation or review
 
   - id: ctu-13
     name: CTU-13
+    kind: dataset
     url: https://www.stratosphereips.org/datasets-ctu13
     language: n/a
     ground_truth_level: flow-label                  # manual flow labels Botnet / C&C / Normal / Background
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
     realism: medium-high
     hard_negatives: medium
     jef_use: [soc.ndr.technique.v1]
     access: public-download
+    access_verified: 2026-10-16
     license: see-source
     priority: 2
+    adapter: implemented
     caveat: Background is unknown/unverified traffic and must be labelled unknown, never benign
 
   - id: iot-23
     name: Stratosphere IoT-23
+    kind: dataset
     url: https://www.stratosphereips.org/datasets-iot23
     language: n/a
     ground_truth_level: flow-label                  # per-flow Benign / Malicious with a behaviour (C&C, DDoS, PartOfAHorizontalPortScan, ...)
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
     realism: medium
     hard_negatives: medium
     jef_use: [soc.ndr.host.v1]
     access: public-download                         # subset of 10 captures, ~180 MB (manifests/iot-23.json)
+    access_verified: 2026-10-18
     license: CC-BY-4.0
     priority: 2
+    adapter: implemented
     caveat: 2018-2019 IoT devices on a lab network; flow labels come from the authors' analysis of known infections; one infected device per malware capture
 
   - id: bots-v3
     name: Splunk Boss of the SOC v3
+    kind: dataset
     url: https://github.com/splunk/botsv3
     language: en
     ground_truth_level: ctf-answer-key               # investigation questions and answers, not per-event verdicts
+    label_granularity: ctf-answer
+    trust_tier: C
+    five_task_gold: false
     realism: high
     hard_negatives: high-investigation-value
     jef_use: [soc.alert.verdict.v1, soc.edr.execution.v1]
     access: public-download                          # pre-indexed Splunk dataset; Q&A may require contacting Splunk
+    access_verified: 2026-10-16
     license: CC0-claimed                             # verify on the release used
     priority: 3
+    adapter: implemented
     caveat: build cases from investigation questions; do not force 0/1 labels on raw log lines
 
   - id: lanl-cyber1
     name: LANL Comprehensive Multi-Source Cyber-Security Events
+    kind: dataset
     url: https://csr.lanl.gov/data/cyber1/
     language: n/a
     ground_truth_level: partial-red-team-positives   # redteam.txt lists known compromise events only
+    label_granularity: event
+    trust_tier: C
+    five_task_gold: false
     realism: high
     hard_negatives: unknown-background
     jef_use: [soc.identity.abuse.v1]
     access: request-form                              # ~12 GB compressed, 58 days, anonymised
+    access_verified: 2026-10-16
     license: see-source
     priority: 4
+    adapter: implemented
     caveat: non-red-team events are unlabelled, not benign; re-identification policy applies
 
   - id: otrf-security-datasets
     name: Mordor / OTRF Security Datasets
+    kind: dataset
     url: https://github.com/OTRF/Security-Datasets
     language: en
     ground_truth_level: adversary-emulation-semi-labelled
+    label_granularity: scenario
+    trust_tier: C
+    five_task_gold: false
     realism: medium
     hard_negatives: low
     jef_use: [soc.edr.execution.v1]
     access: public-download
+    access_verified: 2026-10-16
     license: per-dataset                               # check each dataset's licence inside the repo
     priority: 5
+    adapter: implemented
     caveat: split by emulation scenario; not independent natural samples
 
   - id: cicids2017
     name: CICIDS2017
+    kind: dataset
     url: https://www.cs.unb.ca/~alashkar/Data-sets.asp
     language: n/a
     ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
     realism: limited
     hard_negatives: low
     jef_use: [soc.ndr.technique.v1]
     access: request-form                              # the download page is a form (cicresearch.ca), verified 2026-10-16
+    access_verified: 2026-10-16
     license: see-source
     priority: secondary
+    adapter: implemented
     caveat: labelling and flow-construction problems documented (doi 10.1109/SPW53761.2021.00009); never a headline benchmark
 
   - id: community-soc-benchmark
     name: vicks00/soc-benchmark
+    kind: reference
     url: https://github.com/vicks00/soc-benchmark
     language: en
     ground_truth_level: scenario-gold-key
+    label_granularity: scenario
+    trust_tier: none
+    five_task_gold: false
     realism: reference
     hard_negatives: reference
     jef_use: [harness-design-reference]
     access: public
+    access_verified: 2026-10-16
     license: see-repo
     priority: reference
+    adapter: implemented
     caveat: annotation process unaudited; do not cite as independent analyst labels
 
   - id: cac-cyber-dataset-1.0
     name: 網路安全資料集 1.0
+    kind: dataset
     url: https://www.cac.gov.cn/2026-09/16/c_1791306277101208.htm
     portal: https://www.cybersac.cn/newhome
     language: zh-CN
     ground_truth_level: unverified
+    label_granularity: unknown
+    trust_tier: U
+    five_task_gold: false
     realism: unknown
     hard_negatives: unknown
     jef_use: [candidate-zh-CN-alert-corpus]
     access: registration-or-contact
+    access_verified: 2026-10-16
     license: unknown
     priority: evaluate
+    adapter: implemented
     caveat: per-record analyst label quality unverified; redistribution terms unknown; report zh-CN separately from zh-TW
 
   - id: trec06c
     name: TREC 2006 Chinese Spam Corpus
+    kind: dataset
     url: https://plg.uwaterloo.ca/~gvcormac/treccorpus06/
     reference: https://pages.nist.gov/trec-browser/trec15/spam/proceedings/
     language: zh
     ground_truth_level: spam-ham                     # 64,620 mails: 21,766 ham, 42,854 spam
+    label_granularity: message
+    trust_tier: C
+    five_task_gold: false
     realism: dated
     hard_negatives: benign-mail
     jef_use: [soc.phishing.verdict.v1]
     access: public-download-verify                   # upstream URL redirected to a 404 on 2026-10-16; no automated fetch until a verified source exists
+    access_verified: 2026-10-16
     license: see-source
     priority: 6
+    adapter: implemented
     caveat: spam/ham is not phishing/legitimate; headers are processed; useful as benign-mail negatives and domain transfer only
 
   - id: ts-bench
     name: TS-Bench
+    kind: dataset
     url: https://github.com/mtkresearch/TS-Bench
     language: zh-TW
     ground_truth_level: scam-vs-hard-negative-prompts   # data/TSB400.csv, 400 prompts
+    label_granularity: message
+    trust_tier: E
+    five_task_gold: false
     realism: language-robustness
     hard_negatives: paired
     jef_use: [soc.phishing.verdict.v1, zh-TW-robustness]
     access: public-download
+    access_verified: 2026-10-16
     license: see-repo
     priority: 7
+    adapter: implemented
     caveat: not enterprise telemetry; measures Taiwan-local scam language, not EDR decisions
 
   - id: chiphish
     name: ChiPhish
+    kind: dataset
     url: https://github.com/joanyy/ChiPhish
     full_dataset: https://zenodo.org/records/19558545
     language: zh
     ground_truth_level: phishing-vs-benign-website
+    label_granularity: page
+    trust_tier: C
+    five_task_gold: false
     realism: medium
     hard_negatives: medium
     jef_use: [soc.phishing.verdict.v1]
     access: sample-public-full-restricted             # 20 samples on GitHub; full set needs an access request
+    access_verified: 2026-10-16
     license: see-record
     priority: 8
+    adapter: implemented
     caveat: web pages, not e-mail or SIEM alerts; confirm zh-TW vs zh-CN per sample
 
   - id: twcert-cc
     name: TWCERT/CC case reports and government open-data statistics
+    kind: statistics
     url: https://www.twcert.org.tw/tw
     open_data: https://data.gov.tw/en/datasets/163766
     language: zh-TW
     ground_truth_level: case-narratives-and-monthly-statistics
+    label_granularity: aggregate
+    trust_tier: none
+    five_task_gold: false
     realism: local-context
     hard_negatives: n/a
     jef_use: [zh-TW-taxonomy, scenario-authoring]
     access: public
+    access_verified: 2026-10-16
     license: Taiwan-open-government-data
     priority: context
+    adapter: implemented
     caveat: narratives and monthly statistics are not per-case labels
+
+  # ------------------------------------------------------------------------
+  # Catalogue (adapter: catalogue). Taken from the v5 dataset plan on
+  # 2026-10-21; url, access and licence are that document's claims until a
+  # person checks them (access_verified: false). Nothing here is fetched.
+  # ------------------------------------------------------------------------
+
+  # SOC, EDR, SIEM, multi-source incidents
+  - id: ait-lds-v2
+    name: AIT Log Data Set v2 (AECID)
+    kind: dataset
+    url: https://github.com/ait-aecid
+    language: en
+    ground_truth_level: attack-phase-window
+    label_granularity: window
+    trust_tier: D
+    five_task_gold: false
+    realism: high
+    hard_negatives: strong
+    jef_use: [soc.alert.verdict.v1, context-for-ait-ads]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P0
+    adapter: catalogue
+    caveat: raw multi-host logs behind AIT-ADS; match the release to the AIT-ADS version before joining events and labels
+
+  - id: bots-v2
+    name: Splunk Boss of the SOC v2
+    kind: dataset
+    url: https://github.com/splunk/botsv2
+    language: en
+    ground_truth_level: ctf-answer-key
+    label_granularity: ctf-answer
+    trust_tier: C
+    five_task_gold: false
+    realism: high
+    hard_negatives: high-investigation-value
+    jef_use: [soc.alert.verdict.v1, investigation]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P0
+    adapter: catalogue
+    caveat: CTF answers are not per-alert verdicts; cases need event reconstruction, indexing and cleaning
+
+  - id: bots-v1
+    name: Splunk Boss of the SOC v1
+    kind: dataset
+    url: https://github.com/splunk/botsv1
+    language: en
+    ground_truth_level: ctf-answer-key
+    label_granularity: ctf-answer
+    trust_tier: C
+    five_task_gold: false
+    realism: medium
+    hard_negatives: medium
+    jef_use: [soc.alert.verdict.v1, historical-holdout]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: older data; useful as an independent historical source, not a headline test
+
+  - id: lanl-unified-host-network
+    name: LANL Unified Host and Network Data Set
+    kind: dataset
+    url: https://csr.lanl.gov/data/
+    language: n/a
+    ground_truth_level: mostly-unlabelled
+    label_granularity: unknown
+    trust_tier: U
+    five_task_gold: false
+    realism: high
+    hard_negatives: unknown-background
+    jef_use: [host-network-correlation]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: permissions per dataset; several releases carry no per-event verdict
+
+  - id: lanl-auth-associations
+    name: LANL authentication associations
+    kind: dataset
+    url: https://csr.lanl.gov/data/
+    language: n/a
+    ground_truth_level: unlabelled-graph
+    label_granularity: none
+    trust_tier: U
+    five_task_gold: false
+    realism: high
+    hard_negatives: unknown-background
+    jef_use: [soc.identity.abuse.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: mostly normal or unlabelled logons; not a set of confirmed attack negatives
+
+  - id: cert-insider-threat
+    name: CERT Insider Threat Test Dataset
+    kind: dataset
+    url: https://www.sei.cmu.edu/library/insider-threat-test-dataset/
+    reference: https://doi.org/10.1184/R1/12841247.v1
+    language: en
+    ground_truth_level: synthetic-scenario-answers
+    label_granularity: scenario
+    trust_tier: E
+    five_task_gold: false
+    realism: synthetic
+    hard_negatives: controlled
+    jef_use: [soc.identity.abuse.v1, insider-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: a generated organisation; base rates do not transfer to real environments
+
+  - id: darpa-transparent-computing
+    name: DARPA Transparent Computing (E3 / OpTC releases)
+    kind: dataset
+    url: https://www.darpa.mil/research/programs/transparent-computing
+    language: n/a
+    ground_truth_level: red-team-scenario
+    label_granularity: scenario
+    trust_tier: C
+    five_task_gold: false
+    realism: medium-high
+    hard_negatives: unknown
+    jef_use: [soc.edr.execution.v1, provenance-graphs]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: the programme page is not a download; which E3/OpTC release is obtainable still needs checking
+
+  - id: sentinel-sample-data
+    name: Microsoft Sentinel sample data
+    kind: sample-logs
+    url: https://github.com/Azure/Azure-Sentinel/tree/master/Sample%20Data
+    language: en
+    ground_truth_level: none
+    label_granularity: none
+    trust_tier: U
+    five_task_gold: false
+    realism: connector-samples
+    hard_negatives: n/a
+    jef_use: [schema-mapping]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: example logs for parsers and connectors; not a labelled dataset
+
+  - id: loghub
+    name: Loghub
+    kind: dataset
+    url: https://github.com/logpai/loghub
+    language: en
+    ground_truth_level: fault-anomaly-label
+    label_granularity: event
+    trust_tier: C
+    five_task_gold: false
+    realism: high
+    hard_negatives: benign-system-logs
+    jef_use: [normal-operations-negatives]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: fault and anomaly labels are not malicious-activity labels
+
+  - id: sentinel-asim
+    name: Microsoft Sentinel ASIM
+    kind: schema
+    url: https://github.com/Azure/Azure-Sentinel/tree/master/ASIM
+    language: en
+    ground_truth_level: none
+    label_granularity: none
+    trust_tier: none
+    five_task_gold: false
+    realism: n/a
+    hard_negatives: n/a
+    jef_use: [normalisation-reference]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: an information model and parsers, not data
+
+  - id: sigma-rules
+    name: SigmaHQ rules
+    kind: rules
+    url: https://github.com/SigmaHQ/sigma
+    language: en
+    ground_truth_level: none
+    label_granularity: none
+    trust_tier: none
+    five_task_gold: false
+    realism: n/a
+    hard_negatives: n/a
+    jef_use: [rule-baseline-reference, attack-mapping]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: detection logic, not ground truth; a rule hit is a detector output
+
+  - id: atomic-red-team
+    name: Atomic Red Team
+    kind: tool
+    url: https://github.com/redcanaryco/atomic-red-team
+    language: en
+    ground_truth_level: none
+    label_granularity: none
+    trust_tier: none
+    five_task_gold: false
+    realism: n/a
+    hard_negatives: n/a
+    jef_use: [lab-generation]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: generates traceable test events in an authorised lab; anything it produces is test_generated, never unseen real attacks
+
+  # NDR, network, web attack, IoT and OT
+  - id: stratosphere-mcfp
+    name: Stratosphere Malware Capture Facility
+    kind: dataset
+    url: https://www.stratosphereips.org/datasets-malware
+    language: n/a
+    ground_truth_level: capture-label
+    label_granularity: scenario
+    trust_tier: C
+    five_task_gold: false
+    realism: medium
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: some captures ship malware binaries; process pcaps and flows only, never download or run binaries
+
+  - id: cse-cic-ids2018
+    name: CSE-CIC-IDS2018
+    kind: dataset
+    url: https://www.unb.ca/cic/datasets/ids-2018.html
+    reference: https://registry.opendata.aws/cse-cic-ids2018/
+    language: n/a
+    ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: limited
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1, cross-network-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: scripted attacks; same family of labelling issues as CICIDS2017
+
+  - id: ciciot2023
+    name: CICIoT2023
+    kind: dataset
+    url: https://www.unb.ca/cic/datasets/iotdataset-2023.html
+    language: n/a
+    ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: limited
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1, cross-domain]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: attack-class labels only; no SOC owner or severity
+
+  - id: unsw-nb15
+    name: UNSW-NB15
+    kind: dataset
+    url: https://research.unsw.edu.au/projects/unsw-nb15-dataset
+    language: n/a
+    ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: synthetic-testbed
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: testbed traffic; splits leak easily, group by capture
+
+  - id: ton-iot
+    name: ToN-IoT
+    kind: dataset
+    url: https://research.unsw.edu.au/projects/toniot-datasets
+    language: n/a
+    ground_truth_level: record-label
+    label_granularity: event
+    trust_tier: C
+    five_task_gold: false
+    realism: synthetic-testbed
+    hard_negatives: low
+    jef_use: [cross-source-correlation, soc.ndr.technique.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: Windows, Linux, IoT and network labels differ by platform; correlate within a case before mapping
+
+  - id: bot-iot
+    name: BoT-IoT
+    kind: dataset
+    url: https://research.unsw.edu.au/projects/bot-iot-dataset
+    language: n/a
+    ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: synthetic-testbed
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: heavily imbalanced towards attack traffic; environment bias
+
+  - id: edge-iiotset
+    name: Edge-IIoTset
+    kind: dataset
+    url: https://doi.org/10.1109/ACCESS.2022.3165809
+    language: n/a
+    ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: testbed
+    hard_negatives: low
+    jef_use: [ics-iiot-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: the url is the paper; where and under what terms the data is distributed is unchecked
+
+  - id: n-baiot
+    name: N-BaIoT
+    kind: dataset
+    url: https://archive.ics.uci.edu/dataset/442/detection+of+iot+botnet+attacks+n+baiot
+    language: n/a
+    ground_truth_level: device-traffic-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: limited
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: nine specific devices; unrelated to edge WAF telemetry
+
+  - id: ugr16
+    name: UGR'16
+    kind: dataset
+    url: https://nesg.ugr.es/nesg-ugr16/
+    language: n/a
+    ground_truth_level: time-annotated-flows
+    label_granularity: flow
+    trust_tier: D
+    five_task_gold: false
+    realism: high
+    hard_negatives: real-background
+    jef_use: [soc.ndr.technique.v1, anomaly-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: attack annotations follow time; background is real ISP traffic and stays unknown
+
+  - id: mawi
+    name: MAWI Working Group traffic archive
+    kind: dataset
+    url: https://mawi.wide.ad.jp/mawi/
+    language: n/a
+    ground_truth_level: none
+    label_granularity: none
+    trust_tier: U
+    five_task_gold: false
+    realism: high
+    hard_negatives: real-background
+    jef_use: [background-traffic]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: real backbone traces with almost no attack labels; unlabelled is not benign
+
+  - id: cidds-001
+    name: CIDDS-001
+    kind: dataset
+    url: https://www.hs-coburg.de/forschung/forschungsprojekte/informatik/cidds-coburg-intrusion-detection-data-sets.html
+    language: n/a
+    ground_truth_level: flow-label
+    label_granularity: flow
+    trust_tier: C
+    five_task_gold: false
+    realism: testbed
+    hard_negatives: low
+    jef_use: [soc.ndr.technique.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: official download location still to be confirmed
+
+  - id: kyoto-2006
+    name: Kyoto 2006+
+    kind: dataset
+    url: https://www.takakura.com/Kyoto_data/
+    language: n/a
+    ground_truth_level: honeypot-derived
+    label_granularity: flow
+    trust_tier: D
+    five_task_gold: false
+    realism: dated
+    hard_negatives: low
+    jef_use: [ids-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: old, honeypot-derived labels
+
+  - id: swat-wadi
+    name: SWaT and WADI (iTrust)
+    kind: dataset
+    url: https://itrust.sutd.edu.sg/itrust-labs_datasets/
+    language: n/a
+    ground_truth_level: attack-interval
+    label_granularity: window
+    trust_tier: D
+    five_task_gold: false
+    realism: testbed-physical
+    hard_negatives: normal-operation
+    jef_use: [ics-research]
+    access: application
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: an attack interval is not a SOC alert verdict; access by application with usage restrictions
+
+  - id: hai
+    name: HAI industrial control dataset
+    kind: dataset
+    url: https://github.com/icsdataset/hai
+    language: n/a
+    ground_truth_level: attack-interval
+    label_granularity: window
+    trust_tier: D
+    five_task_gold: false
+    realism: testbed-physical
+    hard_negatives: normal-operation
+    jef_use: [ics-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: process time series; does not map to web or WAF alerts
+
+  - id: batadal
+    name: BATADAL
+    kind: dataset
+    url: https://www.batadal.net/data.html
+    language: n/a
+    ground_truth_level: attack-interval
+    label_granularity: window
+    trust_tier: D
+    five_task_gold: false
+    realism: simulated-physical
+    hard_negatives: normal-operation
+    jef_use: [ics-research]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: competition data with its own evaluation protocol
+
+  # URL, phishing, mail
+  - id: phishtank
+    name: PhishTank
+    kind: feed
+    url: https://www.phishtank.com/
+    language: n/a
+    ground_truth_level: community-verified-indicator
+    label_granularity: url
+    trust_tier: D
+    five_task_gold: false
+    realism: high
+    hard_negatives: none
+    jef_use: [enrichment, soc.phishing.verdict.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: an indicator feed under a usage and rate policy; a hit is enrichment, not a case label
+
+  - id: urlhaus
+    name: URLhaus
+    kind: feed
+    url: https://urlhaus.abuse.ch/
+    language: n/a
+    ground_truth_level: reported-indicator
+    label_granularity: url
+    trust_tier: D
+    five_task_gold: false
+    realism: high
+    hard_negatives: none
+    jef_use: [enrichment]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: a visit to a listed URL does not prove infection
+
+  - id: uci-phishing-websites
+    name: UCI Phishing Websites
+    kind: dataset
+    url: https://archive.ics.uci.edu/dataset/327/phishing+websites
+    language: n/a
+    ground_truth_level: page-label
+    label_granularity: page
+    trust_tier: C
+    five_task_gold: false
+    realism: dated
+    hard_negatives: low
+    jef_use: [soc.phishing.verdict.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: old engineered features, not incident text
+
+  - id: uci-website-phishing
+    name: UCI Website Phishing
+    kind: dataset
+    url: https://archive.ics.uci.edu/dataset/379/website+phishing
+    language: n/a
+    ground_truth_level: page-label
+    label_granularity: page
+    trust_tier: C
+    five_task_gold: false
+    realism: dated
+    hard_negatives: low
+    jef_use: [soc.phishing.verdict.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P1
+    adapter: catalogue
+    caveat: small and old
+
+  - id: uci-phiusiil
+    name: UCI PhiUSIIL phishing URL dataset
+    kind: dataset
+    url: https://archive.ics.uci.edu/datasets?search=phishing
+    language: n/a
+    ground_truth_level: url-label
+    label_granularity: url
+    trust_tier: C
+    five_task_gold: false
+    realism: medium
+    hard_negatives: medium
+    jef_use: [soc.phishing.verdict.v1]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: the url is a search page; record the dataset id and licence before any downloader
+
+  - id: spamassassin-public-corpus
+    name: SpamAssassin public corpus
+    kind: dataset
+    url: https://spamassassin.apache.org/old/publiccorpus/
+    language: en
+    ground_truth_level: spam-ham
+    label_granularity: message
+    trust_tier: C
+    five_task_gold: false
+    realism: dated
+    hard_negatives: benign-mail
+    jef_use: [soc.phishing.verdict.v1, benign-mail]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: ham is not confirmed-safe mail; historical
+
+  - id: enron-email
+    name: Enron Email Dataset
+    kind: dataset
+    url: https://www.cs.cmu.edu/~enron/
+    language: en
+    ground_truth_level: none
+    label_granularity: none
+    trust_tier: U
+    five_task_gold: false
+    realism: high
+    hard_negatives: business-mail
+    jef_use: [business-mail-context]
+    access: unverified
+    access_verified: false
+    license: unverified
+    priority: P2
+    adapter: catalogue
+    caveat: unlabelled; never assume all of it is benign or freely redistributable
+
+  # Your own telemetry: private, never committed, never sent to external models
+  - id: cloudflare-own-zone
+    name: Cloudflare WAF / Security Events (own zone)
+    kind: own-telemetry
+    url: https://developers.cloudflare.com/waf/analytics/security-events/
+    reference: https://developers.cloudflare.com/analytics/graphql-api/tutorials/querying-firewall-events/
+    language: n/a
+    ground_truth_level: detector-action
+    label_granularity: event
+    trust_tier: D
+    five_task_gold: false
+    realism: high
+    hard_negatives: approved-scanners-and-monitors
+    jef_use: [soar_zh.false_positive.v1, soar_zh.evidence_sufficiency.v1, soar_zh.routing.v1, soc.alert.verdict.v1]
+    access: own-zone
+    access_verified: false
+    license: own-data
+    priority: P0
+    adapter: catalogue
+    caveat: block, challenge and attack score are detector outputs (Tier D) and allow is unlabelled (U); events may be sampled, so counts have no known denominator; raw data stays in private storage
+
+  - id: own-origin-access-logs
+    name: Own web server / reverse proxy access logs
+    kind: own-telemetry
+    url: https://developers.cloudflare.com/logs/
+    language: n/a
+    ground_truth_level: none
+    label_granularity: event
+    trust_tier: U
+    five_task_gold: false
+    realism: high
+    hard_negatives: real-normal-paths
+    jef_use: [context-for-cloudflare-own-zone]
+    access: own-zone
+    access_verified: false
+    license: own-data
+    priority: P1
+    adapter: catalogue
+    caveat: only sees requests the edge let through; cannot stand for blocked traffic
+
+  - id: own-change-records
+    name: Own change tickets, scanner approvals and uptime checks
+    kind: own-telemetry
+    url: https://developers.cloudflare.com/waf/analytics/security-events/
+    language: n/a
+    ground_truth_level: approval-evidence
+    label_granularity: event
+    trust_tier: U
+    five_task_gold: false
+    realism: high
+    hard_negatives: approved-activity
+    jef_use: [approval-evidence, hard-negatives]
+    access: own-zone
+    access_verified: false
+    license: own-data
+    priority: P1
+    adapter: catalogue
+    caveat: evidence a reviewer may cite for benign; never a label on its own, and never with secrets
+
+  - id: own-lab-sensors
+    name: Own isolated lab Wazuh / Sysmon / Zeek / Suricata
+    kind: own-telemetry
+    url: https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/tree/main/deploy/lab
+    language: n/a
+    ground_truth_level: test-generated
+    label_granularity: event
+    trust_tier: E
+    five_task_gold: false
+    realism: lab
+    hard_negatives: lab-normal
+    jef_use: [soc.edr.execution.v1, parser-semantics]
+    access: own-zone
+    access_verified: false
+    license: own-data
+    priority: P1
+    adapter: catalogue
+    caveat: authorised lab only; test_generated events are never counted as unseen real attacks or enterprise traffic

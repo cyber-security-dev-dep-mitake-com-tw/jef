@@ -56,17 +56,31 @@ def _select(repo: SocbenchRepo, ids: Sequence[str] | None, *, all_public: bool) 
     if not ids:
         return sources
     by_id = {s.id: s for s in sources}
+    catalogue = {s.id for s in repo.load_sources(catalogue=True)} - set(by_id)
+    planned = [i for i in ids if i in catalogue]
+    if planned:
+        raise SystemExit(
+            f"catalogue-only source(s) with no adapter: {', '.join(planned)}; "
+            "nothing fetches them until an adapter and a pin manifest exist"
+        )
     missing = [i for i in ids if i not in by_id]
     if missing:
         raise SystemExit(f"unknown source id(s): {', '.join(missing)}")
     return [by_id[i] for i in ids]
 
 
-def cmd_sources(repo: SocbenchRepo) -> int:
-    for s in repo.load_sources():
-        adapter = ADAPTERS[s.id]
-        kind = "reference" if adapter.reference_only else ("fetch" if s.fetchable else "HUMAN")
-        print(f"{s.id:26s} {s.access:30s} {kind:9s} priority={s.priority!s:10s} {s.name}")
+def cmd_sources(repo: SocbenchRepo, *, catalogue: bool = False) -> int:
+    for s in repo.load_sources(catalogue=catalogue):
+        if not s.wired:
+            kind = "catalogue"
+        elif ADAPTERS[s.id].reference_only:
+            kind = "reference"
+        else:
+            kind = "fetch" if s.fetchable else "HUMAN"
+        print(
+            f"{s.id:26s} {s.access:30s} {kind:9s} tier={s.trust_tier:4s} "
+            f"labels={s.label_granularity:10s} priority={s.priority!s:10s} {s.name}"
+        )
     return 0
 
 
@@ -505,7 +519,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("sources", help="list every source with its access status")
+    so = sub.add_parser("sources", help="list every source with its access status")
+    so.add_argument(
+        "--catalogue", action="store_true", help="also list planning-only rows with no adapter"
+    )
 
     f = sub.add_parser("fetch", help="download public artifacts and hash them")
     g = f.add_mutually_exclusive_group(required=True)
@@ -1018,7 +1035,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(exc, file=sys.stderr)
         return 2
     if args.command == "sources":
-        return cmd_sources(repo)
+        return cmd_sources(repo, catalogue=args.catalogue)
     if args.command == "fetch":
         return cmd_fetch(repo, args)
     if args.command == "check":
