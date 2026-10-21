@@ -168,6 +168,8 @@ def compare(
     """The comparison report. ``reference`` indexes the system others are paired against."""
     if len(reports) < 2:
         raise CompareError("a comparison needs at least two systems")
+    if not 0 <= reference < len(reports):
+        raise CompareError(f"--reference {reference} is not one of the {len(reports)} reports")
     exps = [pack.expectations[c["case_id"]] for c in pack.cases]
     lock_problems = verify_triage_lock(lock, pack.cases, exps)
     if split not in lock["splits"]:

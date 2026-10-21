@@ -135,6 +135,8 @@ def test_reports_on_other_bytes_or_another_mode_are_refused(
         compare(load_pack(DEV), dev_lock(), [base, scene_report])
     with pytest.raises(CompareError, match="at least two"):
         compare(load_pack(DEV), dev_lock(), [base])
+    with pytest.raises(CompareError, match="--reference 2"):
+        compare(load_pack(DEV), dev_lock(), [base, orc], reference=2)
 
 
 def test_with_tier_a_labels_and_enough_families_the_verdicts_apply(
