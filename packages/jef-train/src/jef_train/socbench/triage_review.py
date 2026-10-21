@@ -107,6 +107,7 @@ def write_worksheet_file(path: Path, text: str, *, private: bool) -> Path:
     """A worksheet of private cases is telemetry too: owner-only, outside any checkout."""
     path = Path(path)
     if not private:
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, "utf-8")
         return path
     path = _refuse_inside_checkout(path)

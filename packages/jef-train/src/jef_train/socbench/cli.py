@@ -1205,6 +1205,7 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
     from .triage import PackError, find_root, load_pack
     from .triage_review import (
         DEFAULT_STRATA,
+        PRIVATE_ORIGINS,
         ReviewError,
         check_review,
         cross_check_sample,
@@ -1258,7 +1259,10 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
                 max_per_family=args.max_per_family,
                 allow_synthetic=args.allow_synthetic,
             )
-            args.out.write_text(json.dumps(batch, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            private = any(c["origin"] in PRIVATE_ORIGINS for p in packs for c in p.cases)
+            write_worksheet_file(
+                args.out, json.dumps(batch, ensure_ascii=False, indent=2) + "\n", private=private
+            )
             print(
                 f"{len(batch['case_ids'])} cases -> {args.out}; "
                 f"shortfall {batch['shortfall'] or 'none'}"
@@ -1291,7 +1295,7 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         load_pack(out)
         print(f"{len(cases)} reviewed cases {review['label_status']} -> {out}")
         return 0
-    except (PackError, ReviewError, ValueError, KeyError) as exc:
+    except (PackError, ReviewError, ValueError, KeyError, OSError) as exc:
         print(f"review {args.review_command}: {exc}", file=sys.stderr)
         return 1
 
