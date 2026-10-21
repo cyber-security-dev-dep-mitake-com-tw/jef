@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from .cloudflare_normalize import Pseudonymizer, Request, route_family
-from .cloudflare_source import _append_private, _write_private, check_private_dir
+from .cloudflare_source import _append_private, _write_private, check_alias, check_private_dir
 
 __all__ = [
     "SOURCE_ID",
@@ -257,6 +257,7 @@ def build_cases(
     with_vendor_signals: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """``(cases, expectations, weak)`` for one zone; every expectation unlabelled."""
+    check_alias(zone_alias)
     incidents = group_incidents(requests, gap_minutes)
     attach_context(incidents, context, pseud)
     families = _families(incidents, zone_alias)

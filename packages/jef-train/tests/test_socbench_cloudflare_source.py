@@ -197,7 +197,8 @@ def test_output_inside_a_git_checkout_is_refused() -> None:
         check_private_dir(ROOT)
 
 
-def test_alias_must_not_be_the_zone_id(private: Path) -> None:
+@pytest.mark.parametrize("alias", [ZONE, ZONE.upper(), "f" * 32, "Site A"])
+def test_alias_must_not_be_the_zone_id(private: Path, alias: str) -> None:
     zone = FakeZone(TOKEN, ZONE, events())
     with pytest.raises(CloudflareError, match="zone alias"):
         ingest(

@@ -749,6 +749,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="export synthetic (Tier E) labels to exercise the pipeline; never deployable",
     )
+    ce.add_argument(
+        "--with-vendor-signals",
+        action="store_true",
+        help="also train on cases whose state shows the detector's own output (ablation arm only)",
+    )
     ce.add_argument("--out", type=Path, required=True)
 
     cc = trsub.add_parser(
@@ -997,7 +1002,13 @@ def cmd_triage_candidate(args: argparse.Namespace) -> int:
             pack = load_pack(args.pack)
             lock = json.loads(args.lock.read_text("utf-8"))
             m = export_triage_corpus(
-                pack, lock, scene, args.out, min_tier=args.min_tier, dry_run=args.dry_run
+                pack,
+                lock,
+                scene,
+                args.out,
+                min_tier=args.min_tier,
+                dry_run=args.dry_run,
+                with_vendor_signals=args.with_vendor_signals,
             )
             print(f"exported {m['splits']} ({m['note']}) -> {args.out}")
             return 0

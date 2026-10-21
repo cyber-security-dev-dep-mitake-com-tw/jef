@@ -49,6 +49,7 @@ __all__ = [
     "GraphQLClient",
     "IngestResult",
     "PrivatePathError",
+    "check_alias",
     "check_private_dir",
     "ingest",
     "windows",
@@ -160,6 +161,15 @@ def _iso(ts: datetime) -> str:
 
 def _parse(ts: str) -> datetime:
     return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone(UTC)
+
+
+def check_alias(zone_alias: str, zone_id: str | None = None) -> str:
+    """A short human name for the zone. Refused if it is, or looks like, a zone id."""
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,40}", zone_alias):
+        raise CloudflareError("zone alias: lowercase letters, digits and dashes, up to 41")
+    if re.fullmatch(r"[0-9a-f]{32}", zone_alias) or (zone_id and zone_alias == zone_id.lower()):
+        raise CloudflareError("zone alias: choose a name (e.g. site-a), not the zone id")
+    return zone_alias
 
 
 def windows(start: datetime, end: datetime, step: timedelta) -> Iterator[tuple[datetime, datetime]]:
@@ -416,8 +426,7 @@ def ingest(
     line per window to ``runs.jsonl`` and keeps ``watermark.json`` -- the end
     of the last complete window -- so a rerun skips what is done.
     """
-    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,40}", zone_alias):
-        raise CloudflareError("zone alias: lowercase letters, digits and dashes, not the zone id")
+    check_alias(zone_alias, client.zone_id)
     if not 1 <= limit <= MAX_LIMIT:
         raise CloudflareError(f"limit must be between 1 and {MAX_LIMIT}")
     out = check_private_dir(out_dir)

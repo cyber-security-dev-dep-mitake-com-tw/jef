@@ -33,7 +33,12 @@ from jef_train.socbench.cloudflare_normalize import (
     route_template,
     ua_family,
 )
-from jef_train.socbench.cloudflare_source import GraphQLClient, PrivatePathError, ingest
+from jef_train.socbench.cloudflare_source import (
+    CloudflareError,
+    GraphQLClient,
+    PrivatePathError,
+    ingest,
+)
 from jef_train.socbench.triage import load_pack, privacy_findings
 from jef_train.socbench.triage_candidate import CandidateError, export_triage_corpus
 from jef_train.socbench.triage_eval import score_questions
@@ -393,3 +398,31 @@ def test_fake_zone_round_trip_matches_the_fixture(tmp_path: Path) -> None:
         out_dir=tmp_path / "raw",
     )
     assert result.events == len(events())
+
+
+def test_vendor_variants_never_train_by_default(tmp_path: Path) -> None:
+    cases, exps, weak = built(with_vendor_signals=True)
+    confirmed = [
+        {**e, "label_origin": "single-human-reviewed", "label_status": "confirmed",
+         "reviewers": ["analyst-a"], "truth_of_event": "unknown", "truth_of_alert": "unknown",
+         "expected": {"false_positive": "unknown", "evidence_sufficiency": False,
+                      "owner": ["appsec"], "severity": "unknown", "urgency": "unknown"}}
+        for e in exps
+    ]  # fmt: skip
+    out = write_private_pack(tmp_path / "pack", cases, confirmed, weak)
+    pack = load_pack(out)
+    lock = triage_lock(
+        pack.cases, confirmed, training=[], ratios={"train": 0.5, "calibration": 0.5}
+    )
+    scene = load_scene(SCENE)
+    m = export_triage_corpus(pack, lock, scene, tmp_path / "corpus")  # both splits non-empty
+    n_variants = sum(1 for c in cases if c["vendor_signals"])
+    assert m["excluded"]["vendor_signals"] == n_variants
+    rows = (tmp_path / "corpus" / "all.jsonl").read_text()
+    assert "Detector output (Cloudflare)" not in rows
+
+
+def test_build_refuses_a_zone_id_as_alias() -> None:
+    pseud = Pseudonymizer(KEY)
+    with pytest.raises(CloudflareError, match="not the zone id"):
+        build_cases(normalize_events(events(), pseud), zone_alias="0" * 32, pseud=pseud)

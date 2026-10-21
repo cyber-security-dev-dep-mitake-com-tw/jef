@@ -96,8 +96,13 @@ def export_triage_corpus(
     *,
     min_tier: str = "B",
     dry_run: bool = False,
+    with_vendor_signals: bool = False,
 ) -> dict[str, Any]:
-    """Write a ``fit`` corpus from the locked pack. Raises before writing anything."""
+    """Write a ``fit`` corpus from the locked pack. Raises before writing anything.
+
+    Cases whose state shows the detector's own output (``vendor_signals``)
+    are left out unless ``with_vendor_signals`` asks for them.
+    """
     if min_tier not in TIER_ORDER:
         raise CandidateError(f"min_tier must be one of {TIER_ORDER}")
     if dry_run:
@@ -118,6 +123,11 @@ def export_triage_corpus(
     excluded: Counter[str] = Counter()
     for case in pack.cases:
         e = pack.expectations[case["case_id"]]
+        if case.get("vendor_signals") and not with_vendor_signals:
+            # The detector's own verdict in the state: training on it would
+            # credit the model for repeating Cloudflare (the S5 arm opts in).
+            excluded["vendor_signals"] += 1
+            continue
         tier = trust_tier(e["label_origin"])
         if TIER_ORDER.index(tier) > TIER_ORDER.index(min_tier):
             excluded[f"tier_{tier}"] += 1
