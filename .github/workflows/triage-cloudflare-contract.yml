@@ -1,0 +1,66 @@
+# Cloudflare WAF -> incident-triage pipeline, against a recorded fake only.
+#
+# No Cloudflare call, no token, no zone: the "token" and "zone" below are
+# made-up strings the fake checks for, and the pseudonym key is random per
+# run. Real ingestion runs on an operator's machine or a private runner,
+# never here (benchmark/incident-triage/cloudflare/README.md).
+name: triage-cloudflare-contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Cloudflare pipeline (mock only)
+    runs-on: ubuntu-latest
+    env:
+      CF_FAKE_TOKEN: cf-fake-token-not-a-secret-0000
+      CF_FAKE_ZONE: 00000000000000000000000000000000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync workspace
+        run: uv sync --all-packages --no-install-package torch --no-install-package transformers
+      - name: Reader, normaliser and case-builder tests
+        run: >-
+          uv run pytest -q
+          packages/jef-train/tests/test_socbench_cloudflare_source.py
+          packages/jef-train/tests/test_socbench_cloudflare_cases.py
+      - name: End to end on the synthetic fixture (outside the checkout)
+        run: |
+          set -euo pipefail
+          export JEF_PSEUDONYM_KEY="$(openssl rand -hex 32)"
+          W="$RUNNER_TEMP/cf"
+          F=benchmark/incident-triage/fixtures/cloudflare-synthetic
+          uv run jef-bench triage ingest-cloudflare --token-env CF_FAKE_TOKEN \
+            --zone-id-env CF_FAKE_ZONE --zone-alias ci-fixture \
+            --start 2026-10-19T00:00:00Z --end 2026-10-19T01:00:00Z \
+            --out-private "$W/raw" --mock-events "$F/events.jsonl"
+          uv run jef-bench triage normalize-cloudflare --input "$W/raw" --output "$W/norm"
+          uv run jef-bench triage build-cloudflare-cases --input "$W/norm" --out "$W/pack" \
+            --zone-alias ci-fixture --context "$F/context.jsonl" --with-vendor-signals
+          uv run jef-bench triage cloudflare-report --pack "$W/pack" --out cloudflare-out/report.json
+          # Nothing raw may survive normalisation: fixture IPs, query secrets, Ray IDs, the fake token.
+          if grep -rE '203\.0\.113\.|198\.51\.100\.|192\.0\.2\.|abc123fixtureonly|deadbeefcafe|(^|[^0-9a-f-])8f00[0-9a-f]{12}|cf-fake-token' \
+              "$W/norm" "$W/pack" cloudflare-out; then
+            echo "::error::raw identifiers survived normalisation"; exit 1
+          fi
+          # The pack writer refuses a directory inside the checkout.
+          if uv run jef-bench triage build-cloudflare-cases --input "$W/norm" --out cf-pack-in-repo \
+              --zone-alias ci-fixture; then
+            echo "::error::a pack was written inside the checkout"; exit 1
+          fi
+      - name: Upload the public aggregate only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-cloudflare-contract-${{ github.sha }}-${{ github.run_id }}
+          path: cloudflare-out/
+          if-no-files-found: ignore

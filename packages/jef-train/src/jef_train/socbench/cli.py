@@ -785,11 +785,45 @@ def build_parser() -> argparse.ArgumentParser:
         help="answer from a synthetic fixture instead of Cloudflare (contract tests and CI)",
     )
 
+    nc = trsub.add_parser(
+        "normalize-cloudflare",
+        help="pseudonymise raw events and fold them into requests (needs JEF_PSEUDONYM_KEY)",
+    )
+    nc.add_argument("--input", type=Path, required=True, help="the ingest-cloudflare directory")
+    nc.add_argument("--output", type=Path, required=True, help="private directory for requests")
+    nc.add_argument("--key-env", default="JEF_PSEUDONYM_KEY")
+
+    bc = trsub.add_parser(
+        "build-cloudflare-cases",
+        help="normalised requests -> a private, unlabelled incident-triage pack",
+    )
+    bc.add_argument("--input", type=Path, required=True, help="the normalize-cloudflare directory")
+    bc.add_argument("--out", type=Path, required=True, help="private pack directory")
+    bc.add_argument("--zone-alias", required=True)
+    bc.add_argument("--context", type=Path, help="approval evidence (JSONL)")
+    bc.add_argument("--gap-minutes", type=int, default=15)
+    bc.add_argument(
+        "--with-vendor-signals",
+        action="store_true",
+        help="also write a marked variant of each case that shows the WAF's own outputs",
+    )
+    bc.add_argument("--key-env", default="JEF_PSEUDONYM_KEY")
+
+    cr = trsub.add_parser(
+        "cloudflare-report", help="counts safe to publish from a private Cloudflare pack"
+    )
+    cr.add_argument("--pack", type=Path, required=True)
+    cr.add_argument("--out", type=Path, required=True)
+
     tl = trsub.add_parser("lock", help="family-grouped splits; refuses leaks and near copies")
     tl.add_argument("--pack", type=Path, required=True)
     tl.add_argument("--out", type=Path, help="write the lock here")
     tl.add_argument("--verify", type=Path, help="check the pack against an existing lock")
     tl.add_argument("--seed", default="incident-triage")
+    tl.add_argument(
+        "--holdout-after",
+        help="temporal test split: families observed at or after this UTC date/minute are test",
+    )
     return p
 
 
@@ -805,6 +839,12 @@ def cmd_triage(args: argparse.Namespace) -> int:
         return 0
     if args.triage_command == "ingest-cloudflare":
         return cmd_triage_ingest_cloudflare(args)
+    if args.triage_command in (
+        "normalize-cloudflare",
+        "build-cloudflare-cases",
+        "cloudflare-report",
+    ):
+        return cmd_triage_cloudflare_pack(args)
     if args.triage_command == "lock":
         import json
 
@@ -828,7 +868,7 @@ def cmd_triage(args: argparse.Namespace) -> int:
             print("lock needs --out (or --verify)", file=sys.stderr)
             return 2
         try:
-            lock = triage_lock(pack.cases, exps, seed=args.seed)
+            lock = triage_lock(pack.cases, exps, seed=args.seed, holdout_after=args.holdout_after)
         except LockError as exc:
             print(exc, file=sys.stderr)
             return 1
@@ -883,6 +923,63 @@ def cmd_triage_ingest_cloudflare(args: argparse.Namespace) -> int:
         return 1
     print(json.dumps({**result.to_json(), "mock": bool(args.mock_events)}, indent=2))
     return 1 if result.incomplete else 0
+
+
+def cmd_triage_cloudflare_pack(args: argparse.Namespace) -> int:
+    import json
+
+    from .cloudflare_cases import build_cases, public_report, write_private_pack, write_requests
+    from .cloudflare_normalize import PseudonymError, Pseudonymizer, Request, normalize_events
+    from .cloudflare_normalize import read_raw as read_cloudflare_raw
+    from .cloudflare_source import CloudflareError
+    from .triage import PackError, load_pack, privacy_findings
+
+    try:
+        if args.triage_command == "cloudflare-report":
+            pack = load_pack(args.pack)
+            weak_path = args.pack / "weak.jsonl"
+            weak = [json.loads(x) for x in weak_path.read_text("utf-8").splitlines() if x.strip()]
+            exps = [pack.expectations[c["case_id"]] for c in pack.cases]
+            text = json.dumps(public_report(pack.cases, weak, exps), indent=2, sort_keys=True)
+            findings = privacy_findings(text)
+            if findings:
+                print("refusing to write the report:", *findings, sep="\n  ", file=sys.stderr)
+                return 1
+            args.out.parent.mkdir(parents=True, exist_ok=True)
+            args.out.write_text(text + "\n", "utf-8")
+            print(f"report -> {args.out}")
+            return 0
+        pseud = Pseudonymizer.from_env(args.key_env)
+        if args.triage_command == "normalize-cloudflare":
+            requests = normalize_events(read_cloudflare_raw(args.input), pseud)
+            path = write_requests(args.output, requests)
+            print(f"{len(requests)} requests -> {path}")
+            return 0
+        rows = (args.input / "requests.jsonl").read_text("utf-8").splitlines()
+        requests = [Request(**json.loads(x)) for x in rows if x.strip()]
+        context = []
+        if args.context:
+            context = [
+                json.loads(x) for x in args.context.read_text("utf-8").splitlines() if x.strip()
+            ]
+        cases, exps, weak = build_cases(
+            requests,
+            zone_alias=args.zone_alias,
+            pseud=pseud,
+            context=context,
+            gap_minutes=args.gap_minutes,
+            with_vendor_signals=args.with_vendor_signals,
+        )
+        out = write_private_pack(args.out, cases, exps, weak)
+        load_pack(out)  # the pack must pass the same loader as every other pack
+        print(
+            f"{len(cases)} cases ({len({c['case_family'] for c in cases})} families), "
+            f"all unlabelled -> {out}"
+        )
+        return 0
+    except (CloudflareError, PseudonymError, PackError, ValueError, KeyError) as exc:
+        print(f"{args.triage_command}: {exc}", file=sys.stderr)
+        return 1
 
 
 def cmd_triage_candidate(args: argparse.Namespace) -> int:

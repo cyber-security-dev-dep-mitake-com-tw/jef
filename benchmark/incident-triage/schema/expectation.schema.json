@@ -24,7 +24,8 @@
       "enum": [
         "synthetic",
         "single-human-reviewed",
-        "double-human-reviewed"
+        "double-human-reviewed",
+        "none"
       ]
     },
     "label_status": {
@@ -32,9 +33,10 @@
         "by_construction",
         "pending_owner_confirmation",
         "confirmed",
-        "disputed"
+        "disputed",
+        "unlabelled"
       ],
-      "description": "by_construction: synthetic, true because a LABELBOOK rule defines the scenario (Tier E). confirmed: signed off by the named reviewers. Pending and disputed labels are counted, not scored."
+      "description": "by_construction: synthetic, true because a LABELBOOK rule defines the scenario (Tier E). confirmed: signed off by the named reviewers. Pending and disputed labels are counted, not scored. unlabelled: real telemetry nobody has reviewed; expected is null, and it is counted, never scored or exported."
     },
     "reviewers": {
       "type": "array",
@@ -59,81 +61,88 @@
       "description": "Was this detection right to fire. Kept apart from truth_of_event: a malicious event does not make every detection a true positive."
     },
     "expected": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "false_positive",
-        "evidence_sufficiency",
-        "owner",
-        "severity",
-        "urgency"
-      ],
-      "properties": {
-        "false_positive": {
-          "enum": [
-            true,
-            false,
-            "unknown"
-          ]
-        },
-        "evidence_sufficiency": {
-          "enum": [
-            true,
-            false,
-            "unknown"
-          ]
-        },
-        "owner": {
-          "oneOf": [
-            {
-              "const": "unknown"
-            },
-            {
-              "type": "array",
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": {
-                "enum": [
-                  "soc",
-                  "appsec",
-                  "infra",
-                  "identity",
-                  "fraud"
-                ]
-              }
-            }
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "false_positive",
+            "evidence_sufficiency",
+            "owner",
+            "severity",
+            "urgency"
           ],
-          "description": "Every owner a reviewer would accept."
-        },
-        "severity": {
-          "oneOf": [
-            {
-              "const": "unknown"
+          "properties": {
+            "false_positive": {
+              "enum": [
+                true,
+                false,
+                "unknown"
+              ]
             },
-            {
-              "type": "array",
-              "minItems": 1,
-              "uniqueItems": true,
-              "items": {
-                "enum": [
-                  "資訊",
-                  "低",
-                  "中",
-                  "高",
-                  "危急"
-                ]
-              }
+            "evidence_sufficiency": {
+              "enum": [
+                true,
+                false,
+                "unknown"
+              ]
+            },
+            "owner": {
+              "oneOf": [
+                {
+                  "const": "unknown"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "soc",
+                      "appsec",
+                      "infra",
+                      "identity",
+                      "fraud"
+                    ]
+                  }
+                }
+              ],
+              "description": "Every owner a reviewer would accept."
+            },
+            "severity": {
+              "oneOf": [
+                {
+                  "const": "unknown"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "資訊",
+                      "低",
+                      "中",
+                      "高",
+                      "危急"
+                    ]
+                  }
+                }
+              ]
+            },
+            "urgency": {
+              "enum": [
+                true,
+                false,
+                "unknown"
+              ]
             }
-          ]
+          }
         },
-        "urgency": {
-          "enum": [
-            true,
-            false,
-            "unknown"
-          ]
+        {
+          "type": "null"
         }
-      }
+      ]
     },
     "prohibited_actions": {
       "type": "array",
@@ -151,5 +160,50 @@
     "note": {
       "type": "string"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "label_status": {
+            "const": "unlabelled"
+          }
+        },
+        "required": [
+          "label_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "type": "null"
+          },
+          "label_origin": {
+            "const": "none"
+          },
+          "truth_of_event": {
+            "const": "unknown"
+          },
+          "truth_of_alert": {
+            "const": "unknown"
+          },
+          "reviewers": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "expected": {
+            "type": "object"
+          },
+          "label_origin": {
+            "not": {
+              "const": "none"
+            }
+          }
+        }
+      }
+    }
+  ]
 }

@@ -19,7 +19,7 @@
   "properties": {
     "case_id": {
       "type": "string",
-      "pattern": "^itc-[a-z0-9-]+-[0-9]{3}$"
+      "pattern": "^itc-[a-z0-9-]+-[0-9]{3,}$"
     },
     "case_family": {
       "type": "string",
@@ -30,9 +30,10 @@
       "enum": [
         "human-curated-canary",
         "synthetic",
-        "reviewer-sourced"
+        "reviewer-sourced",
+        "own-telemetry"
       ],
-      "description": "Never Tier A on its own: tiers come from the expectation's label_origin and reviewers."
+      "description": "Never Tier A on its own: tiers come from the expectation's label_origin and reviewers. own-telemetry: built from the operator's own private telemetry (e.g. their Cloudflare zone); such packs stay private."
     },
     "language": {
       "enum": [
@@ -109,9 +110,73 @@
         "identity",
         "routing",
         "severity",
-        "lab"
+        "lab",
+        "web"
       ],
       "description": "Which part of the label space the case covers."
+    },
+    "observed_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}Z$",
+      "description": "Minute bucket (UTC) the incident started; drives the temporal holdout. Never finer than a minute."
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "sampled",
+        "requests",
+        "events"
+      ],
+      "description": "How the telemetry was observed. Detector outputs (WAF action, rule, score) are not here: they live in the pack's weak.jsonl, which scoring and export never read.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sampled": {
+          "enum": [
+            true,
+            false,
+            "unknown"
+          ]
+        },
+        "sample_interval": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "requests": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "events": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "window": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "variant_of": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The case this one renders differently (e.g. with vendor signals); same family, same split, never an independent sample."
+    },
+    "vendor_signals": {
+      "type": "boolean",
+      "description": "true when the state shows the detector's own action, rule or score. Primary quality numbers use cases without them."
     }
   }
 }
