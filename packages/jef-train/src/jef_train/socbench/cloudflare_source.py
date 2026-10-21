@@ -141,15 +141,23 @@ def check_private_dir(path: Path) -> Path:
     return resolved
 
 
+def _private_dirs(path: Path) -> None:
+    """Create ``path`` and any missing parent owner-only (``mkdir(parents=True)``
+    gives intermediate directories the umask default, usually world-readable)."""
+    missing = [p for p in [path, *path.parents] if not p.exists()]
+    for p in reversed(missing):
+        p.mkdir(mode=0o700)
+
+
 def _write_private(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _private_dirs(path.parent)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write(text)
 
 
 def _append_private(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _private_dirs(path.parent)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     with os.fdopen(fd, "a", encoding="utf-8") as fh:
         fh.write(text)

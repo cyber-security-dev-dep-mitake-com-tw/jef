@@ -178,6 +178,21 @@ def test_the_token_and_zone_id_are_never_written(private: Path) -> None:
             assert p.stat().st_mode & 0o077 == 0, p  # owner-only
 
 
+def test_every_directory_it_creates_is_owner_only(tmp_path: Path) -> None:
+    out = tmp_path / "new" / "site-a"
+    ingest(
+        client(FakeZone(TOKEN, ZONE, events())),
+        zone_alias="site-a",
+        start=T0,
+        end=T0 + timedelta(hours=1),
+        out_dir=out,
+    )
+    made = [tmp_path / "new", *(p for p in (tmp_path / "new").rglob("*") if p.is_dir())]
+    assert len(made) >= 3
+    for d in made:
+        assert d.stat().st_mode & 0o077 == 0, d
+
+
 def test_a_wrong_zone_is_an_error_not_an_empty_result(private: Path) -> None:
     zone = FakeZone(TOKEN, "another-zone", events())
     with pytest.raises(CloudflareQueryError, match="no such zone"):

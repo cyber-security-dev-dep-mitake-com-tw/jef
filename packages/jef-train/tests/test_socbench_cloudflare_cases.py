@@ -190,6 +190,33 @@ def test_a_long_gap_splits_an_actor_but_keeps_one_family() -> None:
     assert len({c["case_family"] for c in mine}) == 1
 
 
+def test_a_hub_route_does_not_chain_a_zone_into_one_family() -> None:
+    def ev(ip: str, path: str, n: int) -> dict[str, Any]:
+        return {
+            "datetime": f"2026-10-19T0{n % 10}:00:00Z",
+            "action": "managed_challenge",
+            "source": "firewallCustom",
+            "clientAsn": "64500",
+            "clientCountryName": "ZZ",
+            "clientIP": ip,
+            "clientRequestPath": path,
+            "clientRequestQuery": "",
+            "userAgent": "curl/8.0",
+            "rayName": f"hub{ip}{path}",
+        }
+
+    # ten actors hit "/" (a hub); two of them also share a rare route
+    rows = [ev(f"192.0.2.{n}", "/", n) for n in range(10)]
+    rows += [ev("192.0.2.1", "/rare-admin", 1), ev("192.0.2.2", "/rare-admin", 2)]
+    pseud = Pseudonymizer(KEY)
+    reqs = normalize_events(rows, pseud)
+    cases, _, _ = build_cases(reqs, zone_alias="site-a", pseud=pseud)
+    fam = {c["case_id"]: c["case_family"] for c in cases}
+    assert len(set(fam.values())) == 9  # 8 lone actors + the pair on the rare route
+    chained, _, _ = build_cases(reqs, zone_alias="site-a", pseud=pseud, link_max_actors=10)
+    assert len({c["case_family"] for c in chained}) == 1
+
+
 def test_every_expectation_is_unlabelled_and_every_state_hides_the_detector() -> None:
     cases, exps, weak = built()
     assert {e["label_status"] for e in exps} == {"unlabelled"}

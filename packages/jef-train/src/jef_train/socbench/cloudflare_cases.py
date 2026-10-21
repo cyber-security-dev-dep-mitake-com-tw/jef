@@ -18,7 +18,10 @@ keep it honest:
   marked variant of each case for the ablation that measures that gain.
 * families are joined over the pseudonymous actor (across the whole pack) and
   over route family per ISO week, so one scanner or one campaign never lands
-  in two splits. Approval twins and vendor variants share their case's family.
+  in two splits. Only a route family at most ``link_max_actors`` actors touch
+  links incidents: hubs such as ``/`` or ``/.env`` are hit by most of the
+  internet and would chain a whole zone into one family. Approval twins and
+  vendor variants share their case's family.
 
 Approval evidence (change tickets, approved scanners, maintenance windows,
 uptime monitors) comes from an optional context file. A case it matches is
@@ -112,8 +115,14 @@ def group_incidents(requests: Iterable[Request], gap_minutes: int = 15) -> list[
     return out
 
 
-def _families(incidents: Sequence[Incident], zone_alias: str) -> list[str]:
-    """Union-find over shared actor (global) and shared route family per week."""
+def _families(
+    incidents: Sequence[Incident], zone_alias: str, link_max_actors: int = 3
+) -> list[str]:
+    """Union-find over shared actor (global) and shared non-hub route family per week."""
+    actors: dict[str, set[str]] = defaultdict(set)
+    for inc in incidents:
+        for fam in inc.route_families:
+            actors[fam].add(inc.actor)
     parent = list(range(len(incidents)))
 
     def find(i: int) -> int:
@@ -130,7 +139,9 @@ def _families(incidents: Sequence[Incident], zone_alias: str) -> list[str]:
     first: dict[tuple[str, str], int] = {}
     for i, inc in enumerate(incidents):
         keys = [("actor", inc.actor)] + [
-            ("route-week", f"{fam}|{inc.week}") for fam in inc.route_families
+            ("route-week", f"{fam}|{inc.week}")
+            for fam in inc.route_families
+            if len(actors[fam]) <= link_max_actors
         ]
         for k in keys:
             if k in first:
@@ -254,13 +265,14 @@ def build_cases(
     pseud: Pseudonymizer,
     context: Iterable[Mapping[str, Any]] = (),
     gap_minutes: int = 15,
+    link_max_actors: int = 3,
     with_vendor_signals: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """``(cases, expectations, weak)`` for one zone; every expectation unlabelled."""
     check_alias(zone_alias)
     incidents = group_incidents(requests, gap_minutes)
     attach_context(incidents, context, pseud)
-    families = _families(incidents, zone_alias)
+    families = _families(incidents, zone_alias, link_max_actors)
     cases: list[dict[str, Any]] = []
     weak: list[dict[str, Any]] = []
 
@@ -424,4 +436,8 @@ def public_report(
         "rules_seen": len(rules),
         "label_status": dict(Counter(str(e["label_status"]) for e in expectations)),
         "families": len({c["case_family"] for c in cases}),
+        "largest_family_incidents": max(
+            Counter(c["case_family"] for c in cases if c["case_id"] in primary).values(),
+            default=0,
+        ),
     }

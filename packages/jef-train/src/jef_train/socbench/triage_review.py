@@ -48,6 +48,7 @@ from jef_core.types import normalize
 from jef_scene import Scene
 
 from .annotate import cohen_kappa
+from .cloudflare_source import _private_dirs
 from .triage import TASK_OF_QUESTION, Pack, pack_manifest
 from .triage_eval import scene_questions
 
@@ -519,7 +520,10 @@ def write_reviewed_pack(
     """The reviewed pack (private origins: owner-only, outside any checkout)."""
     private = any(c["origin"] in PRIVATE_ORIGINS for c in cases)
     out = _refuse_inside_checkout(out) if private else Path(out)
-    out.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if private:
+        _private_dirs(out)
+    else:
+        out.mkdir(parents=True, exist_ok=True)
 
     def write(name: str, text: str) -> None:
         path = out / name
