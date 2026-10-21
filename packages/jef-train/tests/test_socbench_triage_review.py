@@ -273,6 +273,8 @@ def test_vendor_variants_copy_labels_but_twins_do_not(real: Pack, tmp_path: Path
     _, exps, _ = import_answers([real], b, SCENE, [rows])
     by = {e["case_id"]: e for e in exps}
     assert by[variant["case_id"]]["expected"] == by[base["case_id"]]["expected"]
+    report = check_review(exps)
+    assert report["cases"] == 1 and report["copied_to_vendor_variants"] == 1
     twin = next(c for c in real.cases if c.get("twin_of"))
     bt = {"batch_id": "bt", "case_ids": [twin["twin_of"]], "packs": {}}
     rows = answered(export_worksheet([real], bt, SCENE, reviewer="a"))

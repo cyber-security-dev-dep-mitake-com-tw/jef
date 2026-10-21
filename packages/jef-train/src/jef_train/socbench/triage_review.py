@@ -80,6 +80,8 @@ HIDDEN_EVIDENCE = frozenset({"detector_output"})
 #: Origins whose cases are private: the reviewed pack is refused inside a checkout.
 PRIVATE_ORIGINS = frozenset({"own-telemetry", "reviewer-sourced"})
 BATCH_VERSION = 1
+#: Marks an expectation copied from its base case onto a vendor-signal variant.
+VARIANT_NOTE = "labels of {base}: the same incident with the detector's output shown"
 
 
 class ReviewError(ValueError):
@@ -493,7 +495,7 @@ def import_answers(
             expectations[cid] = {
                 **expectations[base],
                 "case_id": cid,
-                "note": f"labels of {base}: the same incident with the detector's output shown",
+                "note": VARIANT_NOTE.format(base=base),
             }
     review = {
         "batch_id": batch["batch_id"],
@@ -544,7 +546,14 @@ def check_review(
     expectations: Sequence[Mapping[str, Any]],
     answer_files: Sequence[Sequence[Mapping[str, Any]]] = (),
 ) -> dict[str, Any]:
-    """Tier and unknown counts per task; kappa per task when two people answered."""
+    """Tier and unknown counts per task; kappa per task when two people answered.
+
+    Vendor-signal variants carry a copy of their base case's labels; they are
+    counted apart so a copy is never reported as another review.
+    """
+    prefix = VARIANT_NOTE.split("{base}")[0]
+    copied = [e for e in expectations if str(e.get("note", "")).startswith(prefix)]
+    expectations = [e for e in expectations if e not in copied]
     tiers = Counter(f"{e['label_origin']}/{e['label_status']}" for e in expectations)
     unknown: dict[str, int] = {}
     for task in TASK_OF_QUESTION.values():
@@ -560,6 +569,7 @@ def check_review(
             else "NO HUMAN LABELS"
         ),
         "cases": len(expectations),
+        "copied_to_vendor_variants": len(copied),
         "labels": dict(tiers),
         "unknown_per_task": unknown,
         "kappa_per_task": None,
