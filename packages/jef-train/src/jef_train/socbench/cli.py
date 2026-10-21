@@ -756,6 +756,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ce.add_argument("--out", type=Path, required=True)
 
+    ab = trsub.add_parser(
+        "ablate", help="S1-S6 training corpora from one locked pack (fits nothing)"
+    )
+    ab.add_argument("--pack", type=Path, required=True)
+    ab.add_argument("--lock", type=Path, required=True)
+    ab.add_argument("--scene", type=Path)
+    ab.add_argument("--arms", default="S1,S2,S3,S4,S5,S6")
+    ab.add_argument("--min-tier", default="B", choices=list("AB"))
+    ab.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="synthetic labels: exercise the arms; never deployable",
+    )
+    ab.add_argument("--out", type=Path, required=True)
+
     cc = trsub.add_parser(
         "candidate-check", help="is a fitted candidate more than insufficient? (ceiling: research)"
     )
@@ -844,6 +859,8 @@ def cmd_triage(args: argparse.Namespace) -> int:
         return 0
     if args.triage_command == "ingest-cloudflare":
         return cmd_triage_ingest_cloudflare(args)
+    if args.triage_command == "ablate":
+        return cmd_triage_ablate(args)
     if args.triage_command in (
         "normalize-cloudflare",
         "build-cloudflare-cases",
@@ -985,6 +1002,37 @@ def cmd_triage_cloudflare_pack(args: argparse.Namespace) -> int:
     except (CloudflareError, PseudonymError, PackError, ValueError, KeyError) as exc:
         print(f"{args.triage_command}: {exc}", file=sys.stderr)
         return 1
+
+
+def cmd_triage_ablate(args: argparse.Namespace) -> int:
+    import json
+
+    from jef_scene import load_scene
+
+    from .triage import PackError, find_root, load_pack
+    from .triage_ablation import AblationError, build_ablation
+    from .triage_candidate import CandidateError
+
+    scene_path = (
+        args.scene or find_root(args.pack).parents[1] / "scenes" / "incident-triage.zh-tw.yaml"
+    )
+    try:
+        report = build_ablation(
+            load_pack(args.pack),
+            json.loads(args.lock.read_text("utf-8")),
+            load_scene(scene_path),
+            args.out,
+            arms=[a.strip() for a in args.arms.split(",") if a.strip()],
+            min_tier=args.min_tier,
+            dry_run=args.dry_run,
+        )
+    except (AblationError, CandidateError, PackError) as exc:
+        print(f"ablate: {exc}", file=sys.stderr)
+        return 1
+    for name, arm in report["arms"].items():
+        print(f"{name}: {arm['splits']} left out {arm['left_out'] or 'nothing'}")
+    print(f"selection on {report['selection']['select_on']}; plan -> {args.out / 'ablation.json'}")
+    return 0
 
 
 def cmd_triage_candidate(args: argparse.Namespace) -> int:
