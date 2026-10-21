@@ -256,6 +256,23 @@ shipped `models/jef-v0` is refused as a candidate.
 The 63-case SOCBench pilot does not change this. Its tasks are
 `soc.ndr.technique` and `soc.alert.verdict`, not these five.
 
+### Ablation arms S1–S6
+
+`jef-bench triage ablate --pack P --lock P/lock.json --out out/ablation` cuts six training corpora from one export of the locked pack. It fits nothing; `ablation.json` lists the `fit` and `candidate-check` command for each arm.
+
+| Arm | Difference |
+|---|---|
+| S1 | Human labels only, state as written, no hard negatives in train, `--no-class-weighting` |
+| S2 | S1 plus the structured evidence rendered into the state (never `detector_output`) |
+| S3 | S2 plus hard negatives back in train, with class weighting |
+| S4 | The S3 corpus, judged by schema-2 calibration status and coverage |
+| S5 | S3 plus own telemetry, including vendor-signal variants |
+| S6 | S3 plus own telemetry, without vendor signals |
+
+The arms change what is trained on, never what is judged. The calibration and test cases of S1–S4 are asserted identical, and S5 and S6 differ only in the vendor-signal variants. Choose an arm on the calibration split, and read the test split once afterwards.
+
+On synthetic labels (`--dry-run`), every arm is marked not deployable, and `candidate-check` reports `insufficient`. Every check report also carries the R5 label-prior probe from the RCA (`jef_train.socbench.triage_rca`).
+
 ## In CI
 
 - **Every PR:** the `triage-canary` job in `ci.yml` runs on CPU without torch.

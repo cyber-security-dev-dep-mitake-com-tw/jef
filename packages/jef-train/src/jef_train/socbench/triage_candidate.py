@@ -45,6 +45,7 @@ from ..schema import Sample, assert_no_group_leakage, read_samples, write_sample
 from .records import trust_tier
 from .triage import TASK_OF_QUESTION, Pack
 from .triage_eval import scene_questions
+from .triage_rca import label_prior
 from .triage_synth import verify_triage_lock
 
 __all__ = ["CandidateError", "check_candidate", "export_triage_corpus", "required_buckets"]
@@ -303,4 +304,6 @@ def check_candidate(
             "corpus_manifest_sha256": _sha(corpus / "manifest.json"),
         },
         "splits": {k: len(v) for k, v in splits.items()},
+        # R5 of the triage RCA on every candidate: what it answers with no content.
+        "label_prior_R5": label_prior(engine, scene),
     }
