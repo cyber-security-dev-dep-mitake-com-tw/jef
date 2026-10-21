@@ -57,3 +57,26 @@ Families join every incident of one actor and every incident on one route family
 - Commit anything from `$PRIVATE_JEF_DATA`, upload it as a GitHub artifact, or send it to an external model or API (Jev, Laya, an LLM) without a separate data-processing and egress approval.
 - Run the real ingest in CI. `triage-cloudflare-contract.yml` uses a recorded fake and synthetic fixtures only.
 - Generate attack traffic against a production zone. Test traffic belongs in a separate lab zone, and cases from it are `test_generated`, not unseen real attacks.
+
+## 人工標註 Labelling a batch
+
+One reviewer gives Tier B (`single-human-reviewed`). Tier A needs a second, independent reviewer and a third person to adjudicate (`review import --answers a.jsonl --answers b.jsonl --adjudication c.jsonl`). Everything below stays in the private directory; worksheets and answers of private cases are written owner-only and refused inside a git checkout.
+
+```bash
+P="$PRIVATE_JEF_DATA/cloudflare"; R="$PRIVATE_JEF_DATA/review"
+# 1. pick 100 incidents, one per family (vendor-signal variants are never picked: same incident)
+uv run jef-bench triage review sample --pack "$P/site-a-pack" --batch-id cf-pilot-1 \
+  --stratum web=100 --max-per-family 1 --out "$R/cf-pilot-1.batch.json"
+# 2. a blind worksheet for you: evidence only, no WAF action, no score
+uv run jef-bench triage review export --pack "$P/site-a-pack" --batch "$R/cf-pilot-1.batch.json" \
+  --reviewer <handle> --out "$R/cf-pilot-1.<handle>.worksheet.jsonl"
+# 3. label in the terminal (zh-TW). Quit with q any time; the same command resumes.
+uv run jef-bench triage review label --worksheet "$R/cf-pilot-1.<handle>.worksheet.jsonl"
+# 4. answers -> a reviewed private pack, then the report
+uv run jef-bench triage review import --pack "$P/site-a-pack" --batch "$R/cf-pilot-1.batch.json" \
+  --answers "$R/cf-pilot-1-<handle>.answers.jsonl" --out "$P/site-a-reviewed-1"
+uv run jef-bench triage review check --pack "$P/site-a-reviewed-1" \
+  --answers "$R/cf-pilot-1-<handle>.answers.jsonl"
+```
+
+Keys in the labeller: numbers choose, `u` = 不確定 unknown, `b` = back one question, `?` = the labelbook rule for this question, `r` = the raw state, `s` = skip this case for now, `q` = save and quit. For owner and severity, several numbers separated by commas list every acceptable answer, the first being the primary. `--case <id>` re-labels one case. Answer from what the screen shows; the rules are in [`../LABELBOOK.md`](../LABELBOOK.md).

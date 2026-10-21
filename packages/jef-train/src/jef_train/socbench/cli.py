@@ -836,6 +836,17 @@ def build_parser() -> argparse.ArgumentParser:
     rc = rvsub.add_parser("check", help="tiers, unknown rates, kappa per task, reviewer time")
     rc.add_argument("--pack", type=Path, required=True, help="a reviewed pack")
     rc.add_argument("--answers", type=Path, action="append", default=[])
+    rl = rvsub.add_parser(
+        "label", help="interactive terminal labelling of one worksheet (zh-TW); resumable"
+    )
+    rl.add_argument("--worksheet", type=Path, required=True, help="from `review export`")
+    rl.add_argument(
+        "--answers",
+        type=Path,
+        help="answer file (default: beside the worksheet); resumed if present",
+    )
+    rl.add_argument("--case", help="re-label one case that is already answered")
+    rl.add_argument("--no-color", action="store_true")
 
     ce = trsub.add_parser(
         "candidate-export", help="a locked pack -> a jef_train.fit corpus for the five tasks"
@@ -1194,6 +1205,7 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
     from .triage import PackError, find_root, load_pack
     from .triage_review import (
         DEFAULT_STRATA,
+        PRIVATE_ORIGINS,
         ReviewError,
         check_review,
         cross_check_sample,
@@ -1201,7 +1213,9 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         import_answers,
         sample_batch,
         worksheet_html,
+        worksheet_is_private,
         write_reviewed_pack,
+        write_worksheet_file,
     )
 
     def jsonl(path: Path) -> list[dict[str, Any]]:
@@ -1213,6 +1227,19 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         )
 
     try:
+        if args.review_command == "label":
+            from .triage_label import Labeller, default_answers_path
+
+            rows = jsonl(args.worksheet)
+            if not rows:
+                raise ReviewError(f"{args.worksheet} is empty")
+            answers = args.answers or default_answers_path(args.worksheet, rows)
+            labeller = Labeller(rows, answers, color=False if args.no_color else None)
+            try:
+                labeller.run(only=args.case)
+            except (KeyboardInterrupt, EOFError):
+                print(f"\n中斷 interrupted — 已確認的答案都已儲存 saved in {answers}")
+            return 0
         if args.review_command == "check":
             pack = load_pack(args.pack)
             exps = [pack.expectations[c["case_id"]] for c in pack.cases]
@@ -1232,7 +1259,10 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
                 max_per_family=args.max_per_family,
                 allow_synthetic=args.allow_synthetic,
             )
-            args.out.write_text(json.dumps(batch, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            private = any(c["origin"] in PRIVATE_ORIGINS for p in packs for c in p.cases)
+            write_worksheet_file(
+                args.out, json.dumps(batch, ensure_ascii=False, indent=2) + "\n", private=private
+            )
             print(
                 f"{len(batch['case_ids'])} cases -> {args.out}; "
                 f"shortfall {batch['shortfall'] or 'none'}"
@@ -1242,11 +1272,14 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         if args.review_command == "export":
             ids = cross_check_sample(batch) if args.cross_check else None
             rows = export_worksheet(packs, batch, scene_of(), reviewer=args.reviewer, case_ids=ids)
-            args.out.write_text(
-                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8"
+            private = worksheet_is_private(packs, rows)
+            write_worksheet_file(
+                args.out,
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
+                private=private,
             )
             if args.html:
-                args.html.write_text(worksheet_html(rows), "utf-8")
+                write_worksheet_file(args.html, worksheet_html(rows), private=private)
             print(f"{len(rows)} cases for {args.reviewer} -> {args.out}")
             return 0
         adjudications = jsonl(args.adjudication) if args.adjudication else []
@@ -1262,7 +1295,7 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         load_pack(out)
         print(f"{len(cases)} reviewed cases {review['label_status']} -> {out}")
         return 0
-    except (PackError, ReviewError, ValueError, KeyError) as exc:
+    except (PackError, ReviewError, ValueError, KeyError, OSError) as exc:
         print(f"review {args.review_command}: {exc}", file=sys.stderr)
         return 1
 
