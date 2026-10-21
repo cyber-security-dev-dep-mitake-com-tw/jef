@@ -750,6 +750,19 @@ def build_parser() -> argparse.ArgumentParser:
     te.add_argument("--scene-sha", help="fail unless the scene file has this sha256")
     te.add_argument("--out", type=Path, required=True)
 
+    tc = trsub.add_parser(
+        "compare", help="paired, family-clustered head-to-head of questions-mode reports"
+    )
+    tc.add_argument("--pack", type=Path, required=True)
+    tc.add_argument("--lock", type=Path, required=True)
+    tc.add_argument("--split", default="test")
+    tc.add_argument(
+        "--report", type=Path, action="append", required=True, help="one results.json per system"
+    )
+    tc.add_argument("--reference", type=int, default=0, help="index of the system to pair against")
+    tc.add_argument("--n-boot", type=int, default=1000)
+    tc.add_argument("--out", type=Path, required=True)
+
     ts = trsub.add_parser("synth", help="render the synthetic families into a pack")
     ts.add_argument("--families", type=Path, required=True)
     ts.add_argument("--out", type=Path, required=True)
@@ -908,6 +921,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def cmd_triage(args: argparse.Namespace) -> int:
+    if args.triage_command == "compare":
+        return cmd_triage_compare(args)
     if args.triage_command == "synth":
         from .triage_synth import build_families, write_pack
 
@@ -1435,6 +1450,28 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 2
         return cmd_lock(repo, args)
     return 2  # pragma: no cover -- argparse rejects unknown commands first
+
+
+def cmd_triage_compare(args: argparse.Namespace) -> int:
+    import json
+
+    from .triage import PackError, load_pack
+    from .triage_compare import CompareError, compare
+
+    try:
+        pack = load_pack(args.pack)
+        lock = json.loads(args.lock.read_text("utf-8"))
+        result = compare(
+            pack, lock, args.report, split=args.split, reference=args.reference, n_boot=args.n_boot
+        )
+    except (PackError, CompareError, KeyError) as exc:
+        print(f"compare: {exc}", file=sys.stderr)
+        return 2
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    why = "; ".join(result["not_a_claim_because"]) or "criteria met"
+    print(f"{result['evidence_class']} ({why}) -> {args.out}")
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover
