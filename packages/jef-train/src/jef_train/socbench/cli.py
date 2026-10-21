@@ -760,6 +760,51 @@ def build_parser() -> argparse.ArgumentParser:
     cc.add_argument("--backbone", required=True)
     cc.add_argument("--out", type=Path, required=True)
 
+    rv = trsub.add_parser(
+        "review", help="the reviewer queue: sample a batch, export blind worksheets, import"
+    )
+    rvsub = rv.add_subparsers(dest="review_command", required=True)
+    rs = rvsub.add_parser("sample", help="a stratified batch (case ids only), shortfalls stated")
+    rs.add_argument("--pack", type=Path, action="append", required=True)
+    rs.add_argument("--batch-id", required=True)
+    rs.add_argument(
+        "--stratum",
+        action="append",
+        metavar="DOMAIN=N",
+        help="cases wanted per case domain (default: the v5 pilot, 100 cases)",
+    )
+    rs.add_argument("--seed", default="triage-review")
+    rs.add_argument("--max-per-family", type=int, default=2)
+    rs.add_argument(
+        "--allow-synthetic",
+        action="store_true",
+        help="let synthetic cases in (a dry run of the workflow; never a pilot)",
+    )
+    rs.add_argument("--out", type=Path, required=True)
+    rx = rvsub.add_parser("export", help="one reviewer's blind worksheet (JSONL, optional HTML)")
+    rx.add_argument("--pack", type=Path, action="append", required=True)
+    rx.add_argument("--batch", type=Path, required=True)
+    rx.add_argument("--reviewer", required=True)
+    rx.add_argument("--scene", type=Path)
+    rx.add_argument(
+        "--cross-check", action="store_true", help="only the 20%% drift-check sample of the batch"
+    )
+    rx.add_argument("--out", type=Path, required=True)
+    rx.add_argument("--html", type=Path, help="also write an offline HTML form")
+    ri = rvsub.add_parser(
+        "import", help="answers -> a reviewed pack (Tier B, or A when adjudicated)"
+    )
+    ri.add_argument("--pack", type=Path, action="append", required=True)
+    ri.add_argument("--batch", type=Path, required=True)
+    ri.add_argument("--answers", type=Path, action="append", required=True, help="one per reviewer")
+    ri.add_argument("--adjudication", type=Path, help="a third person's decisions (JSONL)")
+    ri.add_argument("--scene", type=Path)
+    ri.add_argument("--label-version", default="v1")
+    ri.add_argument("--out", type=Path, required=True)
+    rc = rvsub.add_parser("check", help="tiers, unknown rates, kappa per task, reviewer time")
+    rc.add_argument("--pack", type=Path, required=True, help="a reviewed pack")
+    rc.add_argument("--answers", type=Path, action="append", default=[])
+
     tl = trsub.add_parser("lock", help="family-grouped splits; refuses leaks and near copies")
     tl.add_argument("--pack", type=Path, required=True)
     tl.add_argument("--out", type=Path, help="write the lock here")
@@ -778,6 +823,8 @@ def cmd_triage(args: argparse.Namespace) -> int:
             f"{len(cases)} cases in {len({c['case_family'] for c in cases})} families -> {args.out}"
         )
         return 0
+    if args.triage_command == "review":
+        return cmd_triage_review(args)
     if args.triage_command == "lock":
         import json
 
@@ -816,6 +863,87 @@ def cmd_triage(args: argparse.Namespace) -> int:
     if args.triage_command in ("candidate-export", "candidate-check"):
         return cmd_triage_candidate(args)
     return cmd_triage_evaluate(args)
+
+
+def cmd_triage_review(args: argparse.Namespace) -> int:
+    import json
+
+    from jef_scene import load_scene
+
+    from .triage import PackError, find_root, load_pack
+    from .triage_review import (
+        DEFAULT_STRATA,
+        ReviewError,
+        check_review,
+        cross_check_sample,
+        export_worksheet,
+        import_answers,
+        sample_batch,
+        worksheet_html,
+        write_reviewed_pack,
+    )
+
+    def jsonl(path: Path) -> list[dict[str, Any]]:
+        return [json.loads(x) for x in path.read_text("utf-8").splitlines() if x.strip()]
+
+    def scene_of() -> Any:
+        return load_scene(
+            args.scene or find_root().parent.parent / "scenes" / "incident-triage.zh-tw.yaml"
+        )
+
+    try:
+        if args.review_command == "check":
+            pack = load_pack(args.pack)
+            exps = [pack.expectations[c["case_id"]] for c in pack.cases]
+            report = check_review(exps, [jsonl(p) for p in args.answers])
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0
+        packs = [load_pack(p) for p in args.pack]
+        if args.review_command == "sample":
+            strata = dict(DEFAULT_STRATA)
+            if args.stratum:
+                strata = {k: int(v) for k, v in (s.split("=", 1) for s in args.stratum)}
+            batch = sample_batch(
+                packs,
+                batch_id=args.batch_id,
+                strata=strata,
+                seed=args.seed,
+                max_per_family=args.max_per_family,
+                allow_synthetic=args.allow_synthetic,
+            )
+            args.out.write_text(json.dumps(batch, ensure_ascii=False, indent=2) + "\n", "utf-8")
+            print(
+                f"{len(batch['case_ids'])} cases -> {args.out}; "
+                f"shortfall {batch['shortfall'] or 'none'}"
+            )
+            return 0
+        batch = json.loads(args.batch.read_text("utf-8"))
+        if args.review_command == "export":
+            ids = cross_check_sample(batch) if args.cross_check else None
+            rows = export_worksheet(packs, batch, scene_of(), reviewer=args.reviewer, case_ids=ids)
+            args.out.write_text(
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8"
+            )
+            if args.html:
+                args.html.write_text(worksheet_html(rows), "utf-8")
+            print(f"{len(rows)} cases for {args.reviewer} -> {args.out}")
+            return 0
+        adjudications = jsonl(args.adjudication) if args.adjudication else []
+        cases, exps, review = import_answers(
+            packs,
+            batch,
+            scene_of(),
+            [jsonl(p) for p in args.answers],
+            adjudications=adjudications,
+            label_version=args.label_version,
+        )
+        out = write_reviewed_pack(args.out, cases, exps, review)
+        load_pack(out)
+        print(f"{len(cases)} reviewed cases {review['label_status']} -> {out}")
+        return 0
+    except (PackError, ReviewError, ValueError, KeyError) as exc:
+        print(f"review {args.review_command}: {exc}", file=sys.stderr)
+        return 1
 
 
 def cmd_triage_candidate(args: argparse.Namespace) -> int:
