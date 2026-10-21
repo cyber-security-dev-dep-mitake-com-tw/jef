@@ -77,6 +77,63 @@ def test_access_values_are_partitioned() -> None:
     assert allowed == FETCHABLE_ACCESS | RESTRICTED_ACCESS
 
 
+def test_catalogue_rows_are_never_wired(repo: SocbenchRepo) -> None:
+    every = repo.load_sources(catalogue=True)
+    wired = {s.id for s in repo.load_sources()}
+    catalogue = [s for s in every if not s.wired]
+    assert catalogue, "the v2 registry carries catalogue rows"
+    for s in catalogue:
+        assert s.id not in ADAPTERS, s.id
+        assert not repo.pins_path(s.id).exists(), s.id
+        assert not s.fetchable, s.id
+    assert wired == {s.id for s in every if s.wired}
+
+
+def test_registry_never_claims_human_tiers_or_five_task_gold(repo: SocbenchRepo) -> None:
+    raw = yaml.safe_load(repo.sources_path.read_text("utf-8"))
+    for row in raw["sources"]:
+        assert row["five_task_gold"] is False, row["id"]
+        assert row["trust_tier"] in {"C", "D", "E", "U", "none"}, row["id"]
+        if row["kind"] in {"rules", "tool", "schema", "statistics", "reference"}:
+            assert row["trust_tier"] == "none", row["id"]
+        if row["kind"] == "own-telemetry":
+            assert row["access"] == "own-zone" and row["adapter"] == "catalogue", row["id"]
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("five_task_gold", True),
+        ("trust_tier", "A"),
+        ("trust_tier", "B"),
+        ("label_granularity", "per-alert-gold"),
+        ("adapter", "maybe"),
+    ],
+)
+def test_schema_rejects_an_upgraded_label(repo: SocbenchRepo, field: str, value: object) -> None:
+    raw = yaml.safe_load(repo.sources_path.read_text("utf-8"))
+    raw["checked"] = str(raw["checked"])
+    for row in raw["sources"]:
+        row["access_verified"] = str(row["access_verified"]) if row["access_verified"] else False
+    raw["sources"][0][field] = value
+    assert list(repo.validator("sources").iter_errors(raw))
+
+
+def test_schema_rejects_a_tier_on_a_rule_library(repo: SocbenchRepo) -> None:
+    raw = yaml.safe_load(repo.sources_path.read_text("utf-8"))
+    raw["checked"] = str(raw["checked"])
+    for row in raw["sources"]:
+        row["access_verified"] = str(row["access_verified"]) if row["access_verified"] else False
+    sigma = next(r for r in raw["sources"] if r["id"] == "sigma-rules")
+    sigma["trust_tier"] = "C"
+    assert list(repo.validator("sources").iter_errors(raw))
+
+
+def test_fetching_a_catalogue_row_is_refused(repo: SocbenchRepo) -> None:
+    with pytest.raises(SystemExit, match="catalogue-only"):
+        cli._select(repo, ["loghub"], all_public=False)
+
+
 def test_restricted_sources_are_the_ones_we_expect(repo: SocbenchRepo) -> None:
     restricted = {s.id for s in repo.load_sources() if s.restricted}
     assert restricted == {"lanl-cyber1", "cicids2017", "cac-cyber-dataset-1.0"}
@@ -126,7 +183,7 @@ def test_case_schema_rejects_a_verdict(repo: SocbenchRepo) -> None:
 # --------------------------------------------------------------------------- #
 
 MINI_SOURCES = """
-version: 1
+version: 2
 checked: 2026-10-16
 sources:
   - id: ts-bench
@@ -140,6 +197,12 @@ sources:
     access: public-download
     license: see-repo
     priority: 1
+    kind: dataset
+    label_granularity: event
+    trust_tier: C
+    five_task_gold: false
+    adapter: implemented
+    access_verified: 2026-10-16
     caveat: c
   - id: lanl-cyber1
     name: L
@@ -152,6 +215,12 @@ sources:
     access: request-form
     license: CC0
     priority: 2
+    kind: dataset
+    label_granularity: event
+    trust_tier: C
+    five_task_gold: false
+    adapter: implemented
+    access_verified: 2026-10-16
     caveat: c
   - id: community-soc-benchmark
     name: R
@@ -164,6 +233,12 @@ sources:
     access: public
     license: see-repo
     priority: reference
+    kind: dataset
+    label_granularity: event
+    trust_tier: C
+    five_task_gold: false
+    adapter: implemented
+    access_verified: 2026-10-16
     caveat: c
 """
 

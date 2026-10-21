@@ -1,70 +1,275 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/cyber-security-dev-dep-mitake-com-tw/jef/benchmark/socbench/schema/sources.schema.json",
-  "title": "SOCBench source manifest",
-  "description": "Provenance for every dataset SOCBench may draw on. No data lives in the repository; this records what each source labels, how it is obtained, and the caveat that must survive into every derived case.",
+  "title": "SOCBench source registry",
+  "description": "Provenance for every dataset SOCBench may draw on, and a catalogue of sources not yet wired. No data lives in the repository; this records what each source labels, at what granularity, how it is obtained, and the caveat that must survive into every derived case. No source is ever five-task incident-triage gold: that comes only from the reviewer workflow.",
   "type": "object",
-  "required": ["version", "checked", "sources"],
+  "required": [
+    "version",
+    "checked",
+    "sources"
+  ],
   "additionalProperties": false,
   "properties": {
-    "version": { "type": "integer", "const": 1 },
-    "checked": { "type": "string", "format": "date" },
+    "version": {
+      "type": "integer",
+      "const": 2
+    },
+    "checked": {
+      "type": "string",
+      "format": "date"
+    },
     "sources": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/source" }
+      "items": {
+        "$ref": "#/$defs/source"
+      }
     }
   },
   "$defs": {
     "source": {
       "type": "object",
       "required": [
-        "id", "name", "url", "language", "ground_truth_level", "realism",
-        "hard_negatives", "jef_use", "access", "license", "priority", "caveat"
+        "id",
+        "name",
+        "url",
+        "language",
+        "ground_truth_level",
+        "realism",
+        "hard_negatives",
+        "jef_use",
+        "access",
+        "kind",
+        "trust_tier",
+        "label_granularity",
+        "five_task_gold",
+        "adapter",
+        "access_verified",
+        "license",
+        "priority",
+        "caveat"
       ],
       "additionalProperties": false,
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$" },
-        "name": { "type": "string", "minLength": 1 },
-        "url": { "type": "string", "format": "uri" },
-        "portal": { "type": "string", "format": "uri" },
-        "reference": { "type": "string", "format": "uri" },
-        "full_dataset": { "type": "string", "format": "uri" },
-        "open_data": { "type": "string", "format": "uri" },
-        "language": { "type": "string", "minLength": 1 },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "dataset",
+            "sample-logs",
+            "rules",
+            "tool",
+            "schema",
+            "feed",
+            "statistics",
+            "reference",
+            "own-telemetry"
+          ],
+          "description": "Rules, tools, schemas and feeds are not labelled data; they never carry a trust tier."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "portal": {
+          "type": "string",
+          "format": "uri"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uri"
+        },
+        "full_dataset": {
+          "type": "string",
+          "format": "uri"
+        },
+        "open_data": {
+          "type": "string",
+          "format": "uri"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
         "ground_truth_level": {
           "type": "string",
           "description": "What the source actually labels. Never an analyst verdict unless the two-reviewer workflow produced it.",
           "minLength": 1
         },
-        "realism": { "type": "string", "minLength": 1 },
-        "hard_negatives": { "type": "string", "minLength": 1 },
+        "label_granularity": {
+          "enum": [
+            "event",
+            "flow",
+            "window",
+            "scenario",
+            "ctf-answer",
+            "message",
+            "page",
+            "url",
+            "aggregate",
+            "none",
+            "unknown"
+          ],
+          "description": "The unit a label attaches to. A window or scenario label never becomes a per-alert label."
+        },
+        "trust_tier": {
+          "enum": [
+            "C",
+            "D",
+            "E",
+            "U",
+            "none"
+          ],
+          "description": "C source-labelled, D weak or derived, E synthetic or by construction, U unlabelled, none for non-data. A and B come only from human review, never from a source."
+        },
+        "five_task_gold": {
+          "const": false,
+          "description": "No source supplies gold for the five incident-triage tasks; the reviewer workflow does."
+        },
+        "realism": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hard_negatives": {
+          "type": "string",
+          "minLength": 1
+        },
         "jef_use": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         },
         "access": {
           "type": "string",
-          "description": "How the data is obtained. Only public-download and public may be fetched by the pipeline; everything else needs a human.",
+          "description": "How the data is obtained. Only public-download and public may be fetched by the pipeline, and only for implemented sources; everything else needs a human.",
           "enum": [
             "public",
             "public-download",
             "public-download-verify",
             "request-form",
             "registration-or-contact",
-            "sample-public-full-restricted"
+            "sample-public-full-restricted",
+            "application",
+            "own-zone",
+            "unverified"
           ]
         },
-        "license": { "type": "string", "minLength": 1 },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
         "priority": {
           "oneOf": [
-            { "type": "integer", "minimum": 1 },
-            { "type": "string", "enum": ["secondary", "reference", "evaluate", "context"] }
-          ]
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string",
+              "enum": [
+                "secondary",
+                "reference",
+                "evaluate",
+                "context",
+                "P0",
+                "P1",
+                "P2"
+              ]
+            }
+          ],
+          "description": "Wired sources: the order adapters were built in. Catalogue rows: the planning priority P0-P2 from the v5 dataset plan."
         },
-        "caveat": { "type": "string", "minLength": 1 }
-      }
+        "caveat": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapter": {
+          "enum": [
+            "implemented",
+            "catalogue"
+          ],
+          "description": "implemented: an entry in socbench.adapters.ADAPTERS and a pin manifest. catalogue: recorded for planning only; nothing fetches it."
+        },
+        "access_verified": {
+          "oneOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "const": false
+            }
+          ],
+          "description": "When a person last confirmed the url, access and licence. false: taken from a planning document and not yet checked."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "rules",
+                  "tool",
+                  "schema",
+                  "statistics",
+                  "reference"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "trust_tier": {
+                "const": "none"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "feed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "trust_tier": {
+                "const": "D"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "adapter": {
+                "const": "catalogue"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "priority": {
+                "type": "string",
+                "pattern": "^P[0-2]$"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
