@@ -1212,7 +1212,9 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         import_answers,
         sample_batch,
         worksheet_html,
+        worksheet_is_private,
         write_reviewed_pack,
+        write_worksheet_file,
     )
 
     def jsonl(path: Path) -> list[dict[str, Any]]:
@@ -1266,11 +1268,14 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
         if args.review_command == "export":
             ids = cross_check_sample(batch) if args.cross_check else None
             rows = export_worksheet(packs, batch, scene_of(), reviewer=args.reviewer, case_ids=ids)
-            args.out.write_text(
-                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8"
+            private = worksheet_is_private(packs, rows)
+            write_worksheet_file(
+                args.out,
+                "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows),
+                private=private,
             )
             if args.html:
-                args.html.write_text(worksheet_html(rows), "utf-8")
+                write_worksheet_file(args.html, worksheet_html(rows), private=private)
             print(f"{len(rows)} cases for {args.reviewer} -> {args.out}")
             return 0
         adjudications = jsonl(args.adjudication) if args.adjudication else []

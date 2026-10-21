@@ -341,3 +341,24 @@ def test_cli_round_trip(real: Pack, tmp_path: Path, capsys: pytest.CaptureFixtur
     capsys.readouterr()
     assert cli.main(["triage", "review", "check", "--pack", str(out)]) == 0
     assert json.loads(capsys.readouterr().out)["evidence_class"] == "TIER B — SINGLE REVIEWER"
+
+
+def test_a_private_worksheet_is_owner_only_and_never_in_a_checkout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pack = str(as_real(tmp_path).path)
+    batch_path = tmp_path / "batch.json"
+    assert cli.main(["triage", "review", "sample", "--pack", pack, "--batch-id", "b1",
+                     "--stratum", "edr=2", "--out", str(batch_path)]) == 0  # fmt: skip
+    ws, page = tmp_path / "out" / "ws.jsonl", tmp_path / "out" / "ws.html"
+    assert cli.main(["triage", "review", "export", "--pack", pack, "--batch", str(batch_path),
+                     "--reviewer", "a", "--out", str(ws), "--html", str(page)]) == 0  # fmt: skip
+    for p in (ws, page, ws.parent):
+        assert p.stat().st_mode & 0o077 == 0, p
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    capsys.readouterr()
+    assert cli.main(["triage", "review", "export", "--pack", pack, "--batch", str(batch_path),
+                     "--reviewer", "a", "--out", str(repo / "ws.jsonl")]) == 1  # fmt: skip
+    assert "inside the git checkout" in capsys.readouterr().err
+    assert not (repo / "ws.jsonl").exists()
