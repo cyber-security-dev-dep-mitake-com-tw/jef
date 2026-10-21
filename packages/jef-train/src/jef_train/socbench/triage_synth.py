@@ -219,6 +219,28 @@ def near_duplicates(
 # --------------------------------------------------------------------------- #
 
 
+def _holdout_key(value: str) -> str:
+    """``2026-10-01`` or ``2026-10-01T00:00Z`` -> a string comparable with observed_at."""
+    return value if "T" in value else f"{value}T00:00Z"
+
+
+def _family_splits(
+    cases: Sequence[Mapping[str, Any]],
+    ratios: Mapping[str, float],
+    seed: str,
+    holdout_after: str | None,
+) -> dict[str, str]:
+    rows = [{"family_id": c["case_family"]} for c in cases]
+    if holdout_after is None:
+        return assign_splits(rows, ratios=ratios, seed=seed)
+    boundary = _holdout_key(holdout_after)
+    late = {
+        c["case_family"] for c in cases if c.get("observed_at") and c["observed_at"] >= boundary
+    }
+    rest = {k: v for k, v in ratios.items() if k != "test"}
+    return assign_splits(rows, ratios=rest, seed=seed, pinned=dict.fromkeys(late, "test"))
+
+
 def triage_lock(
     cases: Sequence[Mapping[str, Any]],
     exps: Sequence[Mapping[str, Any]],
@@ -226,25 +248,44 @@ def triage_lock(
     ratios: Mapping[str, float] = DEFAULT_RATIOS,
     seed: str = "incident-triage",
     training: Iterable[tuple[str, str]] | None = None,
+    holdout_after: str | None = None,
 ) -> dict[str, Any]:
-    """Family-grouped splits, refused on any leak or near copy."""
+    """Family-grouped splits, refused on any leak or near copy.
+
+    ``holdout_after`` (an ISO minute or date, UTC) makes the test split
+    temporal: every family with a case observed at or after it is test, and
+    the remaining families share train and calibration in their ratio. A
+    family that straddles the boundary is test as a whole.
+    """
     as_socbench = [
         {
             **c,
             "family_id": c["case_family"],
-            "paired_with": c.get("translation_of") or c.get("hard_negative_of") or c.get("twin_of"),
+            "paired_with": (
+                c.get("translation_of")
+                or c.get("hard_negative_of")
+                or c.get("twin_of")
+                or c.get("variant_of")
+            ),
         }
         for c in cases
     ]
-    family_split = assign_splits(as_socbench, ratios=ratios, seed=seed)
+    family_split = _family_splits(cases, ratios, seed, holdout_after)
     problems = check_leakage(as_socbench, family_split)
     ids = [c["case_id"] for c in cases]
     if sorted(ids) != sorted(e["case_id"] for e in exps):
         problems.append("expectations do not cover exactly the cases")
     dups = near_duplicates(cases, training_templates() if training is None else training)
+    # Authored text (synthetic, canary, reviewer-written) that repeats across
+    # families is one scenario twice and is refused. States rendered from
+    # real telemetry share a template by construction; for them the family
+    # rule (one actor, one route family per week) is the leakage control, so
+    # their pairs are reported in the lock but not refused.
+    origin = {c["case_id"]: c.get("origin") for c in cases}
     problems += [
         f"{d['a']} and {d['b']} are near-duplicates across families (jaccard {d['jaccard']})"
         for d in dups["across_families"]
+        if not (origin.get(d["a"]) == origin.get(d["b"]) == "own-telemetry")
     ]
     problems += [
         f"{d['case']} is a near copy of training scenario {d['training']} (jaccard {d['jaccard']})"
@@ -268,6 +309,7 @@ def triage_lock(
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "seed": seed,
         "ratios": dict(ratios),
+        "holdout_after": holdout_after,
         "cases_digest": digest_records(cases),
         "expectations_digest": digest_records(exps),
         "families": {fam: family_split[fam] for fam in sorted(family_split)},
@@ -289,10 +331,8 @@ def verify_triage_lock(
         problems.append("expectations differ from the locked expectations")
     # The splits are trusted downstream (baselines, candidate export), so they
     # must be the ones the seed and ratios produce, not a hand-edited list.
-    families = assign_splits(
-        [{"family_id": c["case_family"]} for c in cases],
-        ratios=lock.get("ratios", DEFAULT_RATIOS),
-        seed=str(lock.get("seed")),
+    families = _family_splits(
+        cases, lock.get("ratios", DEFAULT_RATIOS), str(lock.get("seed")), lock.get("holdout_after")
     )
     if families != lock.get("families"):
         problems.append("families are not assigned as the lock's seed and ratios assign them")

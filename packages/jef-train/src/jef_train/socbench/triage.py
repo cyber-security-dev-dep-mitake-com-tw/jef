@@ -39,6 +39,7 @@ from jsonschema import Draft202012Validator
 
 __all__ = [
     "PACK_FILES",
+    "SIDECAR_FILES",
     "TASK_OF_QUESTION",
     "Pack",
     "PackError",
@@ -59,6 +60,9 @@ TASK_OF_QUESTION = {
 }
 
 PACK_FILES = ("cases.jsonl", "expectations.jsonl", "replay.jsonl")
+#: Hashed into the manifest but never parsed by ``load_pack``: detector outputs
+#: (Tier D) kept beside a pack so nothing that scores or exports can use them.
+SIDECAR_FILES = ("weak.jsonl",)
 
 
 class PackError(ValueError):
@@ -111,7 +115,9 @@ class Pack:
 def pack_manifest(path: Path) -> dict[str, Any]:
     """The manifest a pack directory should carry, computed from its files."""
     files = {
-        name: _sha256((path / name).read_bytes()) for name in PACK_FILES if (path / name).is_file()
+        name: _sha256((path / name).read_bytes())
+        for name in (*PACK_FILES, *SIDECAR_FILES)
+        if (path / name).is_file()
     }
     cases = _read_jsonl(path / "cases.jsonl")
     expectations = _read_jsonl(path / "expectations.jsonl")
@@ -123,6 +129,8 @@ def pack_manifest(path: Path) -> dict[str, Any]:
             if origins == {"human-curated-canary"}
             else "SYNTHETIC LABELS — ENGINEERING CONTRACT"
             if origins == {"synthetic"}
+            else "PRIVATE REAL TELEMETRY — SEE LABEL STATUS"
+            if origins == {"own-telemetry"}
             else "MIXED: SEE PER-CASE ORIGIN"
         ),
         "files": files,
@@ -206,7 +214,12 @@ _SECRET = re.compile(
 )
 _EMAIL = re.compile(r"[\w.+-]+@([\w-]+\.)+[\w-]+")
 _FQDN = re.compile(r"\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b", re.IGNORECASE)
-_ALLOWED_DOMAIN = re.compile(r"\.(?:example|invalid|test|local)$|^[\w.-]+\.(?:exe|dll|txt)$", re.I)
+#: Reserved test TLDs, and file names (a route like ``/wp-login.php`` is not a host).
+_ALLOWED_DOMAIN = re.compile(
+    r"\.(?:example|invalid|test|local)$|"
+    r"^[\w.-]+\.(?:exe|dll|txt|php|html?|aspx?|jsp|cgi|js|css|json|xml|env|bak|sql|ini|cfg|conf|log)$",
+    re.I,
+)
 
 
 def privacy_findings(text: str) -> list[str]:

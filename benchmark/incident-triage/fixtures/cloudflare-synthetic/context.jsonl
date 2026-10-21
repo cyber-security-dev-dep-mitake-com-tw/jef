@@ -1,0 +1,2 @@
+{"end": "2026-10-19T01:00:00Z", "kind": "maintenance_window", "match": {"actor_ip": "198.51.100.200", "route_prefix": "/api/products"}, "note": "approved DAST run against staging routes", "ref": "CHG-2026-1019-01", "start": "2026-10-19T00:35:00Z"}
+{"end": "2026-12-31T00:00:00Z", "kind": "uptime_monitor", "match": {"actor_ip": "192.0.2.50", "route_prefix": "/health"}, "note": "third-party uptime check", "ref": "MON-health-1", "start": "2026-10-01T00:00:00Z"}
