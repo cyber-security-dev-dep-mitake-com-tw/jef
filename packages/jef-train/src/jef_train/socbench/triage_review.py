@@ -103,6 +103,26 @@ def _refuse_inside_checkout(path: Path) -> Path:
     return resolved
 
 
+def write_worksheet_file(path: Path, text: str, *, private: bool) -> Path:
+    """A worksheet of private cases is telemetry too: owner-only, outside any checkout."""
+    path = Path(path)
+    if not private:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, "utf-8")
+        return path
+    path = _refuse_inside_checkout(path)
+    _private_dirs(path.parent)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return path
+
+
+def worksheet_is_private(packs: Sequence[Pack], rows: Sequence[Mapping[str, Any]]) -> bool:
+    every = _all_cases(packs)
+    return any(every[r["case_id"]][1]["origin"] in PRIVATE_ORIGINS for r in rows)
+
+
 # --------------------------------------------------------------------------- #
 # questions
 # --------------------------------------------------------------------------- #
