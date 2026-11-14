@@ -169,6 +169,25 @@ def save_answers(path: Path, rows: Sequence[Mapping[str, Any]], answers: Mapping
     os.replace(tmp, path)
 
 
+def load_suggestions(path: Path, rows: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Another system's answers for this batch, shown as suggestions (never saved as yours)."""
+    ids = {r["case_id"] for r in rows}
+    batch = rows[0]["batch_id"]
+    out: dict[str, dict[str, Any]] = {}
+    for line in path.read_text("utf-8").splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        if r.get("batch_id") != batch:
+            raise ReviewError(f"{path} holds suggestions for batch {r.get('batch_id')}")
+        if r.get("case_id") in ids:
+            out[r["case_id"]] = r
+    return out
+
+
+SUGGESTED_FIELDS = ("truth_of_event", "truth_of_alert", "required_context")
+
+
 def consistency_warnings(row: Mapping[str, Any]) -> list[str]:
     """Answers that contradict each other or the labelbook's approval rule."""
     a = row["answers"]
@@ -200,6 +219,8 @@ class Labeller:
         clock: Callable[[], float] = time.monotonic,
         color: bool | None = None,
         width: int | None = None,
+        suggestions: Mapping[str, Mapping[str, Any]] | None = None,
+        agent: str = "AI",
     ) -> None:
         if not rows:
             raise ReviewError("the worksheet is empty")
@@ -214,6 +235,8 @@ class Labeller:
         self.width = width or min(shutil.get_terminal_size((100, 30)).columns, 110)
         self.answers = load_answers(answers_path, rows)
         self.drafts: dict[str, dict[str, Any]] = {}  # "edit again": prefill, never saved
+        self.suggestions = dict(suggestions or {})
+        self.agent = agent
         self.labelled_this_session = 0
 
     # ---- display --------------------------------------------------------- #
@@ -288,6 +311,7 @@ class Labeller:
         *,
         multiple: bool,
         previous: Any = None,
+        suggested: bool = False,
     ) -> Any:
         self.say("\n" + self._c(title, "1;32"))
         choices = [o for o in options if o != "unknown"]
@@ -296,7 +320,8 @@ class Labeller:
         self.say(f"   u. {OPTION_NAMES['unknown']}")
         if multiple:
             self.say(self._c("   可多選，用逗號分隔，第一個為主要 (e.g. 2,1)", "2"))
-        hint = f" [Enter 保留 {self._fmt(previous)}]" if previous is not None else ""
+        word = f"採用 {self.agent} 建議 accept" if suggested else "保留"
+        hint = f" [Enter {word} {self._fmt(previous)}]" if previous is not None else ""
         while True:
             raw = self._read(f"  > {hint} ", row, help_key)
             if not raw and previous is not None:
@@ -325,8 +350,18 @@ class Labeller:
 
     def label_case(self, row: Mapping[str, Any], n: int) -> dict[str, Any]:
         """Ask everything for one case; raises Quit or Skip."""
-        prior = self.drafts.get(row["case_id"]) or self.answers.get(row["case_id"])
+        cid = row["case_id"]
+        prior = self.drafts.get(cid) or self.answers.get(cid)
         questions = row["questions"]
+        saved = self.answers.get(cid)
+        sugg = self.suggestions.get(cid)
+        if saved and (saved.get("assessment_provenance") or {}).get("kind") != "ai_assisted":
+            sugg = None  # your own earlier answer stays yours
+        suggested_values: dict[str, Any] = {}
+        if sugg:
+            suggested_values = {k: sugg[k] for k in TRUTHS}
+            suggested_values.update({f"q:{k}": v for k, v in sugg["answers"].items()})
+            suggested_values["required_context"] = list(sugg.get("required_context") or [])
         steps: list[tuple[str, Any]] = [("truth", k) for k in TRUTHS]
         steps += [("question", qid) for qid in questions]
         steps += [("context", None), ("notes", None)]
@@ -336,8 +371,22 @@ class Labeller:
             got.update({f"q:{k}": v for k, v in prior["answers"].items()})
             got["required_context"] = prior.get("required_context", [])
             got["notes"] = prior.get("notes", "")
+        else:
+            got.update(suggested_values)  # notes are never copied from the suggestion
         start = self.clock()
         self.show_case(row, n)
+        if sugg:
+            self.say(
+                self._c(
+                    f"  ⚑ {self.agent} 建議已預填 AI suggestions are pre-filled — 每題自行判斷，"
+                    "Enter = 採用 accept",
+                    "35",
+                )
+            )
+
+        def from_ai(key: str) -> bool:
+            return key in suggested_values and got.get(key) == suggested_values[key]
+
         i = 0
         while i < len(steps):
             kind, key = steps[i]
@@ -345,7 +394,14 @@ class Labeller:
                 if kind == "truth":
                     title, opts = TRUTHS[key]
                     got[key] = self.ask_choice(
-                        title, opts, {}, row, key, multiple=False, previous=got.get(key)
+                        title,
+                        opts,
+                        {},
+                        row,
+                        key,
+                        multiple=False,
+                        previous=got.get(key),
+                        suggested=from_ai(key),
                     )
                 elif kind == "question":
                     q = questions[key]
@@ -357,6 +413,7 @@ class Labeller:
                         q["task"],
                         multiple=q["multiple"],
                         previous=got.get(f"q:{key}"),
+                        suggested=from_ai(f"q:{key}"),
                     )
                 elif kind == "context":
                     got["required_context"] = self.ask_context(row, got.get("required_context"))
@@ -369,7 +426,7 @@ class Labeller:
             except Back:
                 i = max(0, i - 1)
         minutes = round(max(self.clock() - start, 6.0) / 60, 1)
-        return {
+        out = {
             **row,
             "answers": {qid: got[f"q:{qid}"] for qid in questions},
             "truth_of_event": got["truth_of_event"],
@@ -378,6 +435,15 @@ class Labeller:
             "notes": got["notes"],
             "minutes_spent": minutes,
         }
+        if sugg:
+            changed = [k.removeprefix("q:") for k, v in suggested_values.items() if got.get(k) != v]
+            out["assessment_provenance"] = {
+                "kind": "ai_assisted",
+                "agent": self.agent,
+                "human_confirmed": True,
+                "changed_from_suggestion": changed,
+            }
+        return out
 
     def ask_context(self, row: Mapping[str, Any], previous: list[str] | None) -> list[str]:
         self.say("\n" + self._c("還缺什麼資訊才能確定？ required_context", "1;32"))
@@ -449,6 +515,14 @@ class Labeller:
             f" · 已完成 {len(self.answers)}/{len(self.rows)} · 待標 {len(todo)}"
         )
         self.say(f"  答案存在 answers: {self.path}")
+        if self.suggestions:
+            self.say(
+                self._c(
+                    f"  AI 輔助模式 AI-assisted: {self.agent} 的答案會預填；匯入後標為"
+                    " ai-assisted-human-reviewed (Tier D)，不是人工 gold。",
+                    "35",
+                )
+            )
         self.say(self._c("  依畫面上的資訊作答；看不出來就選 u（不確定）。", "2"))
         skipped: list[str] = []
         for n, row in todo:

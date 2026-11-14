@@ -832,6 +832,11 @@ def build_parser() -> argparse.ArgumentParser:
     ri.add_argument("--adjudication", type=Path, help="a third person's decisions (JSONL)")
     ri.add_argument("--scene", type=Path)
     ri.add_argument("--label-version", default="v1")
+    ri.add_argument(
+        "--allow-ai-assisted",
+        action="store_true",
+        help="accept answers confirmed over AI suggestions, as ai-assisted-human-reviewed (Tier D)",
+    )
     ri.add_argument("--out", type=Path, required=True)
     rc = rvsub.add_parser("check", help="tiers, unknown rates, kappa per task, reviewer time")
     rc.add_argument("--pack", type=Path, required=True, help="a reviewed pack")
@@ -846,6 +851,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="answer file (default: beside the worksheet); resumed if present",
     )
     rl.add_argument("--case", help="re-label one case that is already answered")
+    rl.add_argument(
+        "--suggest",
+        type=Path,
+        help="another system's answers to pre-fill as suggestions; saved rows are marked "
+        "ai_assisted and import as Tier D, never human gold",
+    )
+    rl.add_argument("--agent", default="AI", help="who made the suggestions (e.g. Codex)")
     rl.add_argument("--no-color", action="store_true")
 
     ce = trsub.add_parser(
@@ -1228,13 +1240,19 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
 
     try:
         if args.review_command == "label":
-            from .triage_label import Labeller, default_answers_path
+            from .triage_label import Labeller, default_answers_path, load_suggestions
 
             rows = jsonl(args.worksheet)
             if not rows:
                 raise ReviewError(f"{args.worksheet} is empty")
             answers = args.answers or default_answers_path(args.worksheet, rows)
-            labeller = Labeller(rows, answers, color=False if args.no_color else None)
+            labeller = Labeller(
+                rows,
+                answers,
+                color=False if args.no_color else None,
+                suggestions=load_suggestions(args.suggest, rows) if args.suggest else None,
+                agent=args.agent,
+            )
             try:
                 labeller.run(only=args.case)
             except (KeyboardInterrupt, EOFError):
@@ -1290,6 +1308,7 @@ def cmd_triage_review(args: argparse.Namespace) -> int:
             [jsonl(p) for p in args.answers],
             adjudications=adjudications,
             label_version=args.label_version,
+            allow_ai_assisted=args.allow_ai_assisted,
         )
         out = write_reviewed_pack(args.out, cases, exps, review)
         load_pack(out)

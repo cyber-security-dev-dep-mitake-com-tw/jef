@@ -396,10 +396,23 @@ def _check_answer(
     return out
 
 
+AI_ASSISTED = "ai-assisted-human-reviewed"
+
+
+def _is_ai_assisted(row: Mapping[str, Any]) -> bool:
+    """A reviewer confirmed or changed every answer an AI had suggested."""
+    prov = row.get("assessment_provenance")
+    return (
+        isinstance(prov, Mapping)
+        and prov.get("kind") == "ai_assisted"
+        and prov.get("human_confirmed") is True
+    )
+
+
 def _machine_provenance(row: Mapping[str, Any]) -> str | None:
     """Who answered, when a row says a model or agent did (e.g. an AI pre-fill)."""
     prov = row.get("assessment_provenance")
-    if prov is None:
+    if prov is None or _is_ai_assisted(row):
         return None
     if (
         isinstance(prov, Mapping)
@@ -424,6 +437,7 @@ def import_answers(
     *,
     adjudications: Sequence[Mapping[str, Any]] = (),
     label_version: str = "v1",
+    allow_ai_assisted: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """``(cases, expectations, review)`` for the reviewed batch.
 
@@ -439,6 +453,7 @@ def import_answers(
     batch_ids = set(batch["case_ids"])
     by_reviewer: dict[str, dict[str, dict[str, Any]]] = {}
     meta: dict[str, dict[str, Any]] = defaultdict(dict)
+    assisted: dict[str, dict[str, Any]] = {}
     for rows in answer_files:
         in_file = {r.get("reviewer") for r in rows}
         if len(in_file) != 1 or not next(iter(in_file)):
@@ -459,6 +474,14 @@ def import_answers(
                 raise ReviewError(f"{handle} {cid}: answer belongs to batch {r.get('batch_id')}")
             if cid not in batch_ids:
                 raise ReviewError(f"{handle} {cid}: not in batch {batch['batch_id']}")
+            if _is_ai_assisted(r):
+                if not allow_ai_assisted:
+                    raise ReviewError(
+                        f"{handle} {cid}: answered with AI suggestions; import with "
+                        f"allow_ai_assisted (--allow-ai-assisted) to record it as {AI_ASSISTED} "
+                        "(Tier D), never as human gold"
+                    )
+                assisted[cid] = dict(r["assessment_provenance"])
             got[cid] = {
                 "labels": _check_answer(r, questions),
                 "truth_of_event": r["truth_of_event"],
@@ -474,6 +497,8 @@ def import_answers(
             raise ReviewError(f"{handle} did not answer {sorted(missing)}")
         by_reviewer[handle] = got
     handles = sorted(by_reviewer)
+    if assisted and len(handles) > 1:
+        raise ReviewError("AI-assisted answers cannot make a double review (Tier A)")
     decided = {str(d["case_id"]): d for d in adjudications}
     for d in adjudications:
         if d.get("adjudicator") in handles or not d.get("adjudicator"):
@@ -488,7 +513,7 @@ def import_answers(
         if len(answers) == 1:
             a = answers[0]
             exp = {
-                "label_origin": "single-human-reviewed",
+                "label_origin": AI_ASSISTED if cid in assisted else "single-human-reviewed",
                 "label_status": "confirmed",
                 "reviewers": handles,
                 "truth_of_event": a["truth_of_event"],
@@ -551,6 +576,18 @@ def import_answers(
         "label_status": dict(status_counts),
         "source_packs": batch.get("packs", {}),
         "per_case": dict(meta),
+        "ai_assisted": {
+            "cases": len(assisted),
+            "agents": sorted({str(a.get("agent")) for a in assisted.values()}),
+            "accepted_unchanged": sum(
+                1 for a in assisted.values() if not a.get("changed_from_suggestion")
+            ),
+            "changed_fields": dict(
+                Counter(f for a in assisted.values() for f in a.get("changed_from_suggestion", []))
+            ),
+        }
+        if assisted
+        else None,
     }
     return cases, [expectations[c["case_id"]] for c in cases], review
 
@@ -614,6 +651,8 @@ def check_review(
             if any(e["label_origin"] == "double-human-reviewed" for e in expectations)
             else "TIER B — SINGLE REVIEWER"
             if any(e["label_origin"] == "single-human-reviewed" for e in expectations)
+            else "TIER D — AI-ASSISTED SINGLE REVIEWER (not human gold)"
+            if any(e["label_origin"] == AI_ASSISTED for e in expectations)
             else "NO HUMAN LABELS"
         ),
         "cases": len(expectations),

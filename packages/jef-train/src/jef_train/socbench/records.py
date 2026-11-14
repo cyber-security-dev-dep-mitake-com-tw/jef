@@ -45,6 +45,7 @@ TRUST_TIERS: Mapping[str, str] = {
     "phishing-vs-benign-website": "C",
     "policy-fixture": "C",
     "scam-vs-hard-negative-prompts": "C",
+    "ai-assisted-human-reviewed": "D",
     "attack-phase-window": "D",
     "partial-red-team-positives": "D",
     "adversary-emulation-semi-labelled": "D",
