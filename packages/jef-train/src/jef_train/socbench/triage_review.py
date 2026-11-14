@@ -25,7 +25,9 @@ alert showed, checks what comes back, and records who said what.
     ``double-human-reviewed`` only where they agree on every task, or where a
     third person -- a handle different from both -- adjudicated; any other
     case stays ``disputed`` and is counted, not scored. Answers are checked
-    against the scene's options; a missing task is an error.
+    against the scene's options; a missing task is an error. A row whose
+    ``assessment_provenance`` names a model or agent is refused: a machine's
+    answer under a reviewer's handle would be counted as a human label.
 ``check``
     Tier counts, per-task unknown rates, Cohen's kappa per task when two
     reviewers answered, minutes spent, and a cross-check sample: a 20 %
@@ -394,6 +396,22 @@ def _check_answer(
     return out
 
 
+def _machine_provenance(row: Mapping[str, Any]) -> str | None:
+    """Who answered, when a row says a model or agent did (e.g. an AI pre-fill)."""
+    prov = row.get("assessment_provenance")
+    if prov is None:
+        return None
+    if (
+        isinstance(prov, Mapping)
+        and prov.get("kind") == "human"
+        and prov.get("human_confirmed", True)
+    ):
+        return None
+    if isinstance(prov, Mapping):
+        return str(prov.get("agent") or prov.get("kind") or "a machine")
+    return str(prov)
+
+
 def _primary(value: Any) -> Any:
     return value[0] if isinstance(value, list) else value
 
@@ -431,6 +449,12 @@ def import_answers(
         got: dict[str, dict[str, Any]] = {}
         for r in rows:
             cid = str(r.get("case_id"))
+            machine = _machine_provenance(r)
+            if machine:
+                raise ReviewError(
+                    f"{handle} {cid}: answered by {machine}, not by the reviewer; machine "
+                    "answers are a system's output, never a human label"
+                )
             if r.get("batch_id") != batch["batch_id"]:
                 raise ReviewError(f"{handle} {cid}: answer belongs to batch {r.get('batch_id')}")
             if cid not in batch_ids:

@@ -362,3 +362,23 @@ def test_a_private_worksheet_is_owner_only_and_never_in_a_checkout(
                      "--reviewer", "a", "--out", str(repo / "ws.jsonl")]) == 1  # fmt: skip
     assert "inside the git checkout" in capsys.readouterr().err
     assert not (repo / "ws.jsonl").exists()
+
+
+@pytest.mark.parametrize(
+    "prov",
+    [
+        {"kind": "ai_assessed", "agent": "Codex", "human_confirmed": False},
+        {"kind": "human", "human_confirmed": False},
+        "llm",
+    ],
+)
+def test_machine_answers_under_a_reviewer_handle_are_refused(tmp_path: Path, prov: Any) -> None:
+    pack = as_real(tmp_path)
+    batch = sample_batch([pack], batch_id="b1", strata={"edr": 2})
+    rows = answered(export_worksheet([pack], batch, SCENE, reviewer="a"))
+    rows[1]["assessment_provenance"] = prov
+    with pytest.raises(ReviewError, match="never a human label"):
+        import_answers([pack], batch, SCENE, [rows])
+    rows[1]["assessment_provenance"] = {"kind": "human"}
+    _, exps, _ = import_answers([pack], batch, SCENE, [rows])
+    assert {e["label_origin"] for e in exps} == {"single-human-reviewed"}
