@@ -645,16 +645,28 @@ def check_review(
         unknown[task] = sum(
             1 for e in expectations if e.get("expected") and e["expected"][task] == "unknown"
         )
+    origins = Counter(e["label_origin"] for e in expectations)
+    human_class = (
+        "TIER A CANDIDATE — CHECK ADJUDICATION"
+        if origins["double-human-reviewed"]
+        else "TIER B — SINGLE REVIEWER"
+        if origins["single-human-reviewed"]
+        else None
+    )
+    assisted_class = "TIER D — AI-ASSISTED SINGLE REVIEWER (not human gold)"
+    if origins[AI_ASSISTED] and human_class:
+        # A mixed pack is never described by its best labels alone.
+        human_n = origins["double-human-reviewed"] + origins["single-human-reviewed"]
+        evidence_class = (
+            f"MIXED — {human_class.split(' —')[0]} on {human_n} case(s), "
+            f"{assisted_class} on {origins[AI_ASSISTED]}"
+        )
+    else:
+        evidence_class = human_class or (
+            assisted_class if origins[AI_ASSISTED] else "NO HUMAN LABELS"
+        )
     out: dict[str, Any] = {
-        "evidence_class": (
-            "TIER A CANDIDATE — CHECK ADJUDICATION"
-            if any(e["label_origin"] == "double-human-reviewed" for e in expectations)
-            else "TIER B — SINGLE REVIEWER"
-            if any(e["label_origin"] == "single-human-reviewed" for e in expectations)
-            else "TIER D — AI-ASSISTED SINGLE REVIEWER (not human gold)"
-            if any(e["label_origin"] == AI_ASSISTED for e in expectations)
-            else "NO HUMAN LABELS"
-        ),
+        "evidence_class": evidence_class,
         "cases": len(expectations),
         "copied_to_vendor_variants": len(copied),
         "labels": dict(tiers),
@@ -684,5 +696,27 @@ def check_review(
         out["minutes_spent"] = {
             "total": sum(minutes),
             "per_case_mean": round(sum(minutes) / len(minutes), 2),
+        }
+    assisted_rows = [r for rows in answer_files for r in rows if _is_ai_assisted(r)]
+    if assisted_rows:
+        changed = Counter(
+            f
+            for r in assisted_rows
+            for f in r["assessment_provenance"].get("changed_from_suggestion") or []
+        )
+        secs = sorted(
+            float(r["minutes_spent"]) * 60
+            for r in assisted_rows
+            if isinstance(r.get("minutes_spent"), (int, float))
+        )
+        out["ai_assisted"] = {
+            "cases": len(assisted_rows),
+            "accepted_unchanged": sum(
+                1
+                for r in assisted_rows
+                if not r["assessment_provenance"].get("changed_from_suggestion")
+            ),
+            "changed_fields": dict(changed),
+            "median_seconds_per_case": round(secs[len(secs) // 2], 1) if secs else None,
         }
     return out

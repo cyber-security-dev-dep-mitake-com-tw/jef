@@ -268,3 +268,20 @@ def test_two_reviewers_with_ai_assistance_never_make_tier_a(tmp_path: Path) -> N
     second = [{**r, "reviewer": "r2", "assessment_provenance": None} for r in first]
     with pytest.raises(ReviewError, match="Tier A"):
         import_answers(packs, batch, SCENE, [first, second], allow_ai_assisted=True)
+
+
+def test_a_mixed_pack_is_not_reported_as_tier_b(tmp_path: Path) -> None:
+    from jef_train.socbench.triage_review import check_review
+
+    packs, batch, rows = worksheet()
+    path = tmp_path / "a.jsonl"
+    mine = ["2", "2", "1", "1", "3", "1", "2", "", "", "", "y"]
+    labeller(rows[:1], path, keys(mine)).run()
+    assisted(rows, path, keys(ACCEPT_ALL, ACCEPT_ALL)).run()
+    saved = [json.loads(x) for x in path.read_text().splitlines()]
+    _, exps, _ = import_answers(packs, batch, SCENE, [saved], allow_ai_assisted=True)
+    out = check_review(exps, [saved])
+    assert out["evidence_class"].startswith("MIXED")
+    assert "TIER D" in out["evidence_class"] and "on 1 case" in out["evidence_class"]
+    assert out["ai_assisted"]["cases"] == 2
+    assert out["ai_assisted"]["accepted_unchanged"] == 2
