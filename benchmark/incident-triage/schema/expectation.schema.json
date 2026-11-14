@@ -24,6 +24,7 @@
       "enum": [
         "synthetic",
         "single-human-reviewed",
+        "ai-assisted-human-reviewed",
         "double-human-reviewed",
         "none"
       ]

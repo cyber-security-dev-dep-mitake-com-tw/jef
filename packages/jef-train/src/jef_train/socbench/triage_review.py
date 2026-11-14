@@ -25,7 +25,9 @@ alert showed, checks what comes back, and records who said what.
     ``double-human-reviewed`` only where they agree on every task, or where a
     third person -- a handle different from both -- adjudicated; any other
     case stays ``disputed`` and is counted, not scored. Answers are checked
-    against the scene's options; a missing task is an error.
+    against the scene's options; a missing task is an error. A row whose
+    ``assessment_provenance`` names a model or agent is refused: a machine's
+    answer under a reviewer's handle would be counted as a human label.
 ``check``
     Tier counts, per-task unknown rates, Cohen's kappa per task when two
     reviewers answered, minutes spent, and a cross-check sample: a 20 %
@@ -394,6 +396,35 @@ def _check_answer(
     return out
 
 
+AI_ASSISTED = "ai-assisted-human-reviewed"
+
+
+def _is_ai_assisted(row: Mapping[str, Any]) -> bool:
+    """A reviewer confirmed or changed every answer an AI had suggested."""
+    prov = row.get("assessment_provenance")
+    return (
+        isinstance(prov, Mapping)
+        and prov.get("kind") == "ai_assisted"
+        and prov.get("human_confirmed") is True
+    )
+
+
+def _machine_provenance(row: Mapping[str, Any]) -> str | None:
+    """Who answered, when a row says a model or agent did (e.g. an AI pre-fill)."""
+    prov = row.get("assessment_provenance")
+    if prov is None or _is_ai_assisted(row):
+        return None
+    if (
+        isinstance(prov, Mapping)
+        and prov.get("kind") == "human"
+        and prov.get("human_confirmed", True)
+    ):
+        return None
+    if isinstance(prov, Mapping):
+        return str(prov.get("agent") or prov.get("kind") or "a machine")
+    return str(prov)
+
+
 def _primary(value: Any) -> Any:
     return value[0] if isinstance(value, list) else value
 
@@ -406,6 +437,7 @@ def import_answers(
     *,
     adjudications: Sequence[Mapping[str, Any]] = (),
     label_version: str = "v1",
+    allow_ai_assisted: bool = False,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     """``(cases, expectations, review)`` for the reviewed batch.
 
@@ -421,6 +453,7 @@ def import_answers(
     batch_ids = set(batch["case_ids"])
     by_reviewer: dict[str, dict[str, dict[str, Any]]] = {}
     meta: dict[str, dict[str, Any]] = defaultdict(dict)
+    assisted: dict[str, dict[str, Any]] = {}
     for rows in answer_files:
         in_file = {r.get("reviewer") for r in rows}
         if len(in_file) != 1 or not next(iter(in_file)):
@@ -431,10 +464,24 @@ def import_answers(
         got: dict[str, dict[str, Any]] = {}
         for r in rows:
             cid = str(r.get("case_id"))
+            machine = _machine_provenance(r)
+            if machine:
+                raise ReviewError(
+                    f"{handle} {cid}: answered by {machine}, not by the reviewer; machine "
+                    "answers are a system's output, never a human label"
+                )
             if r.get("batch_id") != batch["batch_id"]:
                 raise ReviewError(f"{handle} {cid}: answer belongs to batch {r.get('batch_id')}")
             if cid not in batch_ids:
                 raise ReviewError(f"{handle} {cid}: not in batch {batch['batch_id']}")
+            if _is_ai_assisted(r):
+                if not allow_ai_assisted:
+                    raise ReviewError(
+                        f"{handle} {cid}: answered with AI suggestions; import with "
+                        f"allow_ai_assisted (--allow-ai-assisted) to record it as {AI_ASSISTED} "
+                        "(Tier D), never as human gold"
+                    )
+                assisted[cid] = dict(r["assessment_provenance"])
             got[cid] = {
                 "labels": _check_answer(r, questions),
                 "truth_of_event": r["truth_of_event"],
@@ -450,6 +497,8 @@ def import_answers(
             raise ReviewError(f"{handle} did not answer {sorted(missing)}")
         by_reviewer[handle] = got
     handles = sorted(by_reviewer)
+    if assisted and len(handles) > 1:
+        raise ReviewError("AI-assisted answers cannot make a double review (Tier A)")
     decided = {str(d["case_id"]): d for d in adjudications}
     for d in adjudications:
         if d.get("adjudicator") in handles or not d.get("adjudicator"):
@@ -464,7 +513,7 @@ def import_answers(
         if len(answers) == 1:
             a = answers[0]
             exp = {
-                "label_origin": "single-human-reviewed",
+                "label_origin": AI_ASSISTED if cid in assisted else "single-human-reviewed",
                 "label_status": "confirmed",
                 "reviewers": handles,
                 "truth_of_event": a["truth_of_event"],
@@ -527,6 +576,18 @@ def import_answers(
         "label_status": dict(status_counts),
         "source_packs": batch.get("packs", {}),
         "per_case": dict(meta),
+        "ai_assisted": {
+            "cases": len(assisted),
+            "agents": sorted({str(a.get("agent")) for a in assisted.values()}),
+            "accepted_unchanged": sum(
+                1 for a in assisted.values() if not a.get("changed_from_suggestion")
+            ),
+            "changed_fields": dict(
+                Counter(f for a in assisted.values() for f in a.get("changed_from_suggestion", []))
+            ),
+        }
+        if assisted
+        else None,
     }
     return cases, [expectations[c["case_id"]] for c in cases], review
 
@@ -584,14 +645,28 @@ def check_review(
         unknown[task] = sum(
             1 for e in expectations if e.get("expected") and e["expected"][task] == "unknown"
         )
+    origins = Counter(e["label_origin"] for e in expectations)
+    human_class = (
+        "TIER A CANDIDATE — CHECK ADJUDICATION"
+        if origins["double-human-reviewed"]
+        else "TIER B — SINGLE REVIEWER"
+        if origins["single-human-reviewed"]
+        else None
+    )
+    assisted_class = "TIER D — AI-ASSISTED SINGLE REVIEWER (not human gold)"
+    if origins[AI_ASSISTED] and human_class:
+        # A mixed pack is never described by its best labels alone.
+        human_n = origins["double-human-reviewed"] + origins["single-human-reviewed"]
+        evidence_class = (
+            f"MIXED — {human_class.split(' —')[0]} on {human_n} case(s), "
+            f"{assisted_class} on {origins[AI_ASSISTED]}"
+        )
+    else:
+        evidence_class = human_class or (
+            assisted_class if origins[AI_ASSISTED] else "NO HUMAN LABELS"
+        )
     out: dict[str, Any] = {
-        "evidence_class": (
-            "TIER A CANDIDATE — CHECK ADJUDICATION"
-            if any(e["label_origin"] == "double-human-reviewed" for e in expectations)
-            else "TIER B — SINGLE REVIEWER"
-            if any(e["label_origin"] == "single-human-reviewed" for e in expectations)
-            else "NO HUMAN LABELS"
-        ),
+        "evidence_class": evidence_class,
         "cases": len(expectations),
         "copied_to_vendor_variants": len(copied),
         "labels": dict(tiers),
@@ -621,5 +696,27 @@ def check_review(
         out["minutes_spent"] = {
             "total": sum(minutes),
             "per_case_mean": round(sum(minutes) / len(minutes), 2),
+        }
+    assisted_rows = [r for rows in answer_files for r in rows if _is_ai_assisted(r)]
+    if assisted_rows:
+        changed = Counter(
+            f
+            for r in assisted_rows
+            for f in r["assessment_provenance"].get("changed_from_suggestion") or []
+        )
+        secs = sorted(
+            float(r["minutes_spent"]) * 60
+            for r in assisted_rows
+            if isinstance(r.get("minutes_spent"), (int, float))
+        )
+        out["ai_assisted"] = {
+            "cases": len(assisted_rows),
+            "accepted_unchanged": sum(
+                1
+                for r in assisted_rows
+                if not r["assessment_provenance"].get("changed_from_suggestion")
+            ),
+            "changed_fields": dict(changed),
+            "median_seconds_per_case": round(secs[len(secs) // 2], 1) if secs else None,
         }
     return out

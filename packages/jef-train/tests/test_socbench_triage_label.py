@@ -181,3 +181,107 @@ def test_the_cli_runs_the_labeller(
     assert cli.main(["triage", "review", "label", "--worksheet", str(ws), "--no-color"]) == 0
     assert (tmp_path / "dry-r1.answers.jsonl").exists()
     assert "事件人工標註" in capsys.readouterr().out
+
+
+def ai_rows(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {
+        r["case_id"]: {
+            **r,
+            "reviewer": "codex",
+            "answers": {
+                "is_false_positive": False,
+                "has_evidence": True,
+                "owner": ["soc"],
+                "severity": ["高"],
+                "urgent": True,
+            },
+            "truth_of_event": "malicious",
+            "truth_of_alert": "true_positive",
+            "required_context": ["origin_logs"],
+            "notes": "AI-written reasoning",
+            "assessment_provenance": {"kind": "ai_assessed", "agent": "Codex"},
+        }
+        for r in rows
+    }
+
+
+ACCEPT_ALL = [""] * 10  # Enter on every question and on the summary
+
+
+def assisted(rows: list[dict[str, Any]], path: Path, script: Iterator[str]) -> Labeller:
+    lab = labeller(rows, path, script)
+    lab.suggestions, lab.agent = ai_rows(rows), "Codex"
+    return lab
+
+
+def test_accepted_suggestions_are_marked_and_import_only_as_tier_d(tmp_path: Path) -> None:
+    from jef_train.socbench.records import trust_tier
+    from jef_train.socbench.triage_review import check_review
+
+    packs, batch, rows = worksheet()
+    path = tmp_path / "a.jsonl"
+    assisted(rows, path, keys(ACCEPT_ALL, ACCEPT_ALL, ACCEPT_ALL)).run()
+    saved = [json.loads(x) for x in path.read_text().splitlines()]
+    prov = saved[0]["assessment_provenance"]
+    assert prov == {"kind": "ai_assisted", "agent": "Codex", "human_confirmed": True,
+                    "changed_from_suggestion": []}  # fmt: skip
+    assert saved[0]["reviewer"] == "r1" and saved[0]["notes"] == ""  # AI notes never copied
+    assert saved[0]["required_context"] == ["origin_logs"]
+    with pytest.raises(ReviewError, match="allow-ai-assisted"):
+        import_answers(packs, batch, SCENE, [saved])
+    _, exps, review = import_answers(packs, batch, SCENE, [saved], allow_ai_assisted=True)
+    assert {e["label_origin"] for e in exps} == {"ai-assisted-human-reviewed"}
+    assert {trust_tier(e["label_origin"]) for e in exps} == {"D"}
+    assert review["ai_assisted"]["cases"] == 3 and review["ai_assisted"]["accepted_unchanged"] == 3
+    assert check_review(exps, [saved])["evidence_class"].startswith("TIER D")
+
+
+def test_a_changed_suggestion_is_recorded(tmp_path: Path) -> None:
+    _, _, rows = worksheet()
+    path = tmp_path / "a.jsonl"
+    change = ["", "", "", "", "", "3", "2", "", "", ""]  # severity -> 中, urgent -> no
+    assisted(rows[:1], path, keys(change)).run()
+    saved = load_answers(path, rows[:1])[rows[0]["case_id"]]
+    assert saved["answers"]["severity"] == ["中"]
+    assert sorted(saved["assessment_provenance"]["changed_from_suggestion"]) == [
+        "severity",
+        "urgent",
+    ]
+
+
+def test_a_suggestion_never_overrides_your_own_answer(tmp_path: Path) -> None:
+    _, _, rows = worksheet()
+    path = tmp_path / "a.jsonl"
+    mine = ["2", "2", "1", "1", "3", "1", "2", "", "", "", "y"]  # benign approved activity
+    labeller(rows[:1], path, keys(mine)).run()
+    assisted(rows[:1], path, keys(ACCEPT_ALL)).run(only=rows[0]["case_id"])
+    saved = load_answers(path, rows[:1])[rows[0]["case_id"]]
+    assert saved["truth_of_event"] == "benign"
+    assert "assessment_provenance" not in saved
+
+
+def test_two_reviewers_with_ai_assistance_never_make_tier_a(tmp_path: Path) -> None:
+    packs, batch, rows = worksheet()
+    a = tmp_path / "a.jsonl"
+    assisted(rows, a, keys(ACCEPT_ALL, ACCEPT_ALL, ACCEPT_ALL)).run()
+    first = [json.loads(x) for x in a.read_text().splitlines()]
+    second = [{**r, "reviewer": "r2", "assessment_provenance": None} for r in first]
+    with pytest.raises(ReviewError, match="Tier A"):
+        import_answers(packs, batch, SCENE, [first, second], allow_ai_assisted=True)
+
+
+def test_a_mixed_pack_is_not_reported_as_tier_b(tmp_path: Path) -> None:
+    from jef_train.socbench.triage_review import check_review
+
+    packs, batch, rows = worksheet()
+    path = tmp_path / "a.jsonl"
+    mine = ["2", "2", "1", "1", "3", "1", "2", "", "", "", "y"]
+    labeller(rows[:1], path, keys(mine)).run()
+    assisted(rows, path, keys(ACCEPT_ALL, ACCEPT_ALL)).run()
+    saved = [json.loads(x) for x in path.read_text().splitlines()]
+    _, exps, _ = import_answers(packs, batch, SCENE, [saved], allow_ai_assisted=True)
+    out = check_review(exps, [saved])
+    assert out["evidence_class"].startswith("MIXED")
+    assert "TIER D" in out["evidence_class"] and "on 1 case" in out["evidence_class"]
+    assert out["ai_assisted"]["cases"] == 2
+    assert out["ai_assisted"]["accepted_unchanged"] == 2
